@@ -1,0 +1,76 @@
+# HeartLink Consumer App
+
+> Public-facing Expo Web client for the HeartLink platform. Users sign in, browse verified inmate profiles, view detail with photo gallery + bio. Backed by the HeartLink Railway NestJS API.
+
+## Project Overview
+
+**Tech Stack:** Expo SDK 52 + Expo Router 4, React Native Web, Clerk auth, TypeScript
+**Status:** Active Development (pre-first-deploy as of 2026-05-26)
+**Purpose:** M3 W9 deliverable for the HeartLink MVP. Web-first; native iOS/Android post-MVP.
+
+## Core Documentation
+
+- `README.md` — setup + run commands
+- `CODE_MAP.md` — feature-to-file map (7 features)
+- `ENTRY_POINTS.md` — bootstrap chain + all 6 routes
+- `DATA_FLOW.md` — system-level flows (sign-in, browse, detail, sign-out, keyboard nav, photo render)
+- `IMPORT_GRAPH_SUMMARY.md` — dependency layering, no cycles, refactor risk areas
+- `FEATURE_BOUNDARIES.md` — component responsibility ownership
+- `docs/ai/memory.md` — project history + current state
+- `docs/ai/roadmap.md` — forward direction
+- `docs/ai/tasks.md` — active work + deploy checklist
+- `docs/ai/decisions.md` — ADRs (4 entries: split-repo, inlined types, web-first, shared Clerk)
+- `docs/ai/architecture.md` — system design
+
+## Key Files by Area
+
+### Routes (Expo Router)
+- `app/_layout.tsx` — Clerk provider + font loader + gesture handler root
+- `app/index.tsx` — auth-aware redirect
+- `app/(auth)/_layout.tsx` — signed-out group, redirects to tabs if signed in
+- `app/(auth)/sign-in.tsx` — Clerk sign-in
+- `app/(auth)/sign-up.tsx` — Clerk sign-up + email-code verification
+- `app/(tabs)/_layout.tsx` — signed-in tab navigator
+- `app/(tabs)/index.tsx` — profile browse (responsive grid, filters, keyboard nav)
+- `app/(tabs)/profile.tsx` — profile detail (hero + thumbnails + bio + details)
+- `app/(tabs)/account.tsx` — sign out
+
+### Lib
+- `src/lib/api.ts` — inlined types + `createApiClient` (vendored from monorepo's `@heartlink/api-contract` + `@heartlink/api-client`)
+- `src/lib/use-api-client.ts` — Clerk-token-aware factory hook
+- `src/lib/use-public-profiles.ts` — `usePublicProfiles` (list) + `usePublicProfile` (detail) hooks
+- `src/lib/use-keyboard-grid-nav.ts` — web-only arrow-key navigation between cards
+- `src/lib/token-cache.ts` — Clerk token persistence (SecureStore native, localStorage web)
+
+### Components
+- `src/components/ProfileCard.tsx` — list card with hover + focused states
+- `src/components/FilterSheet.tsx` — age / state / facility / plan tier filter modal
+- `src/components/AuthShell.tsx` — auth screen scaffold (centered, branded, max-440px)
+- `src/components/primitives.tsx` — Field, Button, Card, Pill
+
+### Theme
+- `src/theme.ts` — brand tokens (Deep Midnight Purple bg, Hot Heart Pink primary, Metallic Gold accent, Bree Serif + Inter)
+
+### Build / Config
+- `package.json` — deps + scripts (`dev`, `web`, `build:web`)
+- `app.config.ts` — Expo config (single web bundler output)
+- `babel.config.js` — babel-preset-expo + reanimated plugin
+- `vercel.json` — build command + SPA rewrite
+- `.env.example` — required env vars
+
+## Common Tasks
+
+**To run locally:** `npm install && npm run web` (with `.env` containing `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` + `EXPO_PUBLIC_API_BASE_URL`)
+
+**To build for production:** `npm run build:web` → produces `dist/`
+
+**To deploy:** `vercel --prod` from repo root. Vercel runs `npx expo export --platform web --output-dir dist`.
+
+**To sync API types after admin contract change:** edit `src/lib/api.ts` by hand. Source of truth: `<monorepo>/packages/api-contract/src/index.ts` M3 W8 section.
+
+**To add a new screen:** create `app/(tabs)/<name>.tsx`; if it should be tab-bar-visible add it to `(tabs)/_layout.tsx` Tabs.Screen list, otherwise add `options={{ href: null }}` and navigate via `router.push`.
+
+## Environment Variables
+
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (shared with admin instance)
+- `EXPO_PUBLIC_API_BASE_URL` — HeartLink Railway API base URL (e.g., `https://heart-link-api.up.railway.app`)
