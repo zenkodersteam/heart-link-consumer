@@ -8,23 +8,24 @@ Public-facing consumer surface for HeartLink. Users sign in, browse verified inm
 
 ## Current Focus
 
-**Theme:** Ship consumer surface for M3 acceptance gate.
+**Theme:** Post-launch production monitoring + premium consumer polish after the consumer surface, correspondence-first landing, and outside-user onboarding are live in production.
 **Goals:**
-1. First successful Vercel production deploy of this repo
-2. End-to-end smoke against the live Railway API (sign up → browse → detail → sign out)
-3. Be ready for client test-user onboarding from Mon 2026-06-01
+1. Keep the marketing funnel and login handoff healthy on production
+2. Triage post-launch consumer + landing feedback (fix-now vs backlog)
+3. Keep browse, liked, auth loading, images, and onboarding premium/responsive while preserving the approved correspondence-first framing
 
 ## Now
 
-- First deploy + smoke test — in flight
-- Verify Clerk allowed origins include the new Vercel URL — pending
-- Confirm Railway API CORS accepts the new origin (should be open via `app.enableCors()`) — pending
+- Monitor production marketing funnel (https://heart-link-consumer.vercel.app) after the 2026-07-26 correspondence-first landing deploy
+- Monitor production consumer feedback after the 2026-07-26 browse/onboarding polish deploy
+- Sponsor flow follow-up remains separate from the shipped outside-user onboarding work
 
 ## Next
 
-- M3 acceptance gate (Sun 2026-05-31) — written sign-off, invoice $5,100
-- M4 W10 start (Mon 2026-06-01) — client onboards test users on the live consumer surface
+- Onboard test users onto the live consumer surface and gather first-run feedback
 - Triage incoming consumer-side feedback (fix-now vs flag-for-W11)
+- Deploy/verify HeartLink monorepo backend changes for liked-before-letter API enforcement and outside-user `matchPreferences` persistence if Railway has not auto-deployed `zali-milestone-4`
+- Confirm M3 acceptance sign-off is invoiced and closed out
 
 ## Later
 
@@ -35,6 +36,10 @@ Public-facing consumer surface for HeartLink. Users sign in, browse verified inm
 
 ## Recently Completed
 
+- Browse layout polish, premium auth/image loading, liked-screen cleanup, liked-before-letter UX gate, and expanded outside-user onboarding from applicable intake-form questions — deployed to production; latest live bundle `entry-294b08cf0d5c4ef488b34dd57f441bc5.js` — 2026-07-26
+- Correspondence-first marketing landing refinement — approved by project lead; deployed to production with immediate public first paint, Clerk/auth no longer blanks `/`, first-view trust bar emphasizes verified profiles/private correspondence/safety-first support, and hero mockups lead with "Write a letter" instead of dating/swipe mechanics — 2026-07-26
+- Production marketing landing pass — approved by project lead; in-surface stacked profile overlays in the desktop browser panel + phone window, mobile keeps three controls incl. second-look icon — 2026-07-22
+- First production deploy — `vercel --prod --yes` succeeded, live at https://heart-link-consumer.vercel.app — 2026-07-22
 - Consumer app scaffold (auth, browse, detail, theme, hover + keyboard nav) — 2026-05-25
 - Split-repo migration — 2026-05-26
 - Inlined API types — 2026-05-26

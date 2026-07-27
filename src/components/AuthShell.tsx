@@ -1,15 +1,34 @@
-import { ReactNode } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, spacing, type } from '../theme';
+import { art } from '../art';
+import { auth, colors, fonts, radii, spacing, type } from '../theme';
+
+const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
+
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
+
+function useReduceMotion() {
+  return useMemo(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
+    return false;
+  }, []);
+}
 
 interface AuthShellProps {
   title: string;
@@ -18,52 +37,195 @@ interface AuthShellProps {
   footer?: ReactNode;
 }
 
-export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+function Brand({ size }: { size: number }) {
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.contentClamp}>
-            <View style={styles.brand}>
-              <Text style={styles.brandMark}>HeartLink</Text>
-              <View style={styles.brandUnderline} />
+    <View style={styles.brandWrap}>
+      <Image source={EMBLEM} style={{ width: size * 1.18, height: size }} contentFit="contain" />
+      <View style={styles.wordmark}>
+        <Text style={[styles.wordHeart, { fontSize: size }]}>Heart</Text>
+        <Text style={[styles.wordLink, { fontSize: size }]}>Link</Text>
+      </View>
+    </View>
+  );
+}
+
+/** Serif statement over the bridge art: tagline line renders in gold. */
+function Statement({ size }: { size: number }) {
+  return (
+    <Text style={[styles.statement, { fontSize: size, lineHeight: size * 1.28 }]}>
+      Every letter is a bridge.{'\n'}
+      <Text style={styles.statementGold}>Love knows no bounds.</Text>
+    </Text>
+  );
+}
+
+/** Midnight art panel: bridge artwork, veil, brand, statement, trust proofs. */
+function ArtPanel({ mobile }: { mobile?: boolean }) {
+  return (
+    <View style={mobile ? styles.artMobile : styles.artDesktop}>
+      <LinearGradient
+        colors={[...auth.panelGradient]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Image
+        source={art.signinBridge}
+        style={[StyleSheet.absoluteFill, { opacity: auth.artOpacity }]}
+        contentFit="cover"
+      />
+      <LinearGradient
+        colors={mobile ? [...auth.veilMobile] : [...auth.veilDesktop]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[styles.artBrand, mobile ? styles.artBrandMobile : null]}>
+        <Brand size={mobile ? 18 : 21} />
+      </View>
+      <View style={[styles.artBottom, mobile ? styles.artBottomMobile : null]}>
+        <Statement size={mobile ? 20 : 34} />
+        {!mobile ? (
+          <View style={styles.proofRow}>
+            <View style={styles.proof}>
+              <Feather name="shield" size={15} color={colors.goldBright} />
+              <Text style={styles.proofText}>Profiles reviewed before they appear</Text>
             </View>
-
-            <Text style={styles.title}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-
-            <View style={styles.body}>{children}</View>
-
-            {footer ? <View style={styles.footer}>{footer}</View> : null}
+            <View style={styles.proof}>
+              <Feather name="mail" size={15} color={colors.goldBright} />
+              <Text style={styles.proofText}>Private, secure mail</Text>
+            </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
+  const reduce = useReduceMotion();
+
+  // Gentle mount entrance: art panel rises first (desktop only), then the form.
+  const heroReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
+  const formReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (reduce) return;
+    const formIn = Animated.timing(formReveal, {
+      toValue: 1,
+      duration: 400,
+      useNativeDriver: USE_NATIVE_DRIVER,
+    });
+    if (isDesktop) {
+      Animated.sequence([
+        Animated.timing(heroReveal, { toValue: 1, duration: 400, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.delay(80),
+        formIn,
+      ]).start();
+    } else {
+      heroReveal.setValue(1);
+      formIn.start();
+    }
+  }, [reduce, isDesktop, heroReveal, formReveal]);
+
+  const revealStyle = (v: Animated.Value) =>
+    reduce
+      ? null
+      : {
+          opacity: v,
+          transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+        };
+
+  const formContent = (
+    <>
+      <Text style={styles.title}>{title}</Text>
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <View style={styles.body}>{children}</View>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </>
+  );
+
+  if (isDesktop) {
+    return (
+      <View style={styles.rootDesktop}>
+        <View style={styles.split}>
+          <Animated.View style={[styles.artCol, revealStyle(heroReveal)]}>
+            <ArtPanel />
+          </Animated.View>
+          <Animated.View style={[styles.formCol, revealStyle(formReveal)]}>
+            <KeyboardAvoidingView style={styles.flex} behavior={undefined}>
+              <ScrollView
+                contentContainerStyle={styles.scrollDesktop}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.contentClamp}>{formContent}</View>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </Animated.View>
+        </View>
+      </View>
+    );
+  }
+
+  // Mobile: art owns the top third; the form rises over it as a white sheet.
+  return (
+    <View style={styles.rootMobile}>
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <ArtPanel mobile />
+        <Animated.View style={[styles.sheet, revealStyle(formReveal)]}>
+          <KeyboardAvoidingView
+            style={styles.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <ScrollView
+              contentContainerStyle={styles.scrollMobile}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {formContent}
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bgDeep },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, padding: spacing.xl, justifyContent: 'center', alignItems: 'center' },
-  contentClamp: { width: '100%', maxWidth: 440 },
-  brand: { alignItems: 'flex-start', marginBottom: spacing.xxl },
-  brandMark: { ...type.display, color: colors.primary, fontSize: 36 },
-  brandUnderline: {
-    height: 2,
-    width: 48,
-    marginTop: spacing.sm,
-    backgroundColor: colors.gold,
-    borderRadius: 999,
+  rootDesktop: { flex: 1, backgroundColor: colors.bgDeep },
+  rootMobile: { flex: 1, backgroundColor: auth.panelGradient[0] },
+  split: { flex: 1, flexDirection: 'row' },
+  artCol: { flex: 1.15, minWidth: 0 },
+  artDesktop: { flex: 1, overflow: 'hidden' },
+  artMobile: { height: auth.mobileArtHeight, overflow: 'hidden' },
+  artBrand: { position: 'absolute', top: 44, left: 48, zIndex: 2 },
+  artBrandMobile: { top: 18, left: 18 },
+  artBottom: { flex: 1, justifyContent: 'flex-end', padding: 48 },
+  artBottomMobile: { padding: 18 },
+  statement: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText, maxWidth: 400 },
+  statementGold: { color: colors.goldBright },
+  proofRow: { flexDirection: 'row', gap: 22, marginTop: 26, flexWrap: 'wrap' },
+  proof: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  proofText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.sidebarTextMuted },
+  formCol: { flex: 1, backgroundColor: colors.bgElevated },
+  scrollDesktop: { flexGrow: 1, padding: 48, justifyContent: 'center', alignItems: 'center' },
+  contentClamp: { width: '100%', maxWidth: 420 },
+  sheet: {
+    flex: 1,
+    backgroundColor: colors.bgElevated,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    marginTop: -14,
   },
-  title: { ...type.h1, marginBottom: spacing.sm },
-  subtitle: { ...type.bodyMuted, marginBottom: spacing.xl },
+  scrollMobile: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 22 },
+  brandWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  wordmark: { flexDirection: 'row', alignItems: 'baseline' },
+  wordHeart: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText },
+  wordLink: { fontFamily: 'BreeSerif_400Regular', color: colors.primary },
+  title: { ...type.h1, marginBottom: spacing.xs },
+  subtitle: { ...type.bodyMuted, fontSize: 14, marginBottom: spacing.xl },
   body: { gap: spacing.md },
-  footer: { marginTop: spacing.xl, alignItems: 'center' },
+  footer: { marginTop: spacing.lg, alignItems: 'center' },
 });

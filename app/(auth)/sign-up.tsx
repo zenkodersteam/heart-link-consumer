@@ -51,7 +51,8 @@ export default function SignUpScreen() {
       const attempt = await signUp.attemptEmailAddressVerification({ code });
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId });
-        router.replace('/(tabs)');
+        // New members introduce themselves before entering the app.
+        router.replace('/onboarding');
       } else {
         setError('Verification incomplete. Try again.');
       }

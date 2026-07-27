@@ -1,12 +1,62 @@
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
+import { art } from '../art';
 import { ApiClientError, type Plan } from '../lib/api';
+import { humanError } from '../lib/errors';
 import { useApiClientFactory } from '../lib/use-api-client';
-import { colors, spacing, type } from '../theme';
-import { Button, Card, Pill } from './primitives';
+import { colors, cta, radii, spacing, type } from '../theme';
+import { Card } from './primitives';
 
-function priceLabel(plan: Plan): string {
+type Tier = 'basic' | 'diamond' | 'vip';
+
+const TIER_ORDER: Tier[] = ['basic', 'diamond', 'vip'];
+
+const TIER_META: Record<Tier, { art: number; featured?: boolean }> = {
+  basic: { art: art.planBasic },
+  diamond: { art: art.planDiamond, featured: true },
+  vip: { art: art.planVip },
+};
+
+function tierOf(plan: Plan): Tier | null {
+  const t = plan.features?.tier;
+  return t === 'basic' || t === 'diamond' || t === 'vip' ? t : null;
+}
+
+/**
+ * How a plan is presented: which art band it gets, and whether it is the
+ * highlighted "most popular" card.
+ *
+ * TIER_META alone cannot answer this. It is keyed on `features.tier`, which
+ * only inmate LISTING plans carry - so every outside-user plan fell through to
+ * `?? 'basic'` and they all rendered with identical art and no card ever
+ * became `featured`. The result was two visually identical columns with
+ * nothing signalling which one to buy. Keying off plan TYPE as well fixes both
+ * at the source rather than special-casing the render.
+ */
+function presentationFor(plan: Plan): { art: number; featured: boolean } {
+  if (plan.type === 'outside_premium') {
+    return { art: art.planVip, featured: true };
+  }
+  if (plan.type === 'outside_basic') {
+    return { art: art.planBasic, featured: false };
+  }
+  const meta = TIER_META[tierOf(plan) ?? 'basic'];
+  return { art: meta.art, featured: Boolean(meta.featured) };
+}
+
+function priceParts(plan: Plan): { amount: string; interval: string } {
   const dollars = plan.priceCents / 100;
   const amount = Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
   const interval =
@@ -15,16 +65,74 @@ function priceLabel(plan: Plan): string {
       : plan.billingInterval === 'monthly'
         ? '/month'
         : '';
-  return `${amount}${interval}`;
+  return { amount, interval };
 }
 
-function featureLabel(plan: Plan): string | null {
+/**
+ * Renewal + cancellation line shown under the plan columns.
+ *
+ * Derived from the plans actually rendered rather than hardcoded. The previous
+ * copy was the literal string "Renews yearly. Cancel anytime." which was wrong
+ * on both halves:
+ *
+ *  - "Renews yearly" was only true by accident. The loader prefers
+ *    `inmate_listing` plans (all annual) and falls back to every plan, so the
+ *    moment the monthly outside-user plans surface here the sentence silently
+ *    becomes false. Reading the interval off the plans keeps it honest.
+ *  - "Cancel anytime" promised a capability that does not exist. There is no
+ *    cancellation endpoint and no self-serve cancel flow in either repo - the
+ *    only `cancel` in the checkout path is Stripe/PayPal's abandon URL. Telling
+ *    a buyer they can cancel anytime, at the moment they pay, is a commitment
+ *    the product cannot honour.
+ *
+ * ponytail: states the real path (contact support) instead of inventing one.
+ * Replace with self-serve wording once an actual cancellation flow ships.
+ */
+function renewalNotice(plans: Plan[]): string {
+  const intervals = new Set(plans.map((p) => p.billingInterval));
+  const renews =
+    intervals.size === 1
+      ? intervals.has('annual')
+        ? 'Renews yearly.'
+        : intervals.has('monthly')
+          ? 'Renews monthly.'
+          : 'Renews automatically.'
+      : 'Renews automatically.';
+  return `${renews} To cancel, contact support.`;
+}
+
+/**
+ * Feature bullets for a plan card.
+ *
+ * The two plan sets carry completely different entitlements, so they need
+ * different bullets. Listing plans (what a sponsor buys for an inmate) are
+ * described by photo count and letter length. Outside-user plans are described
+ * by swipe cap, mailbox access and included letters - none of which the listing
+ * branch reads, so before this an outside plan rendered a single generic line
+ * ("Verified browsing") with no stated benefit at all.
+ */
+function bullets(plan: Plan): string[] {
   const f = plan.features;
-  if (!f) return null;
-  const parts: string[] = [];
-  if (typeof f.photoLimit === 'number') parts.push(`${f.photoLimit} photos`);
-  if (typeof f.bioWordLimit === 'number') parts.push(`${f.bioWordLimit} words`);
-  return parts.length ? parts.join(' · ') : null;
+  const tier = tierOf(plan);
+  const out: string[] = [];
+
+  if (plan.type === 'inmate_listing') {
+    if (typeof f?.photoLimit === 'number') out.push(`${f.photoLimit} profile photos`);
+    if (typeof f?.bioWordLimit === 'number') out.push(`${f.bioWordLimit} words per letter`);
+    out.push('Verified browsing');
+    if (tier === 'diamond' || tier === 'vip') out.push('Priority support');
+    return out;
+  }
+
+  // Outside-user subscription.
+  if (typeof f?.swipeDailyCap === 'number') out.push(`${f.swipeDailyCap} profiles a day`);
+  out.push('Save unlimited favorites');
+  if (f?.mailbox) out.push('Secure mailbox access');
+  if (typeof f?.letterAllowance === 'number' && f.letterAllowance > 0) {
+    out.push(`${f.letterAllowance} letters included each month`);
+  }
+  if (f?.prioritySupport) out.push('Priority support');
+  return out;
 }
 
 function checkoutOrigin(): string {
@@ -32,18 +140,29 @@ function checkoutOrigin(): string {
   return 'https://heart-link-consumer.vercel.app';
 }
 
+type Processor = 'stripe' | 'paypal';
+
 /**
- * Plan-selection surface (Tier 2). Lists the listing tiers and starts a Stripe
- * Checkout session. Key-absence safe: when the API reports Stripe is not yet
- * configured ({ configured: false }), it shows a "coming soon" notice instead
- * of erroring, so the screen is shippable before Stripe products exist.
+ * "Choose your plan" columns (UI lift mockup): art band top, serif price,
+ * pink-check feature list, featured Diamond elevation + "Most Popular" cap.
+ * Mobile: Diamond full card + Basic/VIP compact tiles.
  */
-export function SubscriptionPlans() {
+interface SubscriptionPlansProps {
+  /** When set, checkout is tied to this inmate profile (sponsor flow): the
+   * payment webhook activates their listing instead of being a no-op. */
+  profileId?: string;
+  /** First name shown in sponsor-flow copy ("Choose Marcus's plan"). */
+  forName?: string;
+}
+
+export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps = {}) {
   const apiFactory = useApiClientFactory();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ planId: string; processor: Processor } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,11 +172,29 @@ export function SubscriptionPlans() {
         const api = await apiFactory();
         const res = await api.listPlans();
         if (!active) return;
-        const listing = res.plans.filter((p) => p.type === 'inmate_listing');
-        setPlans(listing.length ? listing : res.plans);
+        // Two distinct plan sets, and showing the wrong one sells the wrong
+        // product. Inmate LISTING plans (annual: Basic/Diamond/VIP) pay to put
+        // an inmate's profile live, and only belong in the sponsor flow, which
+        // is the flow that carries a profileId. An outside user looking at
+        // their own Account is buying their OWN subscription (monthly), so they
+        // must see the outside plans.
+        //
+        // This previously preferred listing plans in BOTH places and fell back
+        // to "everything", so the Account screen sold inmate listings to
+        // outside users and the outside monthly plans were never reachable.
+        const wantListing = Boolean(profileId);
+        const chosen = res.plans.filter((p) =>
+          wantListing ? p.type === 'inmate_listing' : p.type !== 'inmate_listing',
+        );
+        chosen.sort((a, b) => {
+          const ta = tierOf(a);
+          const tb = tierOf(b);
+          return (ta ? TIER_ORDER.indexOf(ta) : 99) - (tb ? TIER_ORDER.indexOf(tb) : 99);
+        });
+        setPlans(chosen);
       } catch (e) {
         if (!active) return;
-        setError(e instanceof ApiClientError ? e.message : 'Could not load plans.');
+        setError(humanError(e, 'We could not load plans right now. You can still use support if you need help with billing.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -65,32 +202,40 @@ export function SubscriptionPlans() {
     return () => {
       active = false;
     };
-  }, [apiFactory]);
+    // profileId decides which plan set is fetched, so it belongs here.
+  }, [apiFactory, profileId]);
 
   const onSubscribe = useCallback(
-    async (plan: Plan) => {
-      setPendingPlanId(plan.id);
+    async (plan: Plan, processor: Processor) => {
+      setPending({ planId: plan.id, processor });
       setNotice(null);
       try {
         const api = await apiFactory();
         const origin = checkoutOrigin();
-        const res = await api.createSubscriptionCheckout({
+        const returnPath = profileId ? `/sponsor?profile=${profileId}` : '/account?';
+        const input = {
           planId: plan.id,
-          successUrl: `${origin}/account?checkout=success`,
-          cancelUrl: `${origin}/account?checkout=cancel`,
-        });
+          profileId,
+          successUrl: `${origin}${returnPath}${profileId ? '&' : ''}checkout=success`,
+          cancelUrl: `${origin}${returnPath}${profileId ? '&' : ''}checkout=cancel`,
+        };
+        const res =
+          processor === 'paypal'
+            ? await api.createPayPalCheckout(input)
+            : await api.createSubscriptionCheckout(input);
         if (res.configured && res.url) {
           await Linking.openURL(res.url);
         } else {
-          setNotice('Subscriptions are coming soon. Checkout is not available just yet.');
+          const label = processor === 'paypal' ? 'PayPal' : 'Card';
+          setNotice(`${label} checkout is coming soon. It is not available just yet.`);
         }
       } catch (e) {
         setNotice(e instanceof ApiClientError ? e.message : 'Could not start checkout.');
       } finally {
-        setPendingPlanId(null);
+        setPending(null);
       }
     },
-    [apiFactory],
+    [apiFactory, profileId],
   );
 
   if (loading) {
@@ -102,53 +247,316 @@ export function SubscriptionPlans() {
   }
   if (error) {
     return (
-      <Card style={styles.card}>
+      <Card>
         <Text style={type.bodyMuted}>{error}</Text>
       </Card>
     );
   }
   if (!plans || plans.length === 0) {
     return (
-      <Card style={styles.card}>
+      <Card>
         <Text style={type.bodyMuted}>No plans available yet.</Text>
       </Card>
     );
   }
 
+  const featuredPlan = plans.find((p) => presentationFor(p).featured);
+  const quietPlans = plans.filter((p) => p !== featuredPlan);
+
   return (
     <View style={styles.wrap}>
-      <Text style={type.h2}>Plans</Text>
+      <Text style={styles.heading}>{forName ? `Choose ${forName}'s plan` : 'Choose your plan'}</Text>
+      <Text style={styles.sub}>
+        {forName
+          ? `Your gift keeps ${forName}'s profile active: reviewed photos, secure mail, and real connection.`
+          : 'Every plan includes reviewed profiles, secure mail, and the full Resources directory.'}
+      </Text>
       {notice ? (
-        <Card style={[styles.card, styles.notice]}>
+        <Card style={styles.notice}>
           <Text style={type.bodyMuted}>{notice}</Text>
         </Card>
       ) : null}
-      {plans.map((plan) => {
-        const features = featureLabel(plan);
-        return (
-          <Card key={plan.id} style={styles.planCard}>
-            <View style={styles.planHeader}>
-              <Text style={type.h2}>{plan.name}</Text>
-              <Pill label={priceLabel(plan)} tone="gold" />
-            </View>
-            {features ? <Text style={type.bodyMuted}>{features}</Text> : null}
-            <Button
-              label="Subscribe"
-              onPress={() => onSubscribe(plan)}
-              loading={pendingPlanId === plan.id}
+
+      {isDesktop || !featuredPlan ? (
+        <View style={[styles.columns, !isDesktop ? styles.columnsStacked : null]}>
+          {plans.map((plan) => (
+            <PlanCard
+              key={plan.id}
+              plan={plan}
+              pending={pending}
+              onSubscribe={onSubscribe}
+              desktop={isDesktop}
             />
-          </Card>
-        );
-      })}
+          ))}
+        </View>
+      ) : (
+        <>
+          <PlanCard plan={featuredPlan} pending={pending} onSubscribe={onSubscribe} />
+          <View style={styles.compactRow}>
+            {quietPlans.map((plan) => {
+              const { amount, interval } = priceParts(plan);
+              return (
+                <Pressable
+                  key={plan.id}
+                  onPress={() => onSubscribe(plan, 'stripe')}
+                  style={({ pressed }: { pressed: boolean }) => [
+                    styles.compactTile,
+                    pressed ? { opacity: 0.8 } : null,
+                  ]}
+                >
+                  <Text style={styles.planName}>{plan.name}</Text>
+                  <Text style={styles.compactPrice}>
+                    <Text style={styles.priceAmountSmall}>{amount}</Text>
+                    <Text style={styles.priceInterval}>{interval === '/year' ? '/yr' : interval}</Text>
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      )}
+      <Text style={styles.reassure}>{renewalNotice(plans)}</Text>
     </View>
   );
 }
 
+function PlanCard({
+  plan,
+  pending,
+  onSubscribe,
+  desktop,
+}: {
+  plan: Plan;
+  pending: { planId: string; processor: Processor } | null;
+  onSubscribe: (plan: Plan, processor: Processor) => void;
+  desktop?: boolean;
+}) {
+  const { art: planArt, featured } = presentationFor(plan);
+  const { amount, interval } = priceParts(plan);
+  const busy = pending?.planId === plan.id;
+
+  return (
+    <Pressable
+      style={({ hovered }: { hovered?: boolean }) => [
+        styles.plan,
+        desktop ? styles.planDesktop : null,
+        featured ? styles.planFeatured : null,
+        featured && desktop ? styles.planFeaturedDesktop : null,
+        hovered ? (featured && desktop ? styles.planHoverFeatured : styles.planHover) : null,
+      ]}
+    >
+      {({ hovered }: { hovered?: boolean }) => (
+        <>
+      {featured ? (
+        <View style={styles.cap}>
+          <Text style={styles.capText}>MOST POPULAR</Text>
+        </View>
+      ) : null}
+      <View style={styles.part}>
+        {/* Micro-interaction: plan art zooms on card hover (web). */}
+        <Image
+          source={planArt}
+          style={[styles.partImg, hovered ? styles.partImgHover : null]}
+          contentFit="contain"
+        />
+      </View>
+      <Text style={styles.planName}>{plan.name}</Text>
+      <Text style={styles.price}>
+        <Text style={styles.priceAmount}>{amount}</Text>
+        <Text style={styles.priceInterval}> {interval}</Text>
+      </Text>
+      <View style={styles.features}>
+        {bullets(plan).map((b) => (
+          <View key={b} style={styles.feature}>
+            <Feather name="check" size={14} color={colors.primary} />
+            <Text style={styles.featureText}>{b}</Text>
+          </View>
+        ))}
+      </View>
+      <Pressable
+        onPress={() => onSubscribe(plan, 'stripe')}
+        disabled={busy}
+        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+          styles.cta,
+          featured ? styles.ctaFeatured : styles.ctaQuiet,
+          hovered && !busy
+            ? featured
+              ? { transform: [{ translateY: -2 }], boxShadow: cta.glowHover }
+              : { transform: [{ translateY: -2 }], boxShadow: '0 8px 20px rgba(233,30,115,0.25)' }
+            : null,
+          pressed && !busy ? { transform: [{ scale: 0.98 }] } : null,
+          busy ? { opacity: 0.6 } : null,
+        ]}
+      >
+        <Text style={[styles.ctaText, featured ? styles.ctaTextFeatured : null]}>
+          {busy && pending?.processor === 'stripe' ? '...' : `Choose ${plan.name}`}
+        </Text>
+      </Pressable>
+      <Pressable onPress={() => onSubscribe(plan, 'paypal')} disabled={busy}>
+        <Text style={styles.paypal}>
+          {busy && pending?.processor === 'paypal' ? 'Opening PayPal...' : 'or pay with PayPal'}
+        </Text>
+      </Pressable>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
+const PLAN_PAD = 24;
+
 const styles = StyleSheet.create({
   wrap: { gap: spacing.md },
   center: { paddingVertical: spacing.xl, alignItems: 'center' },
-  card: { marginTop: spacing.sm },
   notice: { borderColor: colors.gold, backgroundColor: colors.goldFaint },
-  planCard: { gap: spacing.sm },
-  planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  heading: { ...type.h2, fontSize: 22, textAlign: 'center' },
+  sub: { ...type.bodyMuted, fontSize: 14, textAlign: 'center', marginBottom: spacing.md },
+  columns: {
+    flexDirection: 'row',
+    gap: 20,
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    paddingVertical: spacing.lg,
+  },
+  columnsStacked: { flexDirection: 'column' },
+  plan: {
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: 'rgba(46,18,64,0.05)',
+    borderRadius: radii.xl,
+    padding: PLAN_PAD,
+    paddingTop: 0,
+    overflow: 'visible',
+    boxShadow:
+      '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06), 0 24px 48px rgba(46,18,64,0.10)',
+  },
+  planDesktop: { width: 250 },
+  planFeatured: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(214,168,79,0.65)',
+    boxShadow: '0 24px 56px rgba(46,18,64,0.20)',
+    zIndex: 2,
+  },
+  planFeaturedDesktop: { transform: [{ scale: 1.06 }] },
+  // Micro-interaction: plan card lifts on hover (web).
+  planHover: {
+    transform: [{ translateY: -4 }],
+    boxShadow:
+      '0 2px 4px rgba(46,18,64,0.06), 0 14px 28px rgba(46,18,64,0.10), 0 34px 64px rgba(46,18,64,0.14)',
+    ...Platform.select({
+      web: { transitionProperty: 'transform, box-shadow', transitionDuration: '160ms' } as object,
+    }),
+  },
+  // Featured card keeps its scale while lifting.
+  planHoverFeatured: {
+    transform: [{ scale: 1.06 }, { translateY: -4 }],
+    boxShadow: '0 30px 64px rgba(46,18,64,0.24)',
+    ...Platform.select({
+      web: { transitionProperty: 'transform, box-shadow', transitionDuration: '160ms' } as object,
+    }),
+  },
+  // "Most Popular" cap must sit above the art band (z-index over the part).
+  cap: {
+    position: 'absolute',
+    top: -13,
+    alignSelf: 'center',
+    zIndex: 3,
+    backgroundColor: colors.goldBright,
+    borderRadius: radii.pill,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    ...Platform.select({
+      web: { backgroundImage: 'linear-gradient(92deg, #E8C27A, #D6A84F)' } as object,
+    }),
+  },
+  capText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11.5,
+    letterSpacing: 1,
+    color: colors.midnight,
+  },
+  // Art band: contained subject over a radial midnight fill, feathered edges.
+  part: {
+    height: 88,
+    marginHorizontal: -PLAN_PAD,
+    marginBottom: 18,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    overflow: 'hidden',
+    backgroundColor: '#1A0A26',
+    ...Platform.select({
+      web: {
+        backgroundImage: 'radial-gradient(70% 170% at 50% 50%, #13051D 35%, #241031 100%)',
+      } as object,
+    }),
+  },
+  partImg: {
+    width: '100%',
+    height: '100%',
+    ...Platform.select({
+      web: {
+        maskImage: 'radial-gradient(85% 95% at 50% 50%, #000 38%, transparent 86%)',
+        WebkitMaskImage: 'radial-gradient(85% 95% at 50% 50%, #000 38%, transparent 86%)',
+        transitionProperty: 'transform',
+        transitionDuration: '350ms',
+      } as object,
+    }),
+  },
+  partImgHover: { transform: [{ scale: 1.05 }] },
+  planName: { fontFamily: 'BreeSerif_400Regular', fontSize: 20, color: colors.textPrimary },
+  price: { marginTop: 10, marginBottom: 2 },
+  priceAmount: { fontFamily: 'BreeSerif_400Regular', fontSize: 34, color: colors.textPrimary },
+  priceAmountSmall: { fontFamily: 'BreeSerif_400Regular', fontSize: 19, color: colors.textPrimary },
+  priceInterval: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.textMuted },
+  features: { marginTop: 16, marginBottom: 22, gap: 9 },
+  feature: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  featureText: { fontFamily: 'Inter_400Regular', fontSize: 13.5, color: colors.textSecondary },
+  cta: {
+    marginTop: 'auto',
+    alignItems: 'center',
+    borderRadius: radii.pill,
+    paddingVertical: 12,
+    ...Platform.select({
+      web: { transitionProperty: 'transform, box-shadow', transitionDuration: '160ms' } as object,
+    }),
+  },
+  ctaQuiet: {
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  ctaFeatured: {
+    backgroundColor: colors.primary,
+    boxShadow: cta.glow,
+    ...Platform.select({
+      web: { backgroundImage: cta.gradientCss } as object,
+    }),
+  },
+  ctaText: { fontFamily: 'Inter_600SemiBold', fontSize: 14.5, color: colors.primary },
+  ctaTextFeatured: { color: colors.onPrimary },
+  paypal: {
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12.5,
+    color: colors.textMuted,
+    marginTop: 10,
+  },
+  compactRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  compactTile: {
+    flex: 1,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: 'rgba(46,18,64,0.05)',
+    borderRadius: radii.xl,
+    padding: 14,
+    boxShadow: '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06)',
+  },
+  compactPrice: { marginTop: 4 },
+  reassure: {
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12.5,
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+  },
 });

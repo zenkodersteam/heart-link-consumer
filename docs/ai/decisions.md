@@ -4,6 +4,34 @@ ADR log for the standalone consumer repo. Higher-level architectural decisions f
 
 ---
 
+## ADR-007: Outside-user onboarding mirrors only applicable intake-form questions
+
+**Date:** 2026-07-26
+**Status:** Accepted
+
+**Context**
+
+HeartLink Consumer needs onboarding for non-inmate/outside users. project lead asked that the flow ask the same intake-form questions that apply to them, using the client asset at `the `heart-link` repository\docs\client-assets\intake-form-rebuild-2026-07-21`, without importing inmate-only facility, incarceration, payment, or message-ID fields.
+
+**Decision**
+
+The outside-user onboarding flow will collect applicable relationship/profile context in grouped steps: Identity, Connection, Lifestyle, Communication, Story, What I'm looking for, optional Photo, and Review. The answers persist as `outside_user_profiles.match_preferences` through the HeartLink API contract/service, while core profile fields remain display name, date of birth, location, bio, and photo.
+
+**Consequences**
+
+- **Positive:** Non-inmate onboarding now reflects the real intake language and gives moderation/future matching richer profile context.
+- **Positive:** Inmate-only fields stay out of the consumer flow, keeping the member experience focused and avoiding irrelevant/private facility data collection.
+- **Positive:** The review step shows all captured categories before submission, improving trust and completeness.
+- **Negative:** `matchPreferences` remains a flexible JSON surface that must be kept in sync manually between this standalone consumer repo and the HeartLink monorepo API contract.
+- **Neutral:** Backend preference persistence was pushed to `zali-milestone-4`; production API availability depends on the backend release path.
+
+**Alternatives considered**
+
+- Copy the whole intake form verbatim — rejected because inmate/facility/payment fields do not apply to outside users.
+- Keep only name/location/bio/photo — rejected because it misses the applicable connection and preference data project lead asked to capture.
+
+---
+
 ## ADR-001: Split consumer app into its own repo
 
 **Date:** 2026-05-26
@@ -22,7 +50,7 @@ Root cause: the monorepo holds React 18 (consumer, required by Expo 52) and Reac
 
 **Decision**
 
-Move the consumer app into its own repo at `C:\Users\Ziggy\Documents\GitHub\heart-link-consumer`. Inline the small public-API surface from `@heartlink/api-contract` and `@heartlink/api-client` into `src/lib/api.ts`. Deploy the standalone repo to Vercel as a normal Expo Web project.
+Move the consumer app into its own repo at `the sibling `heart-link-consumer` repository`. Inline the small public-API surface from `@heartlink/api-contract` and `@heartlink/api-client` into `src/lib/api.ts`. Deploy the standalone repo to Vercel as a normal Expo Web project.
 
 **Consequences**
 
@@ -129,7 +157,7 @@ Use the same Clerk instance. Consumer signs up users with the default `outside_u
 
 **Context**
 
-The client delivered a 10-screen design set (`docs/screens_from_client` in the admin monorepo) on 2026-06-09 and asked to build to it. The screens are a warm light/blush theme with a deep-purple navigation rail, and they present browse as a Tinder-style single-card deck (swipe + Pass / Second Look / Like). This reverses two earlier consumer decisions: the dark Deep Midnight Purple theme from the 2026-05-18 brand book, and ADR-003's "approximate swipe with a grid on web."
+The client delivered a 10-screen design set (`docs/screens_from_client` in the admin monorepo) on 2026-06-09 and asked to build to it. The screens are a warm light/blush theme with a deep-purple navigation rail, and they present browse as a swipe-style single-card deck (swipe + Pass / Second Look / Like). This reverses two earlier consumer decisions: the dark Deep Midnight Purple theme from the 2026-05-18 brand book, and ADR-003's "approximate swipe with a grid on web."
 
 The client also clarified that "functional on mobile" means usable in a phone browser, not native iOS/Android.
 
@@ -161,7 +189,7 @@ The client also clarified that "functional on mobile" means usable in a phone br
 
 **Context**
 
-The 2026-06-09 client screens include several features that fall outside the signed MVP scope. Decision (Zaire): hold the MVP line and adopt the visual design, but record what was deliberately left out so it does not silently become an expectation.
+The 2026-06-09 client screens include several features that fall outside the signed MVP scope. Decision (project lead): hold the MVP line and adopt the visual design, but record what was deliberately left out so it does not silently become an expectation.
 
 **Decision — deferred (NOT built for MVP):**
 

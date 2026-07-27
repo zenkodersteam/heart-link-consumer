@@ -13,7 +13,7 @@ Public-facing consumer surface for HeartLink. Expo Web (with iOS/Android post-MV
 
 ```powershell
 npm install
-cp .env.example .env   # fill in EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY + EXPO_PUBLIC_API_BASE_URL
+cp .env.example .env   # fill in EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY + EXPO_PUBLIC_API_BASE_URL + EXPO_PUBLIC_SUPPORT_EMAIL
 npm run web
 ```
 

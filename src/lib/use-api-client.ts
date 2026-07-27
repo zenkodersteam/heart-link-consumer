@@ -3,8 +3,7 @@ import { useCallback, useRef } from 'react';
 
 import { createApiClient, type ApiClient } from './api';
 
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://heart-link-api.up.railway.app';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
  * Returns a factory that builds an ApiClient with a fresh Clerk session token.
@@ -24,6 +23,9 @@ export function useApiClientFactory(): () => Promise<ApiClient> {
   getTokenRef.current = getToken;
 
   return useCallback(async () => {
+    if (!API_BASE_URL) {
+      throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
+    }
     const token = (await getTokenRef.current()) ?? undefined;
     return createApiClient({ baseUrl: API_BASE_URL, token });
   }, []);

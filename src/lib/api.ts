@@ -15,11 +15,12 @@
 
 export type PlanTier = 'basic' | 'diamond' | 'vip';
 
+// Facility name + city are intentionally not exposed on the public surface
+// (2026-06-16 client decision: do not reveal which facility a profile is at).
+// Only the coarse state is surfaced. Mirrors the API contract.
 export interface PublicProfileFacility {
   id: string;
-  name: string;
   state: string;
-  city: string;
 }
 
 export interface PublicProfilePhoto {
@@ -47,6 +48,10 @@ export interface PublicProfileDetail extends PublicProfileSummary {
   locationDescription: string | null;
   matchPreferences: unknown;
   photos: PublicProfilePhoto[];
+  /** Whether this inmate accepts mail (real column; replaces the old constant). */
+  acceptsMail: boolean;
+  /** Interests from the intake OCR (multi-select, <=5). [] when none. */
+  interests: string[];
 }
 
 export type ProfileGender = 'male' | 'female';
@@ -75,14 +80,53 @@ export interface ListSavedProfilesResponse {
 }
 
 // =============================================================================
-// Subscriptions (M4) — vendored from api-contract subscription section.
+// Outside-user self profile (Phase 4) - vendored from api-contract.
+// Lifecycle: draft -> pending -> approved/rejected. Editing a rejected profile
+// returns it to draft so it can be resubmitted.
+// =============================================================================
+
+export type OutsideProfileStatus = 'draft' | 'pending' | 'approved' | 'rejected';
+
+export interface OutsideUserProfile {
+  id: string;
+  displayName: string | null;
+  bio: string | null;
+  dateOfBirth: string | null;
+  location: string | null;
+  matchPreferences: unknown;
+  primaryPhotoUrl: string | null;
+  status: OutsideProfileStatus;
+  moderationNotes: string | null;
+  /** Durable one-way flag: true once onboarding was completed (first submit).
+   *  Never resets on profile edits, so the onboarding gate keys on this. */
+  onboardingComplete: boolean;
+}
+
+export interface UpdateOutsideProfileInput {
+  displayName?: string;
+  bio?: string;
+  dateOfBirth?: string;
+  location?: string;
+  matchPreferences?: unknown;
+}
+
+// =============================================================================
+// Subscriptions (M4) - vendored from api-contract subscription section.
 // PayPal intentionally out of scope this pass (single-path Stripe checkout).
 // =============================================================================
 
 export interface PlanFeatures {
+  /** Inmate listing plans (annual): what a sponsor is buying for a profile. */
   tier?: 'basic' | 'diamond' | 'vip';
   photoLimit?: number;
   bioWordLimit?: number;
+  /** Outside-user plans (monthly): what a subscriber is buying for themselves. */
+  swipeDailyCap?: number;
+  letterAllowance?: number;
+  mailbox?: boolean;
+  prioritySupport?: boolean;
+  browseProfiles?: boolean;
+  saveFavorites?: boolean;
   [key: string]: unknown;
 }
 
@@ -109,10 +153,121 @@ export interface CreateCheckoutInput {
 }
 
 export interface CreateCheckoutResponse {
-  /** Stripe-hosted Checkout URL, or null when payments are not configured. */
+  /** Processor-hosted approval URL, or null when payments are not configured. */
   url: string | null;
-  /** False when Stripe is not yet wired — the UI should show "coming soon". */
+  /** False when the processor is not yet wired - the UI should show "coming soon". */
   configured: boolean;
+}
+
+// =============================================================================
+// Secure Mailbox - PostGrid letter correspondence (vendored from api-contract).
+// Outbound = a typed letter we print + mail; inbound = the inmate's scanned
+// reply. NOT real-time chat. Monthly allowance + purchased letter credits.
+// =============================================================================
+
+export type MailDirection = 'inbound' | 'outbound';
+
+export interface MailboxMessage {
+  id: string;
+  threadId: string;
+  direction: MailDirection;
+  subject: string | null;
+  body: string | null;
+  moderationStatus: 'pending' | 'approved' | 'rejected';
+  deliveryStatus: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface MailboxThreadSummary {
+  threadId: string;
+  profileId: string;
+  profileDisplayName: string;
+  profilePhotoUrl: string | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  lastDirection: MailDirection | null;
+  unreadCount: number;
+}
+
+export interface MailboxThreadDetail {
+  threadId: string;
+  profileId: string;
+  profileDisplayName: string;
+  profilePhotoUrl: string | null;
+  messages: MailboxMessage[];
+}
+
+export interface ListMailboxThreadsResponse {
+  items: MailboxThreadSummary[];
+  total: number;
+}
+
+export interface LetterEntitlement {
+  allowed: boolean;
+  includedRemaining: number | null; // null = unlimited
+  creditBalance: number;
+  totalRemaining: number | null; // null = unlimited
+  capReached: boolean;
+  includedPerPeriod: number;
+}
+
+export interface ComposeLetterInput {
+  subject?: string;
+  body: string;
+}
+
+export interface ComposeLetterResponse {
+  sent: boolean;
+  capReached: boolean;
+  entitlement: LetterEntitlement;
+  deliveryConfigured: boolean;
+  message: MailboxMessage | null;
+}
+
+export interface PurchaseLettersInput {
+  pack: 'small' | 'medium' | 'large';
+  processor: 'stripe' | 'paypal';
+  successUrl: string;
+  cancelUrl: string;
+}
+
+// =============================================================================
+// Resources directory (vendored). Public read with Postgres full-text search.
+// =============================================================================
+
+export interface ResourceCategory {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  icon: string | null;
+  sortOrder: number;
+}
+
+export interface ResourceItem {
+  id: string;
+  categoryId: string;
+  categorySlug: string;
+  title: string;
+  organization: string | null;
+  description: string | null;
+  url: string | null;
+  phone: string | null;
+  tags: string[];
+}
+
+export interface ListResourcesQuery {
+  categorySlug?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ListResourcesResponse {
+  categories: ResourceCategory[];
+  items: ResourceItem[];
+  total: number;
 }
 
 // =============================================================================
@@ -135,6 +290,33 @@ export class ApiClientError extends Error {
     this.code = code;
     this.body = body;
   }
+}
+
+// Swipe deck recording (freemium persistence + daily cap). Mirrors the API
+// /api/swipes surface. recordSwipe persists the action so the browse query
+// excludes already-actioned profiles; second_look removes the row (re-surfaces).
+export type SwipeAction = 'like' | 'pass' | 'second_look';
+
+export interface SwipeEntitlement {
+  allowed: boolean;
+  freeRemaining: number | null;
+  creditBalance: number;
+  totalRemaining: number | null;
+  capReached: boolean;
+  freeDailyCap: number;
+}
+
+export interface RecordSwipeResponse {
+  recorded: boolean;
+  capReached: boolean;
+  entitlement: SwipeEntitlement;
+}
+
+export interface AnalyticsEventInput {
+  event: string;
+  props?: Record<string, unknown>;
+  anonId?: string;
+  source?: string;
 }
 
 export interface ApiClientOptions {
@@ -213,20 +395,7 @@ export function createApiClient(options: ApiClientOptions) {
     if (res.status === 204) return undefined as T;
     const contentType = res.headers.get('content-type') ?? '';
     if (contentType.includes('application/json')) {
-      const json = await res.json();
-      // DEBUG: surface the exact response shape so we can see what the API
-      // actually returns (array vs object, top-level keys, body preview).
-      // eslint-disable-next-line no-console
-      console.log(
-        '[api] ←body',
-        res.status,
-        path,
-        Array.isArray(json)
-          ? `array(len=${json.length})`
-          : `keys=[${Object.keys((json as Record<string, unknown>) ?? {}).join(', ')}]`,
-        JSON.stringify(json)?.slice(0, 800),
-      );
-      return json as T;
+      return (await res.json()) as T;
     }
     return (await res.text()) as unknown as T;
   }
@@ -254,7 +423,7 @@ export function createApiClient(options: ApiClientOptions) {
       return request<PublicProfileDetail>(`/api/profiles/${encodeURIComponent(id)}`);
     },
 
-    // Favorites (outside_user) — saved profiles.
+    // Favorites (outside_user) - saved profiles.
     async listSavedProfiles(): Promise<ListSavedProfilesResponse> {
       return request<ListSavedProfilesResponse>(`/api/profiles/saved`);
     },
@@ -265,6 +434,49 @@ export function createApiClient(options: ApiClientOptions) {
 
     async unsaveProfile(id: string): Promise<void> {
       await request<void>(`/api/profiles/${encodeURIComponent(id)}/save`, { method: 'DELETE' });
+    },
+
+    // Record a deck action (like/pass/second_look). Persisting drives both the
+    // browse "already-seen" exclusion and the freemium daily cap. Returns
+    // capReached=true (not an error) when the free allowance is exhausted.
+    async recordSwipe(id: string, action: SwipeAction): Promise<RecordSwipeResponse> {
+      return request<RecordSwipeResponse>(
+        `/api/swipes/${encodeURIComponent(id)}`,
+        { method: 'POST', body: JSON.stringify({ action }) },
+      );
+    },
+
+    async trackAnalytics(events: AnalyticsEventInput[]): Promise<void> {
+      await request(`/api/analytics/events`, {
+        method: 'POST',
+        body: JSON.stringify({ events }),
+      });
+    },
+
+    // Outside-user self profile. GET creates an empty draft on first read.
+    async getMyProfile(): Promise<OutsideUserProfile> {
+      return request<OutsideUserProfile>(`/api/me/profile`);
+    },
+
+    async updateMyProfile(input: UpdateOutsideProfileInput): Promise<OutsideUserProfile> {
+      return request<OutsideUserProfile>(`/api/me/profile`, {
+        method: 'PUT',
+        body: JSON.stringify(input),
+      });
+    },
+
+    async submitMyProfile(): Promise<OutsideUserProfile> {
+      return request<OutsideUserProfile>(`/api/me/profile/submit`, { method: 'POST' });
+    },
+
+    /** Upload/replace the member's own profile photo (multipart, field `file`). */
+    async uploadMyProfilePhoto(file: Blob, filename = 'photo.jpg'): Promise<OutsideUserProfile> {
+      const form = new FormData();
+      form.append('file', file, filename);
+      return request<OutsideUserProfile>(`/api/me/profile/photo`, {
+        method: 'POST',
+        body: form,
+      });
     },
 
     // Subscriptions (M4). Checkout degrades gracefully: when Stripe is not
@@ -280,6 +492,55 @@ export function createApiClient(options: ApiClientOptions) {
         method: 'POST',
         body: JSON.stringify(input),
       });
+    },
+
+    // PayPal - separate processor. Same shape + same `configured: false`
+    // degradation as Stripe checkout.
+    async createPayPalCheckout(
+      input: CreateCheckoutInput,
+    ): Promise<CreateCheckoutResponse> {
+      return request<CreateCheckoutResponse>(`/api/subscriptions/paypal/checkout`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+
+    // Secure Mailbox (PostGrid letters). Monthly allowance + purchased credits.
+    async listMailboxThreads(): Promise<ListMailboxThreadsResponse> {
+      return request<ListMailboxThreadsResponse>(`/api/mailbox/threads`);
+    },
+    async getMailboxThread(threadId: string): Promise<MailboxThreadDetail> {
+      return request<MailboxThreadDetail>(`/api/mailbox/threads/${encodeURIComponent(threadId)}`);
+    },
+    async getLetterEntitlement(): Promise<LetterEntitlement> {
+      return request<LetterEntitlement>(`/api/mailbox/entitlement`);
+    },
+    async composeLetter(
+      profileId: string,
+      input: ComposeLetterInput,
+    ): Promise<ComposeLetterResponse> {
+      return request<ComposeLetterResponse>(
+        `/api/mailbox/threads/${encodeURIComponent(profileId)}/messages`,
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+    },
+    async markMailboxThreadRead(threadId: string): Promise<void> {
+      await request<void>(`/api/mailbox/threads/${encodeURIComponent(threadId)}/read`, {
+        method: 'PUT',
+      });
+    },
+    async purchaseLetters(input: PurchaseLettersInput): Promise<CreateCheckoutResponse> {
+      return request<CreateCheckoutResponse>(`/api/mailbox/purchase`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+
+    // Resources directory (public read with full-text search).
+    async listResources(query: ListResourcesQuery = {}): Promise<ListResourcesResponse> {
+      return request<ListResourcesResponse>(
+        `/api/resources${buildQuery(query as Record<string, unknown>)}`,
+      );
     },
   };
 }

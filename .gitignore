@@ -58,9 +58,11 @@ web-build/
 
 # IDE
 .vscode-test
+.vscode/
 .idea
 *.swp
 .DS_Store
 
 .vercel
-/.specstory
+/.specstory/
+/.claude/

@@ -24,8 +24,8 @@ export const colors = {
   surfaceMuted: '#F3E7E0',
 
   // Deep-purple navigation rail (desktop sidebar) + dark accents
-  sidebar: '#2A0F4D',
-  sidebarElevated: '#3A1A63',
+  sidebar: '#2E1240',
+  sidebarElevated: '#2E1A47',
   sidebarText: '#FBF5E8',
   sidebarTextMuted: '#B9A8D8',
 
@@ -40,7 +40,15 @@ export const colors = {
   onPrimary: '#FFFFFF',
 
   gold: '#C9912E',
+  // Brand-book Metallic Gold, used on dark surfaces (mockup --gold)
+  goldBright: '#D6A84F',
   goldFaint: 'rgba(201, 145, 46, 0.16)',
+
+  // Brand-book Deep Midnight Purple: photo tint + scrim base so AI photos read
+  // as one unified set. Mirror these in the Flutter app's theme.
+  midnight: '#16051F',
+  photoTint: 'rgba(46, 18, 64, 0.10)',
+  scrimStrong: 'rgba(22, 5, 31, 0.88)',
 
   success: '#3E9B6E',
   danger: '#D64550',
@@ -48,6 +56,49 @@ export const colors = {
   border: 'rgba(46, 18, 64, 0.10)',
   borderStrong: 'rgba(46, 18, 64, 0.18)',
   overlay: 'rgba(26, 8, 51, 0.45)',
+} as const;
+
+/**
+ * App shell (desktop rail + content column) tokens from the 2026-07 UI lift
+ * mockup (.claude/mockups/heartlink-ui-mockup.html). Mirror in Flutter.
+ */
+export const shell = {
+  railWidth: 248,
+  contentMaxWidth: 1020,
+  // 168deg midnight gradient behind the nav rail
+  railGradient: ['#1B0826', '#2E1240', '#3A1550'],
+  // Pink gradient active nav pill + 3px inset edge
+  navActiveGradient: ['rgba(233,30,115,0.28)', 'rgba(233,30,115,0.10)'],
+  navActiveIcon: '#FF7EB0',
+  navHover: 'rgba(255,255,255,0.06)',
+  // Gold hairlines (rail right edge, tagline rule)
+  goldHairline: 'rgba(214,168,79,0.35)',
+  goldHairlineFaint: 'rgba(214,168,79,0.05)',
+  taglineRule: 'rgba(214,168,79,0.45)',
+  emblemGlow: 'rgba(233,30,115,0.45)',
+  // Web-only: gold-as-material gradient text + soft content glows
+  goldTextGradientCss: 'linear-gradient(100deg, #E8C27A, #D6A84F 45%, #F0D9A8)',
+  mainGlowCss:
+    'radial-gradient(680px 380px at 78% -80px, rgba(233,30,115,0.07), transparent 65%), ' +
+    'radial-gradient(540px 320px at 12% 108%, rgba(214,168,79,0.10), transparent 60%)',
+} as const;
+
+/** Sign-in / sign-up art panel (UI lift mockup, "brand panel recomposition"). */
+export const auth = {
+  // 160deg midnight gradient behind the bridge artwork
+  panelGradient: ['#1B0826', '#2E1240', '#451A5E'],
+  artOpacity: 0.85,
+  // Top-to-bottom dark veil for text legibility over the art
+  veilDesktop: ['rgba(22,5,31,0.15)', 'rgba(22,5,31,0.78)'],
+  veilMobile: ['rgba(22,5,31,0.10)', 'rgba(22,5,31,0.60)'],
+  mobileArtHeight: 300,
+} as const;
+
+/** Primary CTA finish (UI lift): pink gradient pill with glow. Mirror in Flutter. */
+export const cta = {
+  gradientCss: 'linear-gradient(135deg, #FF4F92, #E91E73 55%, #C81860)',
+  glow: '0 10px 24px rgba(233,30,115,0.40)',
+  glowHover: '0 14px 30px rgba(233,30,115,0.50)',
 } as const;
 
 export const fonts = {
@@ -59,9 +110,9 @@ export const fonts = {
 } as const;
 
 export const radii = {
-  sm: 6,
-  md: 10,
-  lg: 16,
+  sm: 8,
+  md: 14,
+  lg: 18,
   xl: 24,
   pill: 999,
 } as const;

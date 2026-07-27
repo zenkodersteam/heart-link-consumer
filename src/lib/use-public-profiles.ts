@@ -5,6 +5,8 @@ import type {
   ListPublicProfilesResponse,
   PublicProfileDetail,
 } from './api';
+import { humanError } from './errors';
+import { PREVIEW_BYPASS_AUTH, PREVIEW_DETAILS } from './preview';
 import { useApiClientFactory } from './use-api-client';
 
 interface FetchState<T> {
@@ -50,7 +52,7 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
     error: null,
   });
 
-  // The ONLY effect dep is the query JSON — guarantees one fetch per query change.
+  // The ONLY effect dep is the query JSON - guarantees one fetch per query change.
   const queryKey = JSON.stringify(query);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -66,7 +68,7 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
       setState({
         data: null,
         loading: false,
-        error: e instanceof Error ? e.message : 'Could not load profiles.',
+        error: humanError(e, "We couldn't load profiles just now. Please try again."),
       });
     }
   }, [queryKey]);
@@ -80,19 +82,41 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
   return { ...state, refresh: () => load() };
 }
 
+// Module-level cache so a profile's detail is resolved synchronously on
+// remount (e.g. when a deck card advances from "behind" to "front"). Without
+// this, the front card flashes its summary-only rows for a frame before detail
+// arrives, which reads as the card content "changing" mid-swap.
+const detailCache = new Map<string, PublicProfileDetail>();
+
+function initialDetail(id: string | undefined): FetchState<PublicProfileDetail> {
+  if (id && detailCache.has(id)) return { data: detailCache.get(id) ?? null, loading: false, error: null };
+  if (id && PREVIEW_BYPASS_AUTH && PREVIEW_DETAILS[id]) return { data: PREVIEW_DETAILS[id], loading: false, error: null };
+  return { data: null, loading: !!id, error: null };
+}
+
 export function usePublicProfile(id: string | undefined) {
   const factory = useApiClientFactory();
   const factoryRef = useRef(factory);
   factoryRef.current = factory;
 
-  const [state, setState] = useState<FetchState<PublicProfileDetail>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
+  const [state, setState] = useState<FetchState<PublicProfileDetail>>(() => initialDetail(id));
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setState({ data: null, loading: false, error: null });
+      return;
+    }
+    if (detailCache.has(id)) {
+      setState({ data: detailCache.get(id) ?? null, loading: false, error: null });
+      return;
+    }
+    // Preview mode: serve canned detail without a network call (no token).
+    if (PREVIEW_BYPASS_AUTH && PREVIEW_DETAILS[id]) {
+      detailCache.set(id, PREVIEW_DETAILS[id]);
+      setState({ data: PREVIEW_DETAILS[id], loading: false, error: null });
+      return;
+    }
+
     const ctrl = new AbortController();
 
     (async () => {
@@ -101,13 +125,14 @@ export function usePublicProfile(id: string | undefined) {
         const client = await factoryRef.current();
         const data = await withTimeout(client.getPublicProfile(id), REQUEST_TIMEOUT_MS, ctrl.signal);
         if (ctrl.signal.aborted) return;
+        detailCache.set(id, data);
         setState({ data, loading: false, error: null });
       } catch (e) {
         if (ctrl.signal.aborted) return;
         setState({
           data: null,
           loading: false,
-          error: e instanceof Error ? e.message : 'Profile not found.',
+          error: humanError(e, 'It may have been removed, or the membership behind it has ended.'),
         });
       }
     })();

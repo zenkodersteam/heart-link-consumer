@@ -3,14 +3,21 @@ import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing, type } from '../theme';
 
+/** Optional call-to-action rendered inside the toast. */
+export interface ToastAction {
+  label: string;
+  onPress: () => void;
+}
+
 interface ToastState {
   id: number;
   title: string;
   subtitle?: string;
+  action?: ToastAction;
 }
 
 interface ToastApi {
-  show: (title: string, subtitle?: string) => void;
+  show: (title: string, subtitle?: string, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastApi>({ show: () => undefined });
@@ -20,10 +27,11 @@ export function useToast(): ToastApi {
 }
 
 const VISIBLE_MS = 2800;
+const ACTION_VISIBLE_MS = 6000;
 
 /**
  * Lightweight, dependency-free toast. Slides up + fades in, auto-dismisses,
- * tap-to-dismiss. Used for Second Look ("He's back!") and Like confirmation —
+ * tap-to-dismiss. Used for Second Look ("He's back!") and Like confirmation -
  * the feedback moments in the client browse design (screen 5).
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -41,17 +49,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [opacity, translateY]);
 
   const show = useCallback(
-    (title: string, subtitle?: string) => {
+    (title: string, subtitle?: string, action?: ToastAction) => {
       if (timer.current) clearTimeout(timer.current);
       idRef.current += 1;
-      setToast({ id: idRef.current, title, subtitle });
+      setToast({ id: idRef.current, title, subtitle, action });
       opacity.setValue(0);
       translateY.setValue(16);
       Animated.parallel([
         Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: false }),
         Animated.spring(translateY, { toValue: 0, friction: 7, useNativeDriver: false }),
       ]).start();
-      timer.current = setTimeout(hide, VISIBLE_MS);
+      // An actionable toast stays up longer: a CTA that vanishes before it can
+      // be tapped is worse than no CTA at all.
+      timer.current = setTimeout(hide, action ? ACTION_VISIBLE_MS : VISIBLE_MS);
     },
     [hide, opacity, translateY],
   );
@@ -72,6 +82,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <Text style={styles.title} numberOfLines={1}>{toast.title}</Text>
               {toast.subtitle ? (
                 <Text style={styles.sub} numberOfLines={2}>{toast.subtitle}</Text>
+              ) : null}
+              {toast.action ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    const act = toast.action;
+                    hide();
+                    act?.onPress();
+                  }}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                    styles.action,
+                    hovered ? styles.actionHover : null,
+                    pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                  ]}
+                >
+                  <Text style={styles.actionText}>{toast.action.label}</Text>
+                </Pressable>
               ) : null}
             </View>
             <Pressable onPress={hide} hitSlop={10}>
@@ -120,5 +147,15 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: 1 },
   title: { ...type.body, fontFamily: 'Inter_600SemiBold' },
   sub: { ...type.caption },
+  action: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+  },
+  actionHover: { backgroundColor: colors.primaryHover },
+  actionText: { ...type.caption, color: colors.onPrimary, fontWeight: '700' },
   close: { ...type.body, color: colors.textMuted, paddingHorizontal: spacing.xs },
 });

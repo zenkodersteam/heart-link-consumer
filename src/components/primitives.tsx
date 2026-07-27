@@ -11,7 +11,7 @@ import {
   ViewProps,
 } from 'react-native';
 
-import { colors, radii, spacing, type } from '../theme';
+import { colors, cta, radii, spacing, type } from '../theme';
 
 // RN Web honors CSS transitions via inline style; native ignores these keys,
 // so guard so we don't trip RN's style validation on iOS/Android.
@@ -80,45 +80,64 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
   variant?: 'primary' | 'secondary' | 'ghost';
   loading?: boolean;
+  icon?: ReactNode;
+  pill?: boolean;
 }
 
-export function Button({ label, variant = 'primary', loading, disabled, style, ...rest }: ButtonProps) {
+export function Button({ label, variant = 'primary', loading, disabled, icon, pill, style, ...rest }: ButtonProps) {
   const isDisabled = disabled || loading;
   const v = btnVariant[variant];
+  const isPrimary = variant === 'primary';
   return (
     <Pressable
       disabled={isDisabled}
       style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         btnStyles.base,
+        pill ? btnStyles.pill : null,
         { backgroundColor: v.bg, borderColor: v.border },
+        isPrimary ? btnStyles.primaryFinish : null,
         webTransition,
-        hovered && !isDisabled ? { opacity: 0.92, transform: [{ translateY: -1 }] } : null,
-        pressed && !isDisabled ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+        hovered && !isDisabled
+          ? isPrimary
+            ? { transform: [{ translateY: -2 }], boxShadow: cta.glowHover }
+            : { opacity: 0.92, transform: [{ translateY: -1 }] }
+          : null,
+        pressed && !isDisabled ? { opacity: 0.92, transform: [{ scale: 0.98 }] } : null,
         isDisabled ? { opacity: 0.5 } : null,
         typeof style === 'function' ? undefined : style,
       ]}
       {...rest}
     >
+      {icon && !loading ? <View style={btnStyles.iconLeft}>{icon}</View> : null}
       <Text style={[btnStyles.label, { color: v.fg }]}>{loading ? '...' : label}</Text>
     </Pressable>
   );
 }
 
 const btnVariant = {
-  primary: { bg: colors.primary, fg: colors.onPrimary, border: colors.primary },
-  secondary: { bg: 'transparent', fg: colors.textPrimary, border: colors.borderStrong },
+  primary: { bg: colors.primary, fg: colors.onPrimary, border: 'transparent' },
+  secondary: { bg: colors.bgElevated, fg: colors.textPrimary, border: colors.borderStrong },
   ghost: { bg: 'transparent', fg: colors.textSecondary, border: 'transparent' },
 } as const;
 
 const btnStyles = StyleSheet.create({
   base: {
-    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.pill,
     borderWidth: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
+  // Mockup CTA finish: pink gradient material + glow (web), solid pink native.
+  primaryFinish: {
+    boxShadow: cta.glow,
+    ...Platform.select({
+      web: { backgroundImage: cta.gradientCss } as object,
+    }),
+  },
+  pill: { borderRadius: radii.pill, paddingVertical: spacing.lg },
+  iconLeft: { position: 'absolute', left: spacing.xl + spacing.sm },
   label: { ...type.button },
 });
 

@@ -1,12 +1,12 @@
 # HeartLink Consumer App
 
-> Public-facing Expo Web client for the HeartLink platform. Users sign in, browse verified inmate profiles, view detail with photo gallery + bio. Backed by the HeartLink Railway NestJS API.
+> Public-facing Expo Web client for the HeartLink platform. Marketing landing page hands off to app login; signed-in users browse verified inmate profiles and view detail with photo gallery + bio. Backed by the HeartLink Railway NestJS API. Live in production at https://heart-link-consumer.vercel.app.
 
 ## Project Overview
 
 **Tech Stack:** Expo SDK 52 + Expo Router 4, React Native Web, Clerk auth, TypeScript
-**Status:** Active Development (pre-first-deploy as of 2026-05-26)
-**Purpose:** M3 W9 deliverable for the HeartLink MVP. Web-first; native iOS/Android post-MVP.
+**Status:** Live in production (https://heart-link-consumer.vercel.app) — post-launch refinement (as of 2026-07-26)
+**Purpose:** Public consumer surface for the HeartLink MVP — a marketing landing page that converts into the app login/browse experience. Web-first; native iOS/Android post-MVP.
 
 ## Core Documentation
 
@@ -26,7 +26,7 @@
 
 ### Routes (Expo Router)
 - `app/_layout.tsx` — Clerk provider + font loader + gesture handler root
-- `app/index.tsx` — auth-aware redirect
+- `app/index.tsx` — auth-aware redirect; public landing renders while Clerk/auth loads, signed-in users redirect when auth resolves
 - `app/(auth)/_layout.tsx` — signed-out group, redirects to tabs if signed in
 - `app/(auth)/sign-in.tsx` — Clerk sign-in
 - `app/(auth)/sign-up.tsx` — Clerk sign-up + email-code verification
@@ -43,6 +43,7 @@
 - `src/lib/token-cache.ts` — Clerk token persistence (SecureStore native, localStorage web)
 
 ### Components
+- `src/components/Landing.tsx` — production marketing landing page (approved/refined 2026-07-26); correspondence-first hero, immediate first paint while Clerk loads, trust bar for verified profiles/private correspondence/safety-first support, desktop + phone profile surfaces lead with "Write a letter"; hands off to app login
 - `src/components/ProfileCard.tsx` — list card with hover + focused states
 - `src/components/FilterSheet.tsx` — age / state / facility / plan tier filter modal
 - `src/components/AuthShell.tsx` — auth screen scaffold (centered, branded, max-440px)
@@ -64,7 +65,9 @@
 
 **To build for production:** `npm run build:web` → produces `dist/`
 
-**To deploy:** `vercel --prod` from repo root. Vercel runs `npx expo export --platform web --output-dir dist`.
+**To deploy:** `vercel --prod --yes` from repo root (this is what shipped the current production build). Vercel runs `npx expo export --platform web --output-dir dist`. Production URL: https://heart-link-consumer.vercel.app.
+
+**To edit the marketing landing:** edit `src/components/Landing.tsx`. The approved hero uses in-surface stacked profile overlays inside both the desktop browser panel and the phone window; mobile keeps three controls including the second-look icon. Preserve this composition unless Zaire re-approves a change.
 
 **To sync API types after admin contract change:** edit `src/lib/api.ts` by hand. Source of truth: `<monorepo>/packages/api-contract/src/index.ts` M3 W8 section.
 
@@ -73,4 +76,5 @@
 ## Environment Variables
 
 - `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk publishable key (shared with admin instance)
-- `EXPO_PUBLIC_API_BASE_URL` — HeartLink Railway API base URL (e.g., `https://heart-link-api.up.railway.app`)
+- `EXPO_PUBLIC_API_BASE_URL` — HeartLink Railway API base URL (set it explicitly for the target environment; current example uses `https://api-production-8a07.up.railway.app`)
+- `EXPO_PUBLIC_SUPPORT_EMAIL` — public support inbox shown on the Support screen

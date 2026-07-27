@@ -1,53 +1,99 @@
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing, type } from '../theme';
+import { useApiClientFactory } from '../lib/use-api-client';
+import { colors, radii, shell, spacing, type } from '../theme';
+
+const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
 
 /**
- * Navigation model for the consumer app shell. Mailbox is intentionally absent
- * (in-app messaging is out of MVP scope — see docs/ai/decisions.md). Each item
- * maps a display label to its expo-router path; `match` is the resolved
- * pathname used to compute the active state (the (tabs) group is transparent in
- * the URL, so the Home route is just "/").
+ * Navigation model for the consumer app shell. Mailbox is shown to match the
+ * client's delivered design; in-app messaging is out of MVP scope, so the route
+ * is a "coming soon" placeholder for now (see docs/ai/decisions.md).
  */
 export interface NavItem {
   key: string;
   label: string;
+  short: string;
   path: string;
   match: string;
+  icon: keyof typeof Feather.glyphMap;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'index', label: 'Home', path: '/', match: '/' },
-  { key: 'liked', label: 'Liked', path: '/liked', match: '/liked' },
-  { key: 'resources', label: 'Resources', path: '/resources', match: '/resources' },
-  { key: 'support', label: 'Support', path: '/support', match: '/support' },
-  { key: 'account', label: 'Account', path: '/account', match: '/account' },
+  { key: 'index', label: 'Home', short: 'Home', path: '/', match: '/', icon: 'home' },
+  { key: 'mailbox', label: 'Mailbox', short: 'Mailbox', path: '/mailbox', match: '/mailbox', icon: 'mail' },
+  { key: 'liked', label: 'Liked', short: 'Liked', path: '/liked', match: '/liked', icon: 'heart' },
+  { key: 'resources', label: 'Resources', short: 'Resources', path: '/resources', match: '/resources', icon: 'book-open' },
+  { key: 'support', label: 'Support', short: 'Support', path: '/support', match: '/support', icon: 'headphones' },
+  { key: 'account', label: 'Account', short: 'Account', path: '/account', match: '/account', icon: 'user' },
 ];
+
+// Mobile tabs (UI lift): Support leaves the tab bar (reachable from Account).
+const TAB_ITEMS = NAV_ITEMS.filter((i) => i.key !== 'support');
 
 function isActive(pathname: string, item: NavItem): boolean {
   if (item.match === '/') return pathname === '/' || pathname === '/index';
   return pathname.startsWith(item.match);
 }
 
-function Wordmark({ onDark }: { onDark?: boolean }) {
+function Brand({ size = 22, onDark }: { size?: number; onDark?: boolean }) {
   return (
-    <View style={navStyles.wordmark}>
-      <Text style={[navStyles.wordHeart, onDark ? { color: colors.sidebarText } : null]}>Heart</Text>
-      <Text style={navStyles.wordLink}>Link</Text>
+    <View style={brandStyles.wrap}>
+      <Image source={EMBLEM} style={{ width: size * 1.18, height: size, marginRight: 8 }} contentFit="contain" />
+      <View style={brandStyles.wordmark}>
+        <Text style={[brandStyles.heart, { fontSize: size }, onDark ? { color: colors.sidebarText } : null]}>Heart</Text>
+        <Text style={[brandStyles.link, { fontSize: size }]}>Link</Text>
+      </View>
     </View>
   );
 }
 
-/** Deep-purple left rail shown on wide (desktop) layouts. */
+/** Total unread letters for the Mailbox nav badge; 0 (hidden) when unavailable. */
+function useUnreadCount(): number {
+  const factory = useApiClientFactory();
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const client = await factory();
+        const res = await client.listMailboxThreads();
+        if (active) setCount(res.items.reduce((n, t) => n + t.unreadCount, 0));
+      } catch {
+        // Badge simply hides when the mailbox can't be reached.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [factory]);
+  return count;
+}
+
+/** Midnight-gradient left rail (UI lift mockup): brand, pink-pill nav, gold tagline. */
 export function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const unread = useUnreadCount();
 
   return (
-    <View style={sidebarStyles.rail}>
+    <LinearGradient
+      colors={[...shell.railGradient]}
+      start={{ x: 0.1, y: 0 }}
+      end={{ x: 0.9, y: 1 }}
+      style={sidebarStyles.rail}
+    >
       <View style={sidebarStyles.brand}>
-        <Wordmark onDark />
+        <Image source={EMBLEM} style={sidebarStyles.emblem} contentFit="contain" />
+        <View style={brandStyles.wordmark}>
+          <Text style={[brandStyles.heart, sidebarStyles.brandWord]}>Heart</Text>
+          <Text style={[brandStyles.link, { fontSize: 21 }]}>Link</Text>
+        </View>
       </View>
 
       <View style={sidebarStyles.items}>
@@ -59,23 +105,43 @@ export function Sidebar() {
               onPress={() => router.push(item.path as never)}
               style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
                 sidebarStyles.item,
-                active ? sidebarStyles.itemActive : null,
                 hovered && !active ? sidebarStyles.itemHover : null,
                 pressed ? { opacity: 0.85 } : null,
               ]}
             >
-              <Text style={[sidebarStyles.itemLabel, active ? sidebarStyles.itemLabelActive : null]}>
-                {item.label}
-              </Text>
+              {active ? (
+                <LinearGradient
+                  colors={[...shell.navActiveGradient]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              ) : null}
+              {active ? <View style={sidebarStyles.itemEdge} /> : null}
+              <Feather
+                name={item.icon}
+                size={19}
+                color={active ? shell.navActiveIcon : colors.sidebarTextMuted}
+              />
+              <Text style={[sidebarStyles.itemLabel, active ? sidebarStyles.itemLabelActive : null]}>{item.label}</Text>
+              {item.key === 'mailbox' && unread > 0 ? (
+                <View style={sidebarStyles.badge}>
+                  <Text style={sidebarStyles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         })}
       </View>
 
       <View style={sidebarStyles.tagline}>
+        <View style={sidebarStyles.taglineRule} />
         <Text style={sidebarStyles.taglineText}>Love Knows{'\n'}No Bounds</Text>
+        <Feather name="heart" size={11} color={colors.gold} style={sidebarStyles.taglineHeart} />
       </View>
-    </View>
+
+      <View style={sidebarStyles.railEdge} />
+    </LinearGradient>
   );
 }
 
@@ -86,7 +152,7 @@ export function BottomTabBar() {
 
   return (
     <View style={tabStyles.bar}>
-      {NAV_ITEMS.map((item) => {
+      {TAB_ITEMS.map((item) => {
         const active = isActive(pathname, item);
         return (
           <Pressable
@@ -94,10 +160,10 @@ export function BottomTabBar() {
             onPress={() => router.push(item.path as never)}
             style={({ pressed }: { pressed: boolean }) => [tabStyles.tab, pressed ? { opacity: 0.6 } : null]}
           >
-            <View style={[tabStyles.indicator, active ? tabStyles.indicatorActive : null]} />
-            <Text style={[tabStyles.tabLabel, active ? tabStyles.tabLabelActive : null]}>
-              {item.label}
-            </Text>
+            <View style={[tabStyles.iconPill, active ? tabStyles.iconPillActive : null]}>
+              <Feather name={item.icon} size={21} color={active ? colors.primary : colors.textMuted} />
+            </View>
+            <Text style={[tabStyles.tabLabel, active ? tabStyles.tabLabelActive : null]}>{item.short}</Text>
           </Pressable>
         );
       })}
@@ -105,47 +171,96 @@ export function BottomTabBar() {
   );
 }
 
-/** Compact top bar (wordmark) for mobile layouts. */
-export function MobileTopBar({ right }: { right?: React.ReactNode }) {
+/** Compact top bar (brand + optional right slot) for mobile layouts. */
+export function MobileTopBar({ right }: { right?: ReactNode }) {
   return (
     <View style={topStyles.bar}>
-      <Wordmark />
+      <Brand size={20} />
       <View style={topStyles.right}>{right}</View>
     </View>
   );
 }
 
-const navStyles = StyleSheet.create({
+const brandStyles = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center' },
   wordmark: { flexDirection: 'row', alignItems: 'baseline' },
-  wordHeart: { fontFamily: 'BreeSerif_400Regular', fontSize: 22, color: colors.textPrimary },
-  wordLink: { fontFamily: 'BreeSerif_400Regular', fontSize: 22, color: colors.primary },
+  heart: { fontFamily: 'BreeSerif_400Regular', color: colors.textPrimary },
+  link: { fontFamily: 'BreeSerif_400Regular', color: colors.primary },
 });
 
 const sidebarStyles = StyleSheet.create({
   rail: {
-    width: 232,
-    backgroundColor: colors.sidebar,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    width: shell.railWidth,
+    paddingTop: 22,
+    paddingBottom: 20,
+    paddingHorizontal: 14,
   },
-  brand: { paddingHorizontal: spacing.sm, marginBottom: spacing.xl },
-  items: { gap: spacing.xs },
-  item: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radii.md,
+  railEdge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: shell.goldHairline,
+    ...Platform.select({
+      web: {
+        backgroundColor: 'transparent',
+        backgroundImage: `linear-gradient(180deg, ${shell.goldHairline}, ${shell.goldHairlineFaint})`,
+      } as object,
+    }),
   },
-  itemActive: { backgroundColor: colors.sidebarElevated },
-  itemHover: { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
-  itemLabel: { ...type.button, color: colors.sidebarTextMuted, fontSize: 15 },
-  itemLabelActive: { color: colors.sidebarText },
-  tagline: {
-    marginTop: 'auto',
-    borderWidth: 1,
-    borderColor: colors.goldFaint,
-    borderRadius: radii.md,
-    padding: spacing.lg,
+  brand: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingTop: 6,
+    paddingBottom: spacing.xl,
+  },
+  emblem: {
+    width: 32,
+    height: 27,
+    ...Platform.select({
+      web: { filter: `drop-shadow(0 4px 10px ${shell.emblemGlow})` } as object,
+    }),
+  },
+  brandWord: { fontSize: 21, color: colors.sidebarText },
+  items: { flex: 1, gap: 3 },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: 14,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+  },
+  itemEdge: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: colors.primary },
+  badge: {
+    marginLeft: 'auto',
+    backgroundColor: colors.primary,
+    borderRadius: radii.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: colors.onPrimary },
+  itemHover: { backgroundColor: shell.navHover },
+  itemLabel: { ...type.button, color: colors.sidebarTextMuted, fontSize: 14.5 },
+  itemLabelActive: { color: '#FFFFFF' },
+  tagline: { alignItems: 'center', paddingTop: 18, paddingBottom: 6, paddingHorizontal: 10 },
+  taglineRule: {
+    position: 'absolute',
+    top: 0,
+    left: 24,
+    right: 24,
+    height: 1,
+    backgroundColor: shell.taglineRule,
+    ...Platform.select({
+      web: {
+        backgroundColor: 'transparent',
+        backgroundImage: `linear-gradient(90deg, transparent, ${shell.taglineRule}, transparent)`,
+      } as object,
+    }),
   },
   taglineText: {
     fontFamily: 'BreeSerif_400Regular',
@@ -153,7 +268,16 @@ const sidebarStyles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     lineHeight: 22,
+    ...Platform.select({
+      web: {
+        backgroundImage: shell.goldTextGradientCss,
+        WebkitBackgroundClip: 'text',
+        backgroundClip: 'text',
+        color: 'transparent',
+      } as object,
+    }),
   },
+  taglineHeart: { marginTop: 4, opacity: 0.8 },
 });
 
 const tabStyles = StyleSheet.create({
@@ -165,10 +289,10 @@ const tabStyles = StyleSheet.create({
     paddingBottom: spacing.sm,
     paddingTop: spacing.sm,
   },
-  tab: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing.xs },
-  indicator: { width: 18, height: 3, borderRadius: radii.pill, backgroundColor: 'transparent' },
-  indicatorActive: { backgroundColor: colors.primary },
-  tabLabel: { ...type.caption, fontSize: 11 },
+  tab: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: spacing.xs },
+  iconPill: { paddingVertical: 4, paddingHorizontal: 16, borderRadius: radii.pill },
+  iconPillActive: { backgroundColor: colors.primaryFaint },
+  tabLabel: { ...type.caption, fontSize: 10.5 },
   tabLabelActive: { color: colors.primary, fontFamily: 'Inter_600SemiBold' },
 });
 
