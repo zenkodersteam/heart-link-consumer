@@ -126,6 +126,12 @@ export default function AccountScreen() {
             </Text>
           </View>
           <View style={[styles.row, styles.rowDivider]}>
+            <Text style={styles.rowText}>Not sure what to write?</Text>
+            <Pressable onPress={() => router.push('/circle' as never)}>
+              <Text style={styles.rowLink}>Open Support Circle</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
             <Text style={styles.rowText}>Questions or trouble with the app?</Text>
             <Pressable onPress={() => router.push('/support' as never)}>
               <Text style={styles.rowLink}>Visit Support</Text>

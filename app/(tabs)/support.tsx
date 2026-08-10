@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Linking,
@@ -140,6 +141,7 @@ function contactSupport() {
 }
 
 export default function SupportScreen() {
+  const router = useRouter();
   const [topicKey, setTopicKey] = useState<TopicKey | null>(null);
   const [query, setQuery] = useState('');
   const { width } = useWindowDimensions();
@@ -229,6 +231,14 @@ export default function SupportScreen() {
               </Pressable>
             ))}
           </View>
+
+          {/* Support answers the app; Support Circle answers the blank page. */}
+          <Pressable onPress={() => router.push('/circle' as never)} style={styles.circleLink}>
+            <Feather name="edit-3" size={15} color={colors.primary} />
+            <Text style={styles.circleLinkText}>
+              Stuck on what to write? Support Circle has guided prompts and letter-writing help.
+            </Text>
+          </Pressable>
         </>
       )}
     </ScrollView>
@@ -408,6 +418,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   qRowText: { fontFamily: fonts.body, fontSize: 14, color: colors.textSecondary, flexShrink: 1 },
+  circleLink: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 20 },
+  circleLinkText: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 20, color: colors.primary, flexShrink: 1 },
   empty: { ...type.bodyMuted, textAlign: 'center', paddingVertical: spacing.xl },
 
   // Topic page

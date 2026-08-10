@@ -28,13 +28,15 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'index', label: 'Home', short: 'Home', path: '/', match: '/', icon: 'home' },
   { key: 'mailbox', label: 'Mailbox', short: 'Mailbox', path: '/mailbox', match: '/mailbox', icon: 'mail' },
   { key: 'liked', label: 'Liked', short: 'Liked', path: '/liked', match: '/liked', icon: 'heart' },
+  { key: 'circle', label: 'Support Circle', short: 'Circle', path: '/circle', match: '/circle', icon: 'edit-3' },
   { key: 'resources', label: 'Resources', short: 'Resources', path: '/resources', match: '/resources', icon: 'book-open' },
   { key: 'support', label: 'Support', short: 'Support', path: '/support', match: '/support', icon: 'headphones' },
   { key: 'account', label: 'Account', short: 'Account', path: '/account', match: '/account', icon: 'user' },
 ];
 
-// Mobile tabs (UI lift): Support leaves the tab bar (reachable from Account).
-const TAB_ITEMS = NAV_ITEMS.filter((i) => i.key !== 'support');
+// Mobile tabs (UI lift): Support and Support Circle stay off the bottom bar so
+// it keeps its approved five-item density. Both are reachable from Account.
+const TAB_ITEMS = NAV_ITEMS.filter((i) => i.key !== 'support' && i.key !== 'circle');
 
 function isActive(pathname: string, item: NavItem): boolean {
   if (item.match === '/') return pathname === '/' || pathname === '/index';
