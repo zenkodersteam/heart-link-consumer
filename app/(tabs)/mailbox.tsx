@@ -29,6 +29,7 @@ import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useToast } from '../../src/components/Toast';
 import { colors, cta, radii, spacing, type } from '../../src/theme';
+import { ThreadDetailSkeleton, ThreadListSkeleton } from '../../src/components/Skeleton';
 
 /**
  * Secure Mailbox - PostGrid letter correspondence (real backend).
@@ -441,7 +442,7 @@ export default function MailboxScreen() {
   // ----- shared sub-views -------------------------------------------------
 
   function ThreadList({ onPick }: { onPick: (id: string) => void }) {
-    if (loading) return <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />;
+    if (loading) return <ThreadListSkeleton />;
     if (error) return <Text style={styles.emptyList}>{error}</Text>;
     if (filteredThreads.length === 0) {
       return (
@@ -619,7 +620,7 @@ export default function MailboxScreen() {
               limit={letterLimit}
             />
           ) : loadingDetail ? (
-            <View style={styles.readEmpty}><ActivityIndicator color={colors.primary} /></View>
+            <ThreadDetailSkeleton />
           ) : detail ? (
             <ThreadView
               detail={detail}
@@ -667,7 +668,7 @@ export default function MailboxScreen() {
           <Text style={styles.backText}>Mailbox</Text>
         </Pressable>
         {loadingDetail ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+          <ThreadDetailSkeleton />
         ) : detail ? (
           <ThreadView
             detail={detail}

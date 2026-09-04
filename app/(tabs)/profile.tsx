@@ -26,6 +26,7 @@ import { formatReleaseMonth, parsePrefs, stateName } from '../../src/lib/prefs';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { usePublicProfile } from '../../src/lib/use-public-profiles';
 import { colors, fonts, radii, spacing, type } from '../../src/theme';
+import { ProfileDetailSkeleton } from '../../src/components/Skeleton';
 
 /**
  * Full profile, Mindtrip layout (UI lift): photo left with tint + thumbnail
@@ -172,10 +173,12 @@ export default function ProfileDetailScreen() {
     );
   }
   if (loading) {
+    // Holds the shape of the profile being fetched: photo block, then the
+    // name and story beneath it.
     return (
-      <Fallback>
-        <ActivityIndicator color={colors.primary} />
-      </Fallback>
+      <SafeAreaView style={styles.safe} edges={[]}>
+        <ProfileDetailSkeleton />
+      </SafeAreaView>
     );
   }
   if (error || !data) {

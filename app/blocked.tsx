@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ListSkeleton } from '../src/components/Skeleton';
 import type { BlockedProfile } from '../src/lib/api';
 import { humanError } from '../src/lib/errors';
 import { useApiClientFactory } from '../src/lib/use-api-client';
@@ -63,7 +64,7 @@ export default function BlockedScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         {items === null ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+          <ListSkeleton count={3} />
         ) : items.length === 0 ? (
           <View style={styles.empty}>
             <Feather name="shield" size={22} color={colors.textMuted} />

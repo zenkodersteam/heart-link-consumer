@@ -117,3 +117,149 @@ const gs = StyleSheet.create({
   lineSm: { height: 13, width: '85%' },
   btn: { height: 36, width: '100%', borderRadius: radii.md, marginTop: spacing.xs },
 });
+
+/**
+ * Mailbox thread list: avatar, name, preview line.
+ *
+ * A bare spinner tells someone the app is busy but not what is coming. These
+ * hold the shape of the thing being fetched, so the screen does not jump when
+ * the real rows arrive.
+ */
+export function ThreadListSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <View style={tl.wrap}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} style={tl.row}>
+          <Skeleton style={tl.avatar} />
+          <View style={tl.lines}>
+            <Skeleton style={tl.name} />
+            <Skeleton style={tl.preview} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const tl = StyleSheet.create({
+  wrap: { gap: spacing.md, paddingVertical: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.sm },
+  avatar: { width: 44, height: 44, borderRadius: 22 },
+  lines: { flex: 1, gap: 7 },
+  name: { height: 14, width: '42%' },
+  preview: { height: 12, width: '78%' },
+});
+
+/** An open letter thread: alternating bubbles while the messages load. */
+export function ThreadDetailSkeleton() {
+  return (
+    <View style={td.wrap}>
+      <View style={td.header}>
+        <Skeleton style={td.avatar} />
+        <Skeleton style={td.name} />
+      </View>
+      <View style={td.bubbleIn}>
+        <Skeleton style={td.lineFull} />
+        <Skeleton style={td.lineMid} />
+      </View>
+      <View style={td.bubbleOut}>
+        <Skeleton style={td.lineFull} />
+        <Skeleton style={td.lineShort} />
+      </View>
+      <View style={td.bubbleIn}>
+        <Skeleton style={td.lineMid} />
+      </View>
+    </View>
+  );
+}
+
+const td = StyleSheet.create({
+  wrap: { flex: 1, gap: spacing.md, padding: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  name: { height: 15, width: 130 },
+  bubbleIn: {
+    alignSelf: 'flex-start',
+    maxWidth: '78%',
+    gap: 7,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bubbleOut: {
+    alignSelf: 'flex-end',
+    maxWidth: '78%',
+    gap: 7,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surfaceMuted,
+  },
+  lineFull: { height: 12, width: 200 },
+  lineMid: { height: 12, width: 150 },
+  lineShort: { height: 12, width: 90 },
+});
+
+/** Generic settings-style rows, for list screens behind an API call. */
+export function ListSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <View style={ls.card}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} style={[ls.row, i < count - 1 ? ls.divider : null]}>
+          <Skeleton style={ls.label} />
+          <Skeleton style={ls.value} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const ls = StyleSheet.create({
+  card: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 52,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  divider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  label: { height: 13, width: '38%' },
+  value: { height: 13, width: 64 },
+});
+
+/** Profile detail: the photo block, then name and story beneath it. */
+export function ProfileDetailSkeleton() {
+  return (
+    <View style={pd.wrap}>
+      <Skeleton style={pd.photo} />
+      <View style={pd.body}>
+        <Skeleton style={pd.overline} />
+        <Skeleton style={pd.name} />
+        <Skeleton style={pd.line} />
+        <Skeleton style={pd.line} />
+        <Skeleton style={pd.lineShort} />
+        <Skeleton style={pd.strip} />
+      </View>
+    </View>
+  );
+}
+
+const pd = StyleSheet.create({
+  wrap: { flex: 1 },
+  photo: { width: '100%', aspectRatio: 5 / 4, borderRadius: 0 },
+  body: { padding: spacing.xl, gap: spacing.sm },
+  overline: { height: 11, width: '46%' },
+  name: { height: 26, width: '58%', marginBottom: 6 },
+  line: { height: 13, width: '100%' },
+  lineShort: { height: 13, width: '72%' },
+  strip: { height: 74, width: '100%', borderRadius: radii.md, marginTop: spacing.md },
+});

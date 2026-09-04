@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader, SettingsRow } from '../src/components/ScreenHeader';
+import { ListSkeleton } from '../src/components/Skeleton';
 import { humanError } from '../src/lib/errors';
 import { useApiClientFactory } from '../src/lib/use-api-client';
 import { useMyProfile } from '../src/lib/use-my-profile';
@@ -104,8 +105,8 @@ export default function EditProfileScreen() {
       <ScreenHeader title="Your profile" subtitle={statusLabel} />
 
       {loading && !profile ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
+        <View style={styles.body}>
+          <ListSkeleton count={3} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>

@@ -21,6 +21,7 @@ import { Button } from '../../src/components/primitives';
 import type { ListResourcesResponse, ResourceItem } from '../../src/lib/api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, fonts, radii, spacing, type } from '../../src/theme';
+import { ListSkeleton } from '../../src/components/Skeleton';
 
 /**
  * Resources (UI lift, Navan help-center pattern): serif hero + pill search,
@@ -183,7 +184,7 @@ export default function ResourcesScreen() {
 
         <Animated.View style={[styles.orgList, gridStyle]}>
           {state.loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+            <ListSkeleton count={4} />
           ) : state.error ? (
             <Text style={styles.empty}>{state.error}</Text>
           ) : items.length === 0 ? (
@@ -222,7 +223,7 @@ export default function ResourcesScreen() {
       {q.length > 0 ? (
         <Animated.View style={[styles.orgList, gridStyle]}>
           {state.loading ? (
-            <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+            <ListSkeleton count={4} />
           ) : state.error ? (
             <Text style={styles.empty}>{state.error}</Text>
           ) : items.length === 0 ? (
