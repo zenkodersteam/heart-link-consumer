@@ -22,6 +22,7 @@ import type {
   MailboxThreadDetail,
   MailboxThreadSummary,
 } from '../../src/lib/api';
+import { useRefresh } from '../../src/lib/use-refresh';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
@@ -218,7 +219,6 @@ export default function MailboxScreen() {
   // Pull to refresh. What is on this screen changes because of things that
   // happen off the device -- staff approving a letter, a reply being scanned
   // in -- so asking again without leaving the screen matters here.
-  const [refreshing, setRefreshing] = useState(false);
   const [showPacks, setShowPacks] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -271,16 +271,14 @@ export default function MailboxScreen() {
     }
   }, []);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      // Refetch both: the thread list and the sender's own approval state,
-      // since a letter becoming sendable depends on the latter.
-      await Promise.all([loadThreads(), refreshMyProfile()]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [loadThreads, refreshMyProfile]);
+  const { refreshing, onRefresh } = useRefresh(
+    useCallback(
+      // Refetch both: the thread list, and the sender's own approval state,
+      // since whether a letter can be sent at all depends on the latter.
+      () => Promise.all([loadThreads(), refreshMyProfile()]),
+      [loadThreads, refreshMyProfile],
+    ),
+  );
 
   useEffect(() => {
     void loadThreads();
@@ -632,7 +630,10 @@ export default function MailboxScreen() {
               placeholderTextColor={colors.textMuted}
             />
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}
+          <ScrollView
+          showsVerticalScrollIndicator={false}
+          alwaysBounceVertical
+          contentContainerStyle={{ flexGrow: 1 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }

@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import type { BlockedProfile } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
+import { useRefresh } from '../../src/lib/use-refresh';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';
 
@@ -36,15 +37,7 @@ export default function BlockedScreen() {
     }
   }, [apiFactory]);
 
-  const [refreshing, setRefreshing] = useState(false);
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await load();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [load]);
+  const { refreshing, onRefresh } = useRefresh(load);
 
   useEffect(() => {
     void load();
@@ -72,7 +65,10 @@ export default function BlockedScreen() {
         <Text style={styles.title}>Blocked</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}
+      <ScrollView
+        contentContainerStyle={[styles.body, { flexGrow: 1 }]}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
