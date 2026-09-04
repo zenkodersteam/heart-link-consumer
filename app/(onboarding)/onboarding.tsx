@@ -353,7 +353,9 @@ export default function OnboardingScreen() {
         </View>
         <Button
           label="Start browsing"
-          onPress={() => router.replace((takePendingRoute() as never) ?? '/(tabs)')}
+          onPress={() => {
+            void takePendingRoute().then((route) => router.replace((route as never) ?? '/(tabs)'));
+          }}
         />
       </AuthShell>
     );

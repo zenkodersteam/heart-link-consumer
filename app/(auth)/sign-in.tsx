@@ -46,7 +46,8 @@ export default function SignInScreen() {
       return;
     }
     await setActive({ session: attempt.createdSessionId });
-    router.replace((takePendingRoute() as never) ?? '/(tabs)');
+    // Reading the remembered route hits disk on a phone, so it is awaited.
+    router.replace(((await takePendingRoute()) as never) ?? '/(tabs)');
   }
 
   // Moves the user onto the 2FA step, preparing the factor when the strategy

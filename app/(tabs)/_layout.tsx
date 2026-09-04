@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/clerk-expo';
-import { Redirect, Slot, usePathname } from 'expo-router';
+import { Redirect, Slot, useGlobalSearchParams, usePathname } from 'expo-router';
 import { ActivityIndicator, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,10 +11,27 @@ import { colors, shell } from '../../src/theme';
 
 const DESKTOP_BREAKPOINT = 900;
 
+/**
+ * Rebuilds the `?a=b` part of a route from the router's parsed params, so the
+ * saved route carries the id a shared link pointed at. Read from the router
+ * rather than `window.location` because there is no such thing on a phone.
+ */
+function queryString(params: Record<string, string | string[] | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    // Repeated params arrive as an array; keep every value.
+    for (const v of Array.isArray(value) ? value : [value]) search.append(key, v);
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
 export default function TabLayout() {
   const { isSignedIn, isLoaded } = useAuth();
   const { width, height } = useWindowDimensions();
   const pathname = usePathname();
+  const params = useGlobalSearchParams();
   const { profile, loading: profileLoading, error: profileError } = useMyProfile();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
@@ -33,9 +50,13 @@ export default function TabLayout() {
     );
   }
   if (!isSignedIn && !PREVIEW_BYPASS_AUTH) {
-    // Preserve emailed deep links (sponsor invites) across the sign-up detour.
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && pathname.startsWith('/sponsor')) {
-      savePendingRoute(`${window.location.pathname}${window.location.search}`);
+    // Remember where they were heading so the sign-in detour returns them to
+    // it. Reaching this layout at all means the route was a real destination
+    // inside the app, so everything except the home tab is worth keeping —
+    // previously only sponsor invites were, and only on the web build, which
+    // left a shared profile link on a phone landing on the home tab.
+    if (pathname !== '/' && pathname !== '/(tabs)') {
+      savePendingRoute(pathname + queryString(params));
     }
     return <Redirect href="/" />;
   }
