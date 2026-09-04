@@ -175,8 +175,21 @@ export interface MailboxMessage {
   body: string | null;
   moderationStatus: 'pending' | 'approved' | 'rejected';
   deliveryStatus: string | null;
+  /**
+   * Short-lived signed link to the scanned original, on inbound letters only.
+   * The API has always returned this; the vendored copy had drifted and omitted
+   * it, which is why the app could not show the original.
+   */
+  scanUrl: string | null;
   readAt: string | null;
   createdAt: string;
+}
+
+/** Words allowed in a letter to a given profile, set by that profile's tier. */
+export interface LetterLengthLimit {
+  /** null means the recipient's plan sets no limit. */
+  wordLimit: number | null;
+  tier: string | null;
 }
 
 export interface MailboxThreadSummary {
@@ -514,6 +527,12 @@ export function createApiClient(options: ApiClientOptions) {
     },
     async getLetterEntitlement(): Promise<LetterEntitlement> {
       return request<LetterEntitlement>(`/api/mailbox/entitlement`);
+    },
+    /** Word limit for letters to this profile, so the composer can count live. */
+    async getLetterLimit(profileId: string): Promise<LetterLengthLimit> {
+      return request<LetterLengthLimit>(
+        `/api/mailbox/profiles/${encodeURIComponent(profileId)}/letter-limit`,
+      );
     },
     async composeLetter(
       profileId: string,

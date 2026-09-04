@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Linking,
   TextInput,
   View,
   useWindowDimensions,
@@ -15,6 +16,7 @@ import {
 
 import type {
   LetterEntitlement,
+  LetterLengthLimit,
   MailboxMessage,
   MailboxThreadDetail,
   MailboxThreadSummary,
@@ -65,6 +67,10 @@ function formatTime(iso: string | null): string {
 }
 
 const DELIVERY_LABEL: Record<string, string> = {
+  // Letters wait for staff review before they are ever printed, so the member
+  // sees an honest first state rather than "sent".
+  awaiting_approval: 'Awaiting review',
+  rejected: 'Not approved',
   queued: 'Queued',
   submitted: 'Sent to print',
   printing: 'Printing',
@@ -100,6 +106,7 @@ const PREVIEW_MAILBOX_DETAIL: MailboxThreadDetail = {
       body: "I keep thinking about what you said about wanting something honest. That's what I want too. My days are slow in here, but writing to you makes them feel like they're moving toward something.",
       subject: 'Thinking about your last letter',
       moderationStatus: 'approved',
+    scanUrl: null,
       createdAt: '2026-07-18T10:15:00.000Z',
       deliveryStatus: 'delivered',
       readAt: '2026-07-19T19:42:00.000Z',
@@ -111,6 +118,7 @@ const PREVIEW_MAILBOX_DETAIL: MailboxThreadDetail = {
       body: "That's exactly why I keep writing back. I don't need polished. I just want to know what your world actually feels like, and what kind of future you're still building toward.",
       subject: null,
       moderationStatus: 'approved',
+    scanUrl: null,
       createdAt: '2026-07-19T19:42:00.000Z',
       deliveryStatus: null,
       readAt: '2026-07-20T08:00:00.000Z',
@@ -122,6 +130,7 @@ const PREVIEW_MAILBOX_DETAIL: MailboxThreadDetail = {
       body: 'Tell me about your mornings, what you read when you can, and what you want your son to remember about who you are becoming.',
       subject: null,
       moderationStatus: 'approved',
+    scanUrl: null,
       createdAt: '2026-07-21T14:35:00.000Z',
       deliveryStatus: null,
       readAt: null,
@@ -143,6 +152,27 @@ function deliveryLabel(status: string | null): string {
   return DELIVERY_LABEL[status] ?? status;
 }
 
+/**
+ * Letter top-up packs. Mirrors the server's catalogue; the server is
+ * authoritative on price and credits, this is only what the member is shown.
+ */
+const LETTER_PACKS: { key: 'small' | 'medium' | 'large'; letters: number; price: string }[] = [
+  { key: 'small', letters: 3, price: '$4.99' },
+  { key: 'medium', letters: 7, price: '$9.99' },
+  { key: 'large', letters: 20, price: '$19.99' },
+];
+
+function checkoutOrigin(): string {
+  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return 'https://heart-link-consumer.vercel.app';
+}
+
+/** Count words the way the server does, so the two never disagree. */
+function countWords(text: string): number {
+  const t = text.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+
 function lettersLeftText(e: LetterEntitlement | null): string {
   if (!e) return '';
   const total = e.totalRemaining;
@@ -160,7 +190,7 @@ export default function MailboxScreen() {
   const isDesktop = width >= 900;
   const router = useRouter();
   const toast = useToast();
-  const params = useLocalSearchParams<{ compose?: string; name?: string; thread?: string }>();
+  const params = useLocalSearchParams<{ compose?: string; name?: string; thread?: string; purchase?: string }>();
 
   const factory = useApiClientFactory();
   const factoryRef = useRef(factory);
@@ -175,6 +205,10 @@ export default function MailboxScreen() {
 
   const [threads, setThreads] = useState<MailboxThreadSummary[]>([]);
   const [entitlement, setEntitlement] = useState<LetterEntitlement | null>(null);
+  // Word limit is set by the recipient's plan, so it is fetched per profile.
+  const [letterLimit, setLetterLimit] = useState<LetterLengthLimit | null>(null);
+  const [showPacks, setShowPacks] = useState(false);
+  const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -294,6 +328,69 @@ export default function MailboxScreen() {
     }
   }, [params.thread, detail, loadingDetail, openThread]);
 
+  // Load the word limit for whoever is being written to. The limit belongs to
+  // the recipient's plan, so it changes with the open thread / compose target.
+  const limitProfileId = composing?.profileId ?? detail?.profileId ?? null;
+  useEffect(() => {
+    if (!limitProfileId) {
+      setLetterLimit(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const client = await factoryRef.current();
+        const lim = await client.getLetterLimit(limitProfileId);
+        if (!cancelled) setLetterLimit(lim);
+      } catch {
+        // Advisory only: without it the counter just shows a plain word count,
+        // and the server still enforces the real limit on send.
+        if (!cancelled) setLetterLimit(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [limitProfileId]);
+
+  // Buy more letters. The API returns a hosted checkout link, or configured:false
+  // when the payment processor is not wired up in this environment.
+  const buyLetters = useCallback(
+    async (pack: 'small' | 'medium' | 'large') => {
+      setBuying(pack);
+      try {
+        const client = await factoryRef.current();
+        const origin = checkoutOrigin();
+        const res = await client.purchaseLetters({
+          pack,
+          processor: 'stripe',
+          successUrl: `${origin}/mailbox?purchase=success`,
+          cancelUrl: `${origin}/mailbox?purchase=cancel`,
+        });
+        if (res.configured && res.url) {
+          await Linking.openURL(res.url);
+        } else {
+          toast.show('Not available yet', 'Buying letters is coming soon.');
+        }
+      } catch {
+        toast.show('Could not start checkout', 'Please try again in a moment.');
+      } finally {
+        setBuying(null);
+        setShowPacks(false);
+      }
+    },
+    [toast],
+  );
+
+  // Returning from checkout: credits are granted by the payment webhook, so
+  // refresh the balance rather than assuming it changed.
+  useEffect(() => {
+    if (params.purchase === 'success') {
+      toast.show('Letters added', 'Your new letters are ready to use.');
+      void loadThreads();
+    }
+  }, [params.purchase, toast, loadThreads]);
+
   // Send a letter (reply within a thread, or a new letter to a compose target).
   const sendLetter = useCallback(
     async (profileId: string, body: string, threadId?: string): Promise<boolean> => {
@@ -321,7 +418,9 @@ export default function MailboxScreen() {
         toast.show('Out of letters', 'You have used your letters for this period. Buy more from Account.');
         return false;
       }
-      toast.show('Letter on its way', res.deliveryConfigured ? 'Printing and mailing now.' : 'Saved and will be mailed soon.');
+      // Letters now wait for staff review before printing, so promising
+      // "printing and mailing now" would be untrue.
+      toast.show('Letter sent for review', 'Our team checks every letter before it is printed and posted.');
       // Refresh the open thread + the thread list.
       if (threadId) await openThread(threadId);
       await loadThreads();
@@ -416,6 +515,49 @@ export default function MailboxScreen() {
             {entitlement.creditBalance > 0 ? ` + ${entitlement.creditBalance} purchased` : ''}
           </Text>
         ) : null}
+
+        {entitlement?.totalRemaining !== null ? (
+          showPacks ? (
+            <View style={styles.packList}>
+              {LETTER_PACKS.map((pk) => (
+                <Pressable
+                  key={pk.key}
+                  onPress={() => void buyLetters(pk.key)}
+                  disabled={buying !== null}
+                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                    styles.packBtn,
+                    webTransition,
+                    hovered ? { borderColor: colors.primary } : null,
+                    pressed ? { transform: [{ scale: 0.98 }] } : null,
+                    buying !== null && buying !== pk.key ? { opacity: 0.5 } : null,
+                  ]}
+                >
+                  {buying === pk.key ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Text style={styles.packLetters}>{pk.letters} letters</Text>
+                      <Text style={styles.packPrice}>{pk.price}</Text>
+                    </>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setShowPacks(true)}
+              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                styles.buyBtn,
+                webTransition,
+                hovered ? { opacity: 0.9 } : null,
+                pressed ? { transform: [{ scale: 0.98 }] } : null,
+              ]}
+            >
+              <Feather name="plus-circle" size={13} color={colors.primary} />
+              <Text style={styles.buyBtnText}>Buy more letters</Text>
+            </Pressable>
+          )
+        ) : null}
       </View>
     );
   }
@@ -472,6 +614,7 @@ export default function MailboxScreen() {
               target={composing}
               onSend={(body) => sendLetter(composing.profileId, body)}
               onCancel={() => setComposing(null)}
+              limit={letterLimit}
             />
           ) : loadingDetail ? (
             <View style={styles.readEmpty}><ActivityIndicator color={colors.primary} /></View>
@@ -479,6 +622,7 @@ export default function MailboxScreen() {
             <ThreadView
               detail={detail}
               onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
+              limit={letterLimit}
             />
           ) : (
             <EmptyState
@@ -507,6 +651,7 @@ export default function MailboxScreen() {
           target={composing}
           onSend={(body) => sendLetter(composing.profileId, body)}
           onCancel={() => setComposing(null)}
+          limit={letterLimit}
         />
       </View>
     );
@@ -522,7 +667,11 @@ export default function MailboxScreen() {
         {loadingDetail ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : detail ? (
-          <ThreadView detail={detail} onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)} />
+          <ThreadView
+            detail={detail}
+            onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
+            limit={letterLimit}
+          />
         ) : (
           <Text style={styles.emptyList}>Could not open this letter.</Text>
         )}
@@ -570,9 +719,18 @@ export default function MailboxScreen() {
   );
 }
 
-function ThreadView({ detail, onReply }: { detail: MailboxThreadDetail; onReply: (body: string) => Promise<boolean> }) {
+function ThreadView({
+  detail,
+  onReply,
+  limit,
+}: {
+  detail: MailboxThreadDetail;
+  onReply: (body: string) => Promise<boolean>;
+  limit: LetterLengthLimit | null;
+}) {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const overLimit = limit?.wordLimit != null && countWords(reply) > limit.wordLimit;
 
   async function submit() {
     const body = reply.trim();
@@ -610,13 +768,14 @@ function ThreadView({ detail, onReply }: { detail: MailboxThreadDetail; onReply:
           value={reply}
           onChangeText={setReply}
         />
+        <WordCount text={reply} limit={limit} />
         <Pressable
           onPress={submit}
-          disabled={sending || reply.trim().length === 0}
+          disabled={sending || reply.trim().length === 0 || overLimit}
           style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
             styles.sendBtn,
             webTransition,
-            reply.trim().length === 0 ? { opacity: 0.5 } : null,
+            reply.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
             hovered ? { opacity: 0.92 } : null,
             pressed ? { transform: [{ scale: 0.97 }] } : null,
           ]}
@@ -633,13 +792,63 @@ function ThreadView({ detail, onReply }: { detail: MailboxThreadDetail; onReply:
   );
 }
 
+/**
+ * Live word count against the recipient's plan limit.
+ *
+ * Advisory only — the server re-checks and is the real gate. Its job is to stop
+ * a member writing 400 words before finding out the limit was 200.
+ */
+function WordCount({ text, limit }: { text: string; limit: LetterLengthLimit | null }) {
+  const words = countWords(text);
+  if (!limit || limit.wordLimit === null) {
+    return words > 0 ? <Text style={styles.wordCount}>{words} words</Text> : null;
+  }
+  const over = words > limit.wordLimit;
+  return (
+    <Text style={[styles.wordCount, over ? styles.wordCountOver : null]}>
+      {words} / {limit.wordLimit} words
+      {over ? ` · ${words - limit.wordLimit} over the limit` : ''}
+    </Text>
+  );
+}
+
+/**
+ * Inbound letters are scanned paper. The signed link is short-lived, so it is
+ * opened on demand rather than embedded.
+ */
+function OriginalScanLink({ url }: { url: string }) {
+  return (
+    <Pressable
+      onPress={() => { void Linking.openURL(url); }}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+        styles.scanLink,
+        webTransition,
+        hovered ? { opacity: 0.85 } : null,
+        pressed ? { transform: [{ scale: 0.98 }] } : null,
+      ]}
+    >
+      <Feather name="file-text" size={13} color={colors.primary} />
+      <Text style={styles.scanLinkText}>View the original letter</Text>
+    </Pressable>
+  );
+}
+
 function MessageBubble({ message }: { message: MailboxMessage }) {
   const outbound = message.direction === 'outbound';
   return (
     <View style={[styles.bubbleWrap, outbound ? styles.bubbleWrapOut : styles.bubbleWrapIn]}>
       <View style={[styles.bubble, outbound ? styles.bubbleOut : styles.bubbleIn]}>
         {message.subject ? <Text style={[styles.bubbleSubject, outbound ? styles.bubbleTextOut : null]}>{message.subject}</Text> : null}
-        <Text style={[styles.bubbleBody, outbound ? styles.bubbleTextOut : null]}>{message.body}</Text>
+        {message.body ? (
+          <Text style={[styles.bubbleBody, outbound ? styles.bubbleTextOut : null]}>{message.body}</Text>
+        ) : message.scanUrl ? (
+          // A scanned letter often has no typed text. Previously this rendered
+          // an empty bubble, which is what made incoming letters look blank.
+          <Text style={[styles.bubbleBody, styles.bubbleBodyMuted]}>
+            This letter arrived as a scan.
+          </Text>
+        ) : null}
+        {message.scanUrl ? <OriginalScanLink url={message.scanUrl} /> : null}
       </View>
       <Text style={styles.bubbleMeta}>
         {formatTime(message.createdAt)}
@@ -653,13 +862,16 @@ function ComposePane({
   target,
   onSend,
   onCancel,
+  limit,
 }: {
   target: ComposeParam;
   onSend: (body: string) => Promise<boolean>;
   onCancel: () => void;
+  limit: LetterLengthLimit | null;
 }) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const overLimit = limit?.wordLimit != null && countWords(body) > limit.wordLimit;
 
   async function submit() {
     const text = body.trim();
@@ -690,7 +902,11 @@ function ComposePane({
 
       <View style={styles.composeNote}>
         <Feather name="info" size={13} color={colors.textMuted} />
-        <Text style={styles.composeNoteText}>Your letter is printed and mailed to the facility. Replies are scanned back into this thread.</Text>
+        <Text style={styles.composeNoteText}>
+          Our team reviews every letter, then it is printed and mailed to the facility.
+          Replies are scanned back into this thread.
+          {limit?.wordLimit != null ? ` Letters to ${target.name} can be up to ${limit.wordLimit} words.` : ''}
+        </Text>
       </View>
 
       <View style={[styles.replyBox, { flex: 1 }]}>
@@ -702,13 +918,14 @@ function ComposePane({
           value={body}
           onChangeText={setBody}
         />
+        <WordCount text={body} limit={limit} />
         <Pressable
           onPress={submit}
-          disabled={sending || body.trim().length === 0}
+          disabled={sending || body.trim().length === 0 || overLimit}
           style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
             styles.sendBtn,
             webTransition,
-            body.trim().length === 0 ? { opacity: 0.5 } : null,
+            body.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
             hovered ? { opacity: 0.92 } : null,
             pressed ? { transform: [{ scale: 0.97 }] } : null,
           ]}
@@ -789,6 +1006,51 @@ const styles = StyleSheet.create({
   bubbleSubject: { ...type.button, fontSize: 13, marginBottom: spacing.xs, color: colors.textPrimary },
   bubbleBody: { ...type.body, fontSize: 14, lineHeight: 22, color: colors.textPrimary },
   bubbleTextOut: { color: colors.onPrimary },
+  buyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: 9,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  buyBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.primary },
+  packList: { gap: 8, marginTop: spacing.md },
+  packBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.surfaceMuted,
+  },
+  packLetters: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.textPrimary },
+  packPrice: { fontFamily: 'Inter_700Bold', fontSize: 13, color: colors.primary },
+  wordCount: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11.5,
+    color: colors.textMuted,
+    paddingHorizontal: 4,
+    paddingBottom: 2,
+  },
+  wordCountOver: { color: colors.primary, fontFamily: 'Inter_600SemiBold' },
+  scanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceMuted,
+  },
+  scanLinkText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: colors.primary },
+  bubbleBodyMuted: { fontStyle: 'italic', color: colors.textMuted },
   bubbleMeta: { ...type.caption, fontSize: 10, marginHorizontal: spacing.xs },
 
   replyBox: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: spacing.md, gap: spacing.md, backgroundColor: colors.bgElevated },
