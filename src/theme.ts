@@ -16,6 +16,8 @@
  * keys are additive for the desktop rail + mobile tab accents.
  */
 
+import { Platform, type TextStyle } from 'react-native';
+
 export const colors = {
   // Light content surfaces (warm blush / cream from the screens)
   bgDeep: '#FBF1EB',
@@ -136,3 +138,13 @@ export const type = {
   label: { fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 16, color: colors.textSecondary },
   button: { fontFamily: fonts.bodySemibold, fontSize: 15, lineHeight: 20, color: colors.textPrimary },
 } as const;
+
+/**
+ * Text input focus reset for the web build.
+ *
+ * React Native Web renders TextInput as a real <input>, so the browser draws
+ * its own square focus ring over the rounded pill we style. Native ignores
+ * this entirely.
+ */
+export const inputReset: TextStyle | null =
+  Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null;

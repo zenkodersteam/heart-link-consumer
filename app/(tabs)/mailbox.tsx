@@ -30,7 +30,7 @@ import { ProfileReviewOverlay } from '../../src/components/ProfileReviewOverlay'
 import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useToast } from '../../src/components/Toast';
-import { colors, cta, radii, spacing, type } from '../../src/theme';
+import { colors, cta, radii, spacing, type, inputReset } from '../../src/theme';
 import {
   LettersCardSkeleton,
   ThreadDetailSkeleton,
@@ -224,6 +224,12 @@ export default function MailboxScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Debounced so filtering does not run on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 250);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(typeof params.thread === 'string' ? params.thread : null);
   const [detail, setDetail] = useState<MailboxThreadDetail | null>(null);
@@ -451,9 +457,9 @@ export default function MailboxScreen() {
   );
 
   const filteredThreads = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     return threads.filter((t) => !q || t.profileDisplayName.toLowerCase().includes(q));
-  }, [threads, search]);
+  }, [threads, debouncedSearch]);
 
   const totalUnread = threads.reduce((n, t) => n + t.unreadCount, 0);
 
@@ -623,7 +629,7 @@ export default function MailboxScreen() {
           <View style={styles.searchRow}>
             <Feather name="search" size={16} color={colors.textMuted} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, inputReset]}
               value={search}
               onChangeText={setSearch}
               placeholder="Search letters…"
@@ -735,7 +741,7 @@ export default function MailboxScreen() {
       <View style={styles.searchRow}>
         <Feather name="search" size={16} color={colors.textMuted} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, inputReset]}
           value={search}
           onChangeText={setSearch}
           placeholder="Search letters…"
@@ -813,7 +819,7 @@ function ThreadView({
 
       <View style={styles.replyBox}>
         <TextInput
-          style={styles.replyInput}
+          style={[styles.replyInput, inputReset]}
           placeholder="Write a letter…"
           placeholderTextColor={colors.textMuted}
           multiline
@@ -963,7 +969,7 @@ function ComposePane({
 
       <View style={[styles.replyBox, { flex: 1 }]}>
         <TextInput
-          style={[styles.replyInput, { flex: 1, textAlignVertical: 'top' }]}
+          style={[styles.replyInput, { flex: 1, textAlignVertical: 'top' }, inputReset]}
           placeholder={`Write your letter to ${target.name}…`}
           placeholderTextColor={colors.textMuted}
           multiline

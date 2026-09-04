@@ -20,7 +20,7 @@ import { art } from '../../src/art';
 import { Button } from '../../src/components/primitives';
 import type { ListResourcesResponse, ResourceItem } from '../../src/lib/api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
-import { colors, fonts, radii, spacing, type } from '../../src/theme';
+import { colors, fonts, radii, spacing, type, inputReset } from '../../src/theme';
 import { ListSkeleton } from '../../src/components/Skeleton';
 
 /**
@@ -278,7 +278,7 @@ function SearchPill({
   return (
     <View style={styles.searchPill}>
       <TextInput
-        style={styles.searchInput}
+        style={[styles.searchInput, inputReset]}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}

@@ -21,7 +21,7 @@ import { ListSkeleton } from '../../src/components/Skeleton';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
-import { colors, radii, spacing, type } from '../../src/theme';
+import { colors, radii, spacing, type, inputReset } from '../../src/theme';
 
 type FieldKey = 'displayName' | 'location' | 'bio';
 
@@ -180,7 +180,7 @@ export default function EditProfileScreen() {
               multiline={field?.multiline}
               maxLength={field?.max}
               autoFocus
-              style={[styles.input, field?.multiline ? styles.inputMultiline : null]}
+              style={[styles.input, field?.multiline ? styles.inputMultiline : null, inputReset]}
             />
             {field?.max ? (
               <Text style={styles.count}>

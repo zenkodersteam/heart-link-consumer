@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { ListPublicProfilesQuery, ProfileGender } from '../lib/api';
-import { colors, cta, radii, spacing, type } from '../theme';
+import { colors, cta, radii, spacing, type, inputReset } from '../theme';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 const webTransition =
