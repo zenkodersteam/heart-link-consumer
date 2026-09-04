@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,6 +26,10 @@ export default function AccountScreen() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const router = useRouter();
+  // Set by the link the payment provider sends people back to. Without this the
+  // return from checkout looked identical to opening the tab normally, so there
+  // was no sign the payment had gone through.
+  const { checkout } = useLocalSearchParams<{ checkout?: string }>();
   const apiFactory = useApiClientFactory();
   const [signingOut, setSigningOut] = useState(false);
   const [entitlement, setEntitlement] = useState<LetterEntitlement | null>(null);
@@ -119,6 +123,22 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {checkout === 'success' ? (
+          <View style={[styles.banner, styles.bannerSuccess]}>
+            <Feather name="check-circle" size={18} color={colors.success} />
+            <Text style={styles.bannerText}>
+              Thank you. Your payment is processing — your plan turns on as soon as it settles,
+              usually within a minute.
+            </Text>
+          </View>
+        ) : null}
+        {checkout === 'cancel' ? (
+          <View style={styles.banner}>
+            <Feather name="info" size={18} color={colors.textSecondary} />
+            <Text style={styles.bannerText}>Checkout was cancelled. You have not been charged.</Text>
+          </View>
+        ) : null}
+
         {/* Identity: a row, not a stacked block. */}
         <View style={styles.lid}>
           <View style={styles.avatar}>
@@ -250,6 +270,19 @@ export default function AccountScreen() {
 }
 
 const styles = StyleSheet.create({
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: spacing.md,
+  },
+  bannerSuccess: { borderColor: colors.success, backgroundColor: 'rgba(46,138,87,0.08)' },
+  bannerText: { ...type.bodyMuted, flex: 1, lineHeight: 20 },
   safe: { flex: 1, backgroundColor: 'transparent' },
   body: { padding: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl, width: '100%', maxWidth: 980, alignSelf: 'center' },
   lid: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },

@@ -1,5 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import * as ExpoLinking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -136,12 +138,49 @@ function bullets(plan: Plan): string[] {
   return out;
 }
 
-function checkoutOrigin(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  return 'https://heart-link-consumer.vercel.app';
+/**
+ * Where the payment provider should send someone once they are done.
+ *
+ * On the web this is just a page on the same site. On a phone there is no such
+ * thing as a current page: `window.location` does not exist, so this fell back
+ * to a hard-coded website address, and paying on a phone dropped the member on
+ * a web page instead of back in the app they started in.
+ *
+ * `ExpoLinking.createURL` builds a link that reopens this app — `heartlink://`
+ * in a real build, and the development URL while running from Expo, so it works
+ * in both without a special case.
+ */
+function checkoutReturnUrl(path: string, params: Record<string, string>): string {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+    const search = new URLSearchParams(params).toString();
+    return `${window.location.origin}${path}${search ? `?${search}` : ''}`;
+  }
+  return ExpoLinking.createURL(path, { queryParams: params });
 }
 
 type Processor = 'stripe' | 'paypal';
+
+/**
+ * Hand the member to the provider's checkout page.
+ *
+ * On a phone this uses an in-app browser session tied to our return link, so
+ * the browser closes itself the moment payment finishes and the member is back
+ * where they were. Plain `openURL` would leave the checkout page sitting in
+ * Safari behind the app with no way back.
+ */
+async function openCheckout(url: string, returnUrl: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    await Linking.openURL(url);
+    return;
+  }
+  try {
+    await WebBrowser.openAuthSessionAsync(url, returnUrl);
+  } catch {
+    // Some devices have no browser the session API can drive; a plain open
+    // still gets them to the payment page.
+    await Linking.openURL(url);
+  }
+}
 
 /**
  * "Choose your plan" columns (UI lift mockup): art band top, serif price,
@@ -223,20 +262,20 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
       setNotice(null);
       try {
         const api = await apiFactory();
-        const origin = checkoutOrigin();
-        const returnPath = profileId ? `/sponsor?profile=${profileId}` : '/account?';
+        const returnPath = profileId ? '/sponsor' : '/account';
+        const base: Record<string, string> = profileId ? { profile: profileId } : {};
         const input = {
           planId: plan.id,
           profileId,
-          successUrl: `${origin}${returnPath}${profileId ? '&' : ''}checkout=success`,
-          cancelUrl: `${origin}${returnPath}${profileId ? '&' : ''}checkout=cancel`,
+          successUrl: checkoutReturnUrl(returnPath, { ...base, checkout: 'success' }),
+          cancelUrl: checkoutReturnUrl(returnPath, { ...base, checkout: 'cancel' }),
         };
         const res =
           processor === 'paypal'
             ? await api.createPayPalCheckout(input)
             : await api.createSubscriptionCheckout(input);
         if (res.configured && res.url) {
-          await Linking.openURL(res.url);
+          await openCheckout(res.url, input.successUrl);
         } else {
           const label = processor === 'paypal' ? 'PayPal' : 'Card';
           setNotice(`${label} checkout is coming soon. It is not available just yet.`);
