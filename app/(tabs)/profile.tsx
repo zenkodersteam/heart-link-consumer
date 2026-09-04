@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -71,6 +71,8 @@ export default function ProfileDetailScreen() {
   // them after a conditional return crashed this screen, and with it every
   // screen in the tab group.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const menuBtnRef = useRef<View | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [safetyBusy, setSafetyBusy] = useState(false);
@@ -219,7 +221,16 @@ export default function ProfileDetailScreen() {
           <Feather name="chevron-left" size={20} color={colors.textPrimary} />
         </Pressable>
         <Pressable
-          onPress={() => setMenuOpen(true)}
+          ref={menuBtnRef}
+          onPress={() => {
+            // Measure first so the menu drops from under the button rather
+            // than from a fixed offset that could land over it.
+            menuBtnRef.current?.measureInWindow?.((x, y, w, h) => {
+              setMenuAnchor({ top: y + h + 8, right: 16 });
+              setMenuOpen(true);
+            });
+            if (!menuBtnRef.current?.measureInWindow) setMenuOpen(true);
+          }}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="More options"
@@ -289,6 +300,7 @@ export default function ProfileDetailScreen() {
 
       <DropdownMenu
         open={menuOpen}
+        anchor={menuAnchor}
         onClose={() => setMenuOpen(false)}
         items={[
           {
@@ -310,12 +322,12 @@ export default function ProfileDetailScreen() {
               ]
             : []),
           {
-            label: 'Sponsor their membership',
+            label: 'Sponsor membership',
             icon: 'gift',
             onPress: () => router.push(`/sponsor?profile=${data.id}`),
           },
           {
-            label: 'Report this profile',
+            label: 'Report profile',
             icon: 'flag',
             separated: true,
             onPress: () => setReportOpen(true),

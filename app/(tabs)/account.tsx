@@ -129,11 +129,24 @@ export default function AccountScreen() {
             value={quotaLabel ?? undefined}
             onPress={() => router.push('/mailbox' as never)}
           />
+          {/* Only send people into the sign-up questions when there is
+              something left to answer. An approved profile landing back at
+              step 1 of 9 reads as though the approval did not count. */}
           <SettingsRow
             icon="user"
-            label="Your profile"
+            label={
+              profile?.status === 'approved'
+                ? 'Your profile'
+                : profile?.status === 'rejected'
+                  ? 'Fix and resubmit your profile'
+                  : 'Finish your profile'
+            }
             value={profileStatusLabel ?? undefined}
-            onPress={() => router.push('/onboarding' as never)}
+            onPress={
+              profile?.status === 'approved'
+                ? undefined
+                : () => router.push('/onboarding' as never)
+            }
           />
           <SettingsRow
             icon="credit-card"

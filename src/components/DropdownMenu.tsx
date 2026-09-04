@@ -32,18 +32,23 @@ export function DropdownMenu({
   open,
   onClose,
   items,
-  top = 96,
+  anchor,
 }: {
   open: boolean;
   onClose: () => void;
   items: MenuItem[];
-  /** Distance from the top of the screen to hang the menu from. */
-  top?: number;
+  /**
+   * Screen position of the control that opened it, so the menu hangs directly
+   * below rather than at a guessed offset that could sit over the button.
+   */
+  anchor?: { top: number; right: number } | null;
 }) {
+  const top = anchor?.top ?? 96;
+  const right = anchor?.right ?? spacing.md;
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <View style={[styles.sheet, { top }]}>
+        <View style={[styles.sheet, { top, right }]}>
           {items.map((item) => (
             <Pressable
               key={item.label}
@@ -69,7 +74,10 @@ export function DropdownMenu({
                   color={item.destructive ? colors.danger : colors.textSecondary}
                 />
               ) : null}
-              <Text style={[styles.label, item.destructive ? styles.labelDanger : null]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.label, item.destructive ? styles.labelDanger : null]}
+              >
                 {item.label}
               </Text>
             </Pressable>
@@ -84,9 +92,9 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(22,5,31,0.28)' },
   sheet: {
     position: 'absolute',
-    right: spacing.md,
-    minWidth: 232,
-    maxWidth: 300,
+    // Wide enough that the labels below never wrap onto a second line.
+    minWidth: 258,
+    maxWidth: 320,
     backgroundColor: colors.bgElevated,
     borderRadius: 16,
     paddingVertical: 6,
