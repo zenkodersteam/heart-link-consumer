@@ -2,9 +2,10 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
 import type { LetterEntitlement, MySubscription } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
@@ -22,6 +23,8 @@ export default function AccountScreen() {
   const [plansUnavailable, setPlansUnavailable] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -45,34 +48,24 @@ export default function AccountScreen() {
 
   /**
    * Close the account. Both stores require this to be reachable in the app.
-   * Irreversible, so it confirms first and names what actually happens.
+   * Irreversible, so it confirms in a real dialog first — React Native's Alert
+   * does nothing at all on the web build.
    */
-  function onDeleteAccount() {
-    Alert.alert(
-      'Delete your account?',
-      'Your sign-in is removed and your personal details are erased. Records of payments are kept, as we are required to. This cannot be undone.',
-      [
-        { text: 'Keep my account', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              const api = await apiFactory();
-              await api.deleteAccount();
-              clearMyProfileCache();
-              await signOut();
-              router.replace('/(auth)/sign-in');
-            } catch (e) {
-              Alert.alert('Could not close your account', humanError(e, 'Please try again, or contact support.'));
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
+  async function performDelete() {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const api = await apiFactory();
+      await api.deleteAccount();
+      clearMyProfileCache();
+      await signOut();
+      router.replace('/(auth)/sign-in');
+    } catch (e) {
+      setDeleteError(humanError(e, 'Please try again, or contact support.'));
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
   }
 
   async function onSignOut() {
@@ -176,6 +169,7 @@ export default function AccountScreen() {
                 : ''}
             </Text>
           </View>
+          <Text style={styles.groupLabel}>SUPPORT</Text>
           <View style={[styles.row, styles.rowDivider]}>
             <Text style={styles.rowText}>Not sure what to write?</Text>
             <Pressable onPress={() => router.push('/circle' as never)}>
@@ -188,6 +182,7 @@ export default function AccountScreen() {
               <Text style={styles.rowLink}>Visit Support</Text>
             </Pressable>
           </View>
+          <Text style={styles.groupLabel}>PRIVACY &amp; SAFETY</Text>
           <View style={[styles.row, styles.rowDivider]}>
             <Text style={styles.rowText}>People you have blocked</Text>
             <Pressable onPress={() => router.push('/blocked' as never)}>
@@ -200,16 +195,7 @@ export default function AccountScreen() {
               <Text style={styles.rowLink}>Read</Text>
             </Pressable>
           </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={styles.rowText}>Close your account</Text>
-            <Pressable onPress={onDeleteAccount} disabled={deleting}>
-              {deleting ? (
-                <ActivityIndicator size="small" color={colors.danger} />
-              ) : (
-                <Text style={styles.rowDanger}>Delete account</Text>
-              )}
-            </Pressable>
-          </View>
+
           {plansUnavailable ? (
             <View style={[styles.notice, styles.rowDivider]}>
               <Feather name="wifi-off" size={16} color={colors.gold} />
@@ -220,6 +206,37 @@ export default function AccountScreen() {
 
         <SubscriptionPlans />
       </ScrollView>
+      <View style={styles.dangerZone}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dangerTitle}>Close your account</Text>
+          <Text style={styles.dangerBody}>
+            Your sign-in is removed and your personal details are erased. This cannot be undone.
+          </Text>
+          {deleteError ? <Text style={styles.dangerError}>{deleteError}</Text> : null}
+        </View>
+        <Pressable
+          onPress={() => setConfirmDelete(true)}
+          disabled={deleting}
+          style={styles.dangerBtn}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color={colors.danger} />
+          ) : (
+            <Text style={styles.rowDanger}>Delete</Text>
+          )}
+        </Pressable>
+      </View>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        icon="alert-triangle"
+        title="Delete your account?"
+        message="Your sign-in is removed and your personal details are erased. Records of payments are kept, as we are required to. This cannot be undone."
+        actions={[{ label: 'Delete my account', destructive: true, onPress: () => void performDelete() }]}
+        cancelLabel="Keep my account"
+        onCancel={() => setConfirmDelete(false)}
+        busy={deleting}
+      />
     </SafeAreaView>
   );
 }
@@ -285,6 +302,38 @@ const styles = StyleSheet.create({
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   rowText: { ...type.body, fontSize: 14, color: colors.textSecondary },
   rowStrong: { color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
+  groupLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10.5,
+    letterSpacing: 0.9,
+    color: colors.textMuted,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: 2,
+  },
+  dangerZone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.xxl,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(179,37,63,0.22)',
+    backgroundColor: 'rgba(179,37,63,0.04)',
+  },
+  dangerTitle: { ...type.body, fontSize: 14, color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
+  dangerBody: { ...type.caption, color: colors.textMuted, marginTop: 2 },
+  dangerError: { ...type.caption, color: colors.danger, marginTop: 6 },
+  dangerBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    minWidth: 84,
+    alignItems: 'center',
+  },
   rowDanger: { ...type.body, color: colors.danger, fontFamily: 'Inter_600SemiBold' },
   rowLink: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.primary },
   notice: {

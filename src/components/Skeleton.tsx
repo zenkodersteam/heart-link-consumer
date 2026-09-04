@@ -45,11 +45,27 @@ export function DeckSkeleton() {
 }
 
 const ds = StyleSheet.create({
-  area: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.lg },
+  // The placeholder has to live inside whatever height it is given. It
+  // previously sized itself from a fixed aspect ratio and could grow taller
+  // than its container, spilling over the surrounding screen on a short
+  // viewport before the real deck replaced it.
+  area: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
   card: {
     width: '100%',
     maxWidth: 420,
     aspectRatio: 0.72,
+    // Keeps the shape when there is room, and gives it up rather than
+    // overflowing when there is not.
+    flexShrink: 1,
+    minHeight: 0,
     borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: colors.border,
@@ -61,7 +77,7 @@ const ds = StyleSheet.create({
   lineLg: { height: 22, width: '55%' },
   lineMd: { height: 14, width: '75%' },
   lineSm: { height: 14, width: '90%' },
-  actions: { flexDirection: 'row', gap: spacing.xl },
+  actions: { flexDirection: 'row', gap: spacing.xl, flexShrink: 0 },
   circle: { width: 60, height: 60, borderRadius: radii.pill },
 });
 

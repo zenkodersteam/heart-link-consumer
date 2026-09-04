@@ -4,7 +4,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   ActivityIndicator,
   Platform,
   Pressable,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { EmptyState } from '../../src/components/EmptyState';
 import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/components/profile-bits';
 import { Button } from '../../src/components/primitives';
@@ -190,50 +190,45 @@ export default function ProfileDetailScreen() {
 
   // Safety actions. Reporting and blocking are deliberately separate: a member
   // may want a profile looked at without cutting contact, or the reverse.
-  const onReport = useCallback(() => {
-    const ask = (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
+  // Shown in a real dialog — Alert does nothing on the web build.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [safetyBusy, setSafetyBusy] = useState(false);
+  const [safetyNote, setSafetyNote] = useState<string | null>(null);
+
+  const submitReport = useCallback(
+    (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
       void (async () => {
+        setSafetyBusy(true);
         try {
           const api = await factory();
           await api.reportProfile(data.id, { reason });
-          Alert.alert('Thank you', 'Our team will review this profile.');
+          setSafetyNote('Thank you. Our team will review this profile.');
         } catch {
-          Alert.alert('Could not send report', 'Please try again in a moment.');
+          setSafetyNote('We could not send that report. Please try again.');
+        } finally {
+          setSafetyBusy(false);
+          setReportOpen(false);
         }
       })();
-    };
-    Alert.alert('Report this profile', 'What is the problem?', [
-      { text: 'Inappropriate content', onPress: () => ask('inappropriate_content') },
-      { text: 'Pretending to be someone else', onPress: () => ask('fake_identity') },
-      { text: 'Breaks the rules', onPress: () => ask('policy_violation') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [factory, data.id]);
+    },
+    [factory, data.id],
+  );
 
-  const onBlock = useCallback(() => {
-    Alert.alert(
-      `Block ${data.displayName}?`,
-      'They will no longer appear when you browse, and you will not receive letters from them. You can undo this from your account.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                const api = await factory();
-                await api.blockProfile(data.id);
-                router.replace('/(tabs)');
-              } catch {
-                Alert.alert('Could not block', 'Please try again in a moment.');
-              }
-            })();
-          },
-        },
-      ],
-    );
-  }, [factory, data.id, data.displayName, router]);
+  const submitBlock = useCallback(() => {
+    void (async () => {
+      setSafetyBusy(true);
+      try {
+        const api = await factory();
+        await api.blockProfile(data.id);
+        router.replace('/(tabs)');
+      } catch {
+        setSafetyNote('We could not block that profile. Please try again.');
+        setSafetyBusy(false);
+        setBlockOpen(false);
+      }
+    })();
+  }, [factory, data.id, router]);
 
   const actionBar = (
     <View style={styles.stickybar}>
@@ -261,17 +256,40 @@ export default function ProfileDetailScreen() {
         <Feather name="gift" size={14} color={colors.gold} />
         <Text style={styles.sponsorLinkText}>Sponsor their membership</Text>
       </Pressable>
+      {safetyNote ? <Text style={styles.safetyNote}>{safetyNote}</Text> : null}
       <View style={styles.safetyRow}>
-        <Pressable onPress={onReport} hitSlop={8} style={styles.safetyBtn}>
+        <Pressable onPress={() => setReportOpen(true)} hitSlop={8} style={styles.safetyBtn}>
           <Feather name="flag" size={13} color={colors.textMuted} />
           <Text style={styles.safetyText}>Report</Text>
         </Pressable>
         <Text style={styles.safetyDot}>·</Text>
-        <Pressable onPress={onBlock} hitSlop={8} style={styles.safetyBtn}>
+        <Pressable onPress={() => setBlockOpen(true)} hitSlop={8} style={styles.safetyBtn}>
           <Feather name="slash" size={13} color={colors.textMuted} />
           <Text style={styles.safetyText}>Block</Text>
         </Pressable>
       </View>
+      <ConfirmDialog
+        open={reportOpen}
+        icon="flag"
+        title="Report this profile"
+        message="Tell us what the problem is and our team will review it. Reporting does not block them."
+        actions={[
+          { label: 'Inappropriate content', onPress: () => submitReport('inappropriate_content') },
+          { label: 'Pretending to be someone else', onPress: () => submitReport('fake_identity') },
+          { label: 'Breaks the rules', onPress: () => submitReport('policy_violation') },
+        ]}
+        onCancel={() => setReportOpen(false)}
+        busy={safetyBusy}
+      />
+      <ConfirmDialog
+        open={blockOpen}
+        icon="slash"
+        title={`Block ${data.displayName}?`}
+        message="They will no longer appear when you browse, and you will not receive letters from them. You can undo this from your account."
+        actions={[{ label: 'Block', destructive: true, onPress: submitBlock }]}
+        onCancel={() => setBlockOpen(false)}
+        busy={safetyBusy}
+      />
     </View>
   );
 
@@ -449,6 +467,7 @@ const styles = StyleSheet.create({
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   photoTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.photoTint },
   photoScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
+  safetyNote: { fontFamily: fonts.body, fontSize: 12.5, color: colors.primary, textAlign: 'center', paddingTop: 8 },
   safetyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 10 },
   safetyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   safetyText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.textMuted },
