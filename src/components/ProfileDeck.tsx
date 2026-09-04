@@ -41,6 +41,9 @@ interface ProfileDeckProps {
 }
 
 const SWIPE_THRESHOLD = 110;
+// Pull-down distance that brings the last card back. Higher than the sideways
+// threshold on purpose: undo should take a deliberate tug, not a stray drag.
+const SECOND_LOOK_THRESHOLD = 130;
 const CARD_MAX_WIDTH = 380;
 const DESKTOP_BREAKPOINT = 900;
 const IMPRESSION_SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -119,6 +122,8 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
     Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 7, tension: 80 }).start();
   }, [position]);
 
+  const canSecondLook = index > 0;
+
   const secondLook = useCallback(() => {
     if (index === 0) return;
     const restored = items[index - 1];
@@ -131,20 +136,47 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
     Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 7, tension: 70, useNativeDriver: false }).start();
   }, [index, items, onSecondLook, position, screenW]);
 
+  // True while the current drag is being read as a pull-down for Second Look,
+  // rather than a sideways like/pass. Decided during the drag and remembered
+  // until release, so a gesture cannot change meaning halfway through.
+  const pullingBack = useRef(false);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 6,
+        onMoveShouldSetPanResponder: (_e, g) =>
+          Math.abs(g.dx) > 6 || (canSecondLook && g.dy > 6),
         onPanResponderMove: (_e, g) => {
-          position.setValue({ x: g.dx, y: g.dy * 0.25 });
+          // A drag counts as a pull-back only when it is downward and clearly
+          // more vertical than horizontal, so ordinary swipes are unaffected.
+          const isPull = canSecondLook && g.dy > 0 && g.dy > Math.abs(g.dx) * 1.2;
+          pullingBack.current = isPull;
+          position.setValue({
+            // Sideways movement is damped during a pull-back so the card does
+            // not drift toward like or pass while it is being tugged down.
+            x: isPull ? g.dx * 0.2 : g.dx,
+            y: isPull ? g.dy * 0.55 : g.dy * 0.25,
+          });
         },
         onPanResponderRelease: (_e, g) => {
+          const wasPull = pullingBack.current;
+          pullingBack.current = false;
+
+          if (wasPull) {
+            if (g.dy > SECOND_LOOK_THRESHOLD) secondLook();
+            else reset();
+            return;
+          }
           if (g.dx > SWIPE_THRESHOLD) forceSwipe('like');
           else if (g.dx < -SWIPE_THRESHOLD) forceSwipe('pass');
           else reset();
         },
+        onPanResponderTerminate: () => {
+          pullingBack.current = false;
+          reset();
+        },
       }),
-    [forceSwipe, position, reset],
+    [canSecondLook, forceSwipe, position, reset, secondLook],
   );
 
   const rotate = position.x.interpolate({
@@ -154,6 +186,13 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
   });
   const likeOpacity = position.x.interpolate({ inputRange: [20, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: 'clamp' });
   const passOpacity = position.x.interpolate({ inputRange: [-SWIPE_THRESHOLD, -20], outputRange: [1, 0], extrapolate: 'clamp' });
+  // y is damped to 0.55 of the finger during a pull-back, so the stamp reaches
+  // full strength at the same moment the gesture would commit.
+  const secondLookOpacity = position.y.interpolate({
+    inputRange: [12, SECOND_LOOK_THRESHOLD * 0.55],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   // As the front card is dragged/flung either way, the cards behind it rise
   // toward the front position so the next card is already in place when the
@@ -272,6 +311,12 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
               <Feather name="heart" size={20} color={colors.onPrimary} />
               <Text style={[styles.stampText, styles.stampTextLike]}>LIKE</Text>
             </Animated.View>
+            {canSecondLook ? (
+              <Animated.View style={[styles.stampBack, { opacity: secondLookOpacity }]} pointerEvents="none">
+                <Feather name="rotate-ccw" size={15} color={colors.goldBright} />
+                <Text style={styles.stampBackText}>SECOND LOOK</Text>
+              </Animated.View>
+            ) : null}
 
             {/* Locked rule: deck click never navigates; only "View full profile"
                 opens detail (story panel on desktop, inline pill on mobile). */}
@@ -291,7 +336,7 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
 
       <View style={styles.actions}>
         <ActionButton variant="pass" label="Pass" onPress={() => forceSwipe('pass')} />
-        <ActionButton variant="second" label="Second Look" onPress={secondLook} disabled={index === 0} />
+        <ActionButton variant="second" label="Second Look" onPress={secondLook} disabled={!canSecondLook} />
         <ActionButton variant="like" label="Like" onPress={() => forceSwipe('like')} />
       </View>
     </View>
@@ -624,6 +669,24 @@ const styles = StyleSheet.create({
   },
   stampLike: { right: spacing.xl, borderColor: colors.primary, backgroundColor: colors.primary, transform: [{ rotate: '12deg' }] },
   stampPass: { left: spacing.xl, borderColor: colors.textMuted, transform: [{ rotate: '-12deg' }] },
+  // Centred rather than tilted into a corner: the pull-back is a vertical
+  // gesture, so a rotated corner stamp would read as a sideways swipe.
+  stampBack: {
+    position: 'absolute',
+    top: spacing.xl,
+    alignSelf: 'center',
+    zIndex: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 2,
+    borderColor: colors.goldBright,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(26,8,51,0.55)',
+  },
+  stampBackText: { fontFamily: 'Inter_700Bold', fontSize: 13, letterSpacing: 1.5, color: colors.goldBright },
   stampText: { fontFamily: 'Inter_700Bold', fontSize: 26, letterSpacing: 2 },
   stampTextLike: { color: colors.onPrimary },
   stampTextPass: { color: colors.textMuted },
