@@ -9,7 +9,7 @@ import { colors, radii, spacing } from '../src/theme';
 export default function PrivacySafetyScreen() {
   const router = useRouter();
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Privacy & safety" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>

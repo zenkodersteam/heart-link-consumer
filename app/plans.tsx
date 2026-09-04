@@ -8,7 +8,7 @@ import { colors, spacing } from '../src/theme';
 /** Plans, on their own screen rather than buried at the bottom of Account. */
 export default function PlansScreen() {
   return (
-    <SafeAreaView style={styles.safe} edges={['bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ScreenHeader title="Plans" subtitle="Choose what suits you" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>

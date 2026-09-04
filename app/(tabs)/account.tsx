@@ -143,8 +143,10 @@ export default function AccountScreen() {
             }
             value={profileStatusLabel ?? undefined}
             onPress={
+              // An approved member edits fields directly; someone who has not
+              // finished still walks the questions, where step-by-step helps.
               profile?.status === 'approved'
-                ? undefined
+                ? () => router.push('/edit-profile' as never)
                 : () => router.push('/onboarding' as never)
             }
           />
