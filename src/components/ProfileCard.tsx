@@ -42,6 +42,7 @@ export function ProfileCard({ profile, focused }: ProfileCardProps) {
           name={profile.displayName}
           style={styles.image}
           priority={focused ? 'high' : 'normal'}
+          showCaption={false}
         />
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <View style={styles.photoTint} />
@@ -69,7 +70,11 @@ export function ProfileCard({ profile, focused }: ProfileCardProps) {
               {profile.displayName}
             </Text>
             {profile.age != null ? <Text style={styles.age}>{profile.age}</Text> : null}
-            <Feather name="shield" size={15} color={colors.goldBright} />
+            {/* Same rule as the badge above: this claimed a verified identity
+                on every card, whether or not anyone had checked. */}
+            {profile.isVerified ? (
+              <Feather name="shield" size={15} color={colors.goldBright} />
+            ) : null}
           </View>
           <View style={styles.locationRow}>
             <Feather name="map-pin" size={13} color="rgba(255,255,255,0.75)" />

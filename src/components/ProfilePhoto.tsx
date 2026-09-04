@@ -40,10 +40,12 @@ export function PhotoPlaceholder({
   name,
   style,
   compact,
+  showCaption,
 }: {
   name?: string | null;
   style?: StyleProp<ViewStyle>;
   compact?: boolean;
+  showCaption?: boolean;
 }) {
   const initial = initialOf(name);
   const g = gradientFor(name ?? 'heartlink');
@@ -58,7 +60,7 @@ export function PhotoPlaceholder({
         ) : (
           <Feather name="user" size={compact ? 22 : 34} color={colors.goldBright} />
         )}
-        {!compact ? (
+        {!compact && showCaption !== false ? (
           <View style={styles.captionRow}>
             <Feather name="camera-off" size={12} color={colors.sidebarTextMuted} />
             <Text style={styles.caption}>Photo coming soon</Text>
@@ -75,15 +77,18 @@ type ProfilePhotoProps = {
   style?: StyleProp<ViewStyle>;
   priority?: 'low' | 'normal' | 'high';
   compact?: boolean;
+  /** Off where the parent already draws text over the photo. */
+  showCaption?: boolean;
 };
 
-export function ProfilePhoto({ uri, name, style, priority = 'normal', compact }: ProfilePhotoProps) {
+export function ProfilePhoto({ uri, name, style, priority = 'normal', compact, showCaption }: ProfilePhotoProps) {
   const [failed, setFailed] = useState(false);
   // A new uri deserves a fresh attempt; without this a recycled card keeps the
   // previous person's failure.
   useEffect(() => setFailed(false), [uri]);
 
-  if (!uri || failed) return <PhotoPlaceholder name={name} style={style} compact={compact} />;
+  if (!uri || failed)
+    return <PhotoPlaceholder name={name} style={style} compact={compact} showCaption={showCaption} />;
 
   return (
     <Image

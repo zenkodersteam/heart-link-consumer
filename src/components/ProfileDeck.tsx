@@ -344,7 +344,8 @@ function DeckCard({
             name={profile.displayName}
             style={styles.image}
             priority={front ? 'high' : preload ? 'normal' : 'low'}
-          />
+            showCaption={false}
+        />
         </View>
 
         {/* Midnight tint + bottom scrim: unifies the photo set and carries the
@@ -358,7 +359,9 @@ function DeckCard({
           />
         </View>
 
-        {front ? (
+        {/* Was shown on whichever card happened to be on top, regardless of
+            whether an identity check had ever been done. */}
+        {front && profile.isVerified ? (
           <View style={styles.verifiedBadge} pointerEvents="none">
             <Feather name="shield" size={13} color={colors.goldBright} />
             <Text style={styles.verifiedBadgeText}>Verified Profile</Text>
@@ -386,7 +389,9 @@ function DeckCard({
               {profile.displayName}
             </Text>
             {profile.age != null ? <Text style={styles.age}>{profile.age}</Text> : null}
-            <Feather name="shield" size={16} color={colors.goldBright} style={styles.verified} />
+            {profile.isVerified ? (
+              <Feather name="shield" size={16} color={colors.goldBright} style={styles.verified} />
+            ) : null}
           </View>
 
           <View style={styles.locationRow}>
