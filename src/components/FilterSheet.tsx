@@ -1,6 +1,17 @@
 import { Feather } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import type { ListPublicProfilesQuery, PlanTier, ProfileGender } from '../lib/api';
 import { colors, cta, radii, spacing, type, inputReset } from '../theme';
@@ -72,6 +83,8 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps) {
+  const { width: viewportWidth } = useWindowDimensions();
+  const isWide = viewportWidth >= 900;
   const [ageMin, setAgeMin] = useState<number | undefined>(query.ageMin);
   const [ageMax, setAgeMax] = useState<number | undefined>(query.ageMax);
   const [state, setState] = useState(query.state ?? '');
@@ -136,16 +149,32 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
     (ageMin != null || ageMax != null ? 1 : 0) + (state.trim() ? 1 : 0) + (gender ? 1 : 0);
 
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Animated.View style={{ opacity: fade, transform: [{ scale }], width: '100%', alignItems: 'center' }}>
-          <Pressable style={styles.card} onPress={() => undefined}>
+    <Modal
+      visible={open}
+      transparent
+      animationType={isWide ? 'fade' : 'slide'}
+      onRequestClose={onClose}
+    >
+      <Pressable style={[styles.backdrop, isWide ? styles.backdropWide : null]} onPress={onClose}>
+        <Animated.View
+          style={[
+            { width: '100%', alignItems: 'center' },
+            // The slide handles the entrance on a phone; scaling it as well
+            // reads as two animations fighting.
+            isWide ? { opacity: fade, transform: [{ scale }] } : null,
+          ]}
+        >
+          <Pressable
+            style={[styles.card, isWide ? styles.cardWide : null]}
+            onPress={() => undefined}
+          >
+            {!isWide ? <View style={styles.grabber} /> : null}
             <View style={styles.header}>
               {/* flex:1 so long subtitle copy wraps inside the card instead of
                   overhanging past the close button. */}
               <View style={styles.headerText}>
                 <Text style={styles.title}>Filters</Text>
-                <Text style={styles.subtitle}>Refine who you discover. Choose Everyone to keep the full deck visible.</Text>
+                <Text style={styles.subtitle}>Refine who you discover.</Text>
               </View>
               <Pressable
                 onPress={onClose}
@@ -156,6 +185,11 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
               </Pressable>
             </View>
 
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: spacing.sm }}
+            >
             <Text style={styles.label}>AGE RANGE</Text>
             <View style={styles.chipRow}>
               {AGE_PRESETS.map((p) => (
@@ -214,7 +248,6 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
             </View>
 
             <Text style={styles.label}>SHOW ME</Text>
-            <Text style={styles.sectionHint}>Same gender choices as the quick menu, with age and location in one place.</Text>
             <View style={styles.segment}>
               {GENDERS.map((g) => {
                 const active = gender === g.value;
@@ -236,9 +269,6 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
             </View>
 
             <Text style={styles.label}>MEMBERSHIP TIER</Text>
-            <Text style={styles.sectionHint}>
-              Higher tiers allow longer letters and more photos on a profile.
-            </Text>
             <View style={styles.chipRow}>
               {TIERS.map((t) => (
                 <Chip
@@ -249,6 +279,8 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
                 />
               ))}
             </View>
+
+            </ScrollView>
 
             <View style={styles.footer}>
               <Pressable
@@ -277,47 +309,67 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
 }
 
 const styles = StyleSheet.create({
+  // A centred dialog is a desktop shape. On a phone this belongs against the
+  // bottom edge, in thumb reach, at the height it actually needs.
   backdrop: {
     flex: 1,
     backgroundColor: colors.overlay,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
+    justifyContent: 'flex-end',
   },
+  backdropWide: { justifyContent: 'center', padding: spacing.xl },
   card: {
     width: '100%',
-    maxWidth: 440,
     backgroundColor: colors.bgElevated,
-    borderRadius: radii.xl,
-    padding: spacing.xl,
-    gap: spacing.sm,
-    boxShadow: '0 24px 60px rgba(26, 8, 51, 0.32)',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+    maxHeight: '86%',
+    gap: 2,
+    boxShadow: '0 -12px 40px rgba(26, 8, 51, 0.26)',
   },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, marginBottom: spacing.sm },
+  cardWide: {
+    maxWidth: 440,
+    borderRadius: radii.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    maxHeight: '90%',
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md, marginBottom: 2 },
   headerText: { flex: 1, minWidth: 0 },
-  title: { ...type.h1, fontSize: 24 },
-  subtitle: { ...type.bodyMuted, marginTop: 2 },
+  title: { ...type.h1, fontSize: 19 },
+  subtitle: { ...type.bodyMuted, fontSize: 12.5, marginTop: 1 },
   closeBtn: {
-    width: 34,
-    height: 34,
+    width: 30,
+    height: 30,
     borderRadius: radii.pill,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  label: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.8, color: colors.textMuted, marginTop: spacing.md, marginBottom: spacing.xs },
-  sectionHint: { ...type.caption, color: colors.textSecondary, marginBottom: spacing.sm },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  label: { ...type.label, fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.8, color: colors.textMuted, marginTop: spacing.md, marginBottom: 5 },
+  sectionHint: { ...type.caption, fontSize: 11.5, color: colors.textMuted, marginBottom: 7 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.bgDeep,
   },
   chipActive: { borderColor: colors.primary, backgroundColor: colors.primaryFaint },
-  chipText: { ...type.button, fontSize: 14, color: colors.textSecondary },
+  chipText: { ...type.button, fontSize: 13, color: colors.textSecondary },
   chipTextActive: { color: colors.primary },
   rangeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   rangeField: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, backgroundColor: colors.bgDeep, paddingHorizontal: spacing.lg },
