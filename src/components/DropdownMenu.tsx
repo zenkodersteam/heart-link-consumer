@@ -78,7 +78,9 @@ export function DropdownMenu({
     <Modal
       visible={open}
       transparent
-      animationType="fade"
+      // No dismiss animation: the confirmation cannot open until this has gone,
+      // so a fade here was pure waiting between tapping Report and seeing it.
+      animationType="none"
       onRequestClose={onClose}
       onDismiss={runPending}
     >

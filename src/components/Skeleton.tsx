@@ -300,3 +300,40 @@ const lc = StyleSheet.create({
   meta: { height: 12, width: 160, marginTop: 2 },
   action: { height: 42, width: '100%', borderRadius: radii.pill, marginTop: spacing.sm },
 });
+
+/** Liked list: avatar tile, name and location — the row shape that screen uses. */
+export function LikedListSkeleton({ count = 4 }: { count?: number }) {
+  return (
+    <View style={lk.wrap}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} style={lk.row}>
+          <Skeleton style={lk.avatar} />
+          <View style={lk.lines}>
+            <Skeleton style={lk.name} />
+            <Skeleton style={lk.meta} />
+          </View>
+          <Skeleton style={lk.chevron} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const lk = StyleSheet.create({
+  wrap: { gap: spacing.md, width: '100%' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  avatar: { width: 54, height: 54, borderRadius: radii.md },
+  lines: { flex: 1, gap: 8 },
+  name: { height: 16, width: '46%' },
+  meta: { height: 12, width: '24%' },
+  chevron: { width: 10, height: 16, borderRadius: 3 },
+});

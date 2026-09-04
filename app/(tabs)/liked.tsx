@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { EmptyState } from '../../src/components/EmptyState';
-import { GridSkeleton } from '../../src/components/Skeleton';
+import { LikedListSkeleton } from '../../src/components/Skeleton';
 import { Button } from '../../src/components/primitives';
 import { art } from '../../src/art';
 import type { PublicProfileSummary } from '../../src/lib/api';
@@ -214,7 +214,7 @@ export default function LikedScreen() {
 
       <Animated.View style={[styles.results, resultsStyle]}>
       {loading ? (
-        <GridSkeleton count={6} columns={cols} />
+        <LikedListSkeleton count={4} />
       ) : error ? (
         <View style={styles.center}>
           <View style={styles.errIcon}>

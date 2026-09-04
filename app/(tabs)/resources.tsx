@@ -111,7 +111,14 @@ export default function ResourcesScreen() {
 
   const [state, setState] = useState<FetchState>({ data: null, loading: false, error: null });
 
-  const q = search.trim();
+  // Debounced: firing on every keystroke cancelled the request in flight and
+  // the list sat in a loading state while someone was still typing.
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+  const q = debounced;
   const showCards = active === 'all' && q.length === 0;
   const activeCategory = CATEGORIES.find((c) => c.key === active) ?? null;
 
@@ -184,7 +191,9 @@ export default function ResourcesScreen() {
 
         <Animated.View style={[styles.orgList, gridStyle]}>
           {state.loading ? (
-            <ListSkeleton count={4} />
+            <View style={{ width: '100%' }}>
+              <ListSkeleton count={4} />
+            </View>
           ) : state.error ? (
             <Text style={styles.empty}>{state.error}</Text>
           ) : items.length === 0 ? (
@@ -223,7 +232,9 @@ export default function ResourcesScreen() {
       {q.length > 0 ? (
         <Animated.View style={[styles.orgList, gridStyle]}>
           {state.loading ? (
-            <ListSkeleton count={4} />
+            <View style={{ width: '100%' }}>
+              <ListSkeleton count={4} />
+            </View>
           ) : state.error ? (
             <Text style={styles.empty}>{state.error}</Text>
           ) : items.length === 0 ? (
@@ -272,6 +283,10 @@ function SearchPill({
         onChangeText={onChange}
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        clearButtonMode="while-editing"
       />
       <View style={styles.searchGo}>
         <Feather name="search" size={17} color={colors.onPrimary} />
