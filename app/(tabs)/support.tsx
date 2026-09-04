@@ -74,12 +74,12 @@ const TOPICS: Topic[] = [
     key: 'billing',
     title: 'Account & Billing',
     blurb: 'Plans, payments, and everything on your account.',
-    cardBlurb: 'Plans, payments, PayPal, and refunds.',
+    cardBlurb: 'Plans, payments, and refunds.',
     art: art.topicBilling,
     faqs: [
       {
         q: 'How do plans and payments work?',
-        a: 'HeartLink runs on yearly plans: Basic $30, Diamond $45, and VIP $60 per year. Each tier sets how many profile photos you can view per profile and how long your letters can be. Pay with a card or PayPal from the Account page; your plan renews yearly. To move to a different tier, contact support and our team will switch it for you.',
+        a: 'HeartLink runs on yearly plans: Basic $30, Diamond $45, and VIP $60 per year. Each tier sets how many profile photos you can view per profile and how long your letters can be. Pay by card from the Account page; your plan renews yearly. You can cancel it yourself from the Account page at any time, and you keep the time you have already paid for. To move to a different tier, contact support and our team will switch it for you.',
       },
       {
         q: 'Can I get a refund on my plan?',
@@ -91,11 +91,11 @@ const TOPICS: Topic[] = [
       },
       {
         q: 'Why was my payment declined?',
-        a: 'Most declines come from the card issuer: an expired card, a typo in the billing details, or a fraud hold. Try the payment again, check the details, or use PayPal. If it keeps failing, contact support.',
+        a: 'Most declines come from the card issuer: an expired card, a typo in the billing details, or a fraud hold. Try the payment again and check the details. If it keeps failing, contact support.',
       },
       {
         q: 'Where can I see my billing history?',
-        a: 'Your card or PayPal statement lists every HeartLink charge, and support can send a receipt for any payment. An in-app billing history view is on the way.',
+        a: 'Your card statement lists every HeartLink charge, and support can send a receipt for any payment. An in-app billing history view is on the way.',
       },
     ],
   },

@@ -156,6 +156,12 @@ export interface CreateCheckoutInput {
   cancelUrl: string;
 }
 
+export interface CancelSubscriptionResponse {
+  cancelled: boolean;
+  /** When access actually stops; null when the provider did not say. */
+  accessEndsOn: string | null;
+}
+
 export interface CreateCheckoutResponse {
   /** Processor-hosted approval URL, or null when payments are not configured. */
   url: string | null;
@@ -577,6 +583,16 @@ export function createApiClient(options: ApiClientOptions) {
       return request<CreateCheckoutResponse>(`/api/subscriptions/checkout`, {
         method: 'POST',
         body: JSON.stringify(input),
+      });
+    },
+
+    /**
+     * Stop the plan renewing. The period already paid for is kept, so
+     * `accessEndsOn` is when it actually stops — not now.
+     */
+    async cancelMySubscription(): Promise<CancelSubscriptionResponse> {
+      return request<CancelSubscriptionResponse>(`/api/subscriptions/me/cancel`, {
+        method: 'POST',
       });
     },
 

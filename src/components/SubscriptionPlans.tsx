@@ -82,14 +82,11 @@ function priceParts(plan: Plan): { amount: string; interval: string } {
  *    `inmate_listing` plans (all annual) and falls back to every plan, so the
  *    moment the monthly outside-user plans surface here the sentence silently
  *    becomes false. Reading the interval off the plans keeps it honest.
- *  - "Cancel anytime" promised a capability that does not exist. There is no
- *    cancellation endpoint and no self-serve cancel flow in either repo - the
- *    only `cancel` in the checkout path is Stripe/PayPal's abandon URL. Telling
- *    a buyer they can cancel anytime, at the moment they pay, is a commitment
- *    the product cannot honour.
- *
- * ponytail: states the real path (contact support) instead of inventing one.
- * Replace with self-serve wording once an actual cancellation flow ships.
+ *  - "Cancel anytime" used to promise a capability that did not exist: there
+ *    was no cancellation endpoint and no self-serve flow in either repo, so
+ *    telling a buyer they could cancel anytime, at the moment they paid, was a
+ *    commitment the product could not honour. There is a real cancellation now
+ *    (Account -> Plan), so the wording says so.
  */
 function renewalNotice(plans: Plan[]): string {
   const intervals = new Set(plans.map((p) => p.billingInterval));
@@ -101,7 +98,7 @@ function renewalNotice(plans: Plan[]): string {
           ? 'Renews monthly.'
           : 'Renews automatically.'
       : 'Renews automatically.';
-  return `${renews} To cancel, contact support.`;
+  return `${renews} Cancel anytime from your account.`;
 }
 
 /**
@@ -158,7 +155,12 @@ function checkoutReturnUrl(path: string, params: Record<string, string>): string
   return ExpoLinking.createURL(path, { queryParams: params });
 }
 
-type Processor = 'stripe' | 'paypal';
+/**
+ * Card only. PayPal was removed from the plan screens by client decision; the
+ * groundwork stays in the database and the API so it can be turned back on
+ * without rebuilding it.
+ */
+type Processor = 'stripe';
 
 /**
  * Hand the member to the provider's checkout page.
@@ -270,15 +272,11 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
           successUrl: checkoutReturnUrl(returnPath, { ...base, checkout: 'success' }),
           cancelUrl: checkoutReturnUrl(returnPath, { ...base, checkout: 'cancel' }),
         };
-        const res =
-          processor === 'paypal'
-            ? await api.createPayPalCheckout(input)
-            : await api.createSubscriptionCheckout(input);
+        const res = await api.createSubscriptionCheckout(input);
         if (res.configured && res.url) {
           await openCheckout(res.url, input.successUrl);
         } else {
-          const label = processor === 'paypal' ? 'PayPal' : 'Card';
-          setNotice(`${label} checkout is coming soon. It is not available just yet.`);
+          setNotice('Card payment is not available just yet. Please try again soon.');
         }
       } catch (e) {
         setNotice(e instanceof ApiClientError ? e.message : 'Could not start checkout.');
@@ -608,13 +606,6 @@ const styles = StyleSheet.create({
   },
   ctaText: { fontFamily: 'Inter_600SemiBold', fontSize: 14.5, color: colors.primary },
   ctaTextFeatured: { color: colors.onPrimary },
-  paypal: {
-    textAlign: 'center',
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12.5,
-    color: colors.textMuted,
-    marginTop: 10,
-  },
   compactRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
   compactTile: {
     flex: 1,
