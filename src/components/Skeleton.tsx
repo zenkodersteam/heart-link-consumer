@@ -263,3 +263,40 @@ const pd = StyleSheet.create({
   lineShort: { height: 13, width: '72%' },
   strip: { height: 74, width: '100%', borderRadius: radii.md, marginTop: spacing.md },
 });
+
+/**
+ * The mailbox letters-remaining card.
+ *
+ * The card used to draw itself with an empty title while the allowance was
+ * still being fetched, then snap to the real numbers, so the top of the mailbox
+ * flickered on every visit. This holds the same footprint until the figures are
+ * actually known.
+ */
+export function LettersCardSkeleton({ withAction = true }: { withAction?: boolean }) {
+  return (
+    <View style={lc.card}>
+      <View style={lc.top}>
+        <Skeleton style={lc.dot} />
+        <Skeleton style={lc.title} />
+      </View>
+      <Skeleton style={lc.meta} />
+      {withAction ? <Skeleton style={lc.action} /> : null}
+    </View>
+  );
+}
+
+const lc = StyleSheet.create({
+  card: {
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    backgroundColor: colors.bgElevated,
+  },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dot: { width: 14, height: 14, borderRadius: 7 },
+  title: { height: 15, width: 110 },
+  meta: { height: 12, width: 160, marginTop: 2 },
+  action: { height: 42, width: '100%', borderRadius: radii.pill, marginTop: spacing.sm },
+});

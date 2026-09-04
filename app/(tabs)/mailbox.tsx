@@ -30,7 +30,11 @@ import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useToast } from '../../src/components/Toast';
 import { colors, cta, radii, spacing, type } from '../../src/theme';
-import { ThreadDetailSkeleton, ThreadListSkeleton } from '../../src/components/Skeleton';
+import {
+  LettersCardSkeleton,
+  ThreadDetailSkeleton,
+  ThreadListSkeleton,
+} from '../../src/components/Skeleton';
 
 /**
  * Secure Mailbox - PostGrid letter correspondence (real backend).
@@ -507,6 +511,13 @@ export default function MailboxScreen() {
   }
 
   function LettersWidget() {
+    // Hold the card's shape until the allowance is known, rather than drawing
+    // it with an empty heading and snapping to the numbers a moment later.
+    if (profileApproved && entitlement === null) {
+      // Reserve the buy button's space too: most members have a limited
+      // allowance, so it is the shape the card usually settles into.
+      return <LettersCardSkeleton />;
+    }
     if (!profileApproved) {
       return (
         <View style={[styles.lettersCard, { borderColor: colors.gold, backgroundColor: colors.goldFaint }]}>
