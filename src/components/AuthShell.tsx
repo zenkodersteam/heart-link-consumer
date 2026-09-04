@@ -43,6 +43,15 @@ interface AuthShellProps {
    * strip. Long forms opt out.
    */
   compact?: boolean;
+  /**
+   * Drop the artwork on phones entirely and show a slim brand bar instead.
+   *
+   * For the nine sign-up questions: even the compact panel reserved about a
+   * fifth of the screen on every step, so the questions themselves were squeezed
+   * into what was left. The art belongs on a screen someone sees once, not on
+   * nine in a row.
+   */
+  minimal?: boolean;
 }
 
 function Brand({ size }: { size: number }) {
@@ -108,7 +117,7 @@ function ArtPanel({ mobile, height }: { mobile?: boolean; height?: number }) {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer, compact }: AuthShellProps) {
+export function AuthShell({ title, subtitle, children, footer, compact, minimal }: AuthShellProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // Cap the art as a share of the viewport so short phones are not swallowed.
@@ -185,7 +194,13 @@ export function AuthShell({ title, subtitle, children, footer, compact }: AuthSh
   return (
     <View style={styles.rootMobile}>
       <SafeAreaView style={styles.flex} edges={['top']}>
-        <ArtPanel mobile height={artHeight} />
+        {minimal ? (
+          <View style={styles.slimBar}>
+            <Brand size={17} />
+          </View>
+        ) : (
+          <ArtPanel mobile height={artHeight} />
+        )}
         <Animated.View style={[styles.sheet, revealStyle(formReveal)]}>
           <KeyboardAvoidingView
             style={styles.flex}
@@ -212,6 +227,7 @@ const styles = StyleSheet.create({
   split: { flex: 1, flexDirection: 'row' },
   artCol: { flex: 1.15, minWidth: 0 },
   artDesktop: { flex: 1, overflow: 'hidden' },
+  slimBar: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
   artMobile: { height: auth.mobileArtHeight, overflow: 'hidden' },
   artBrand: { position: 'absolute', top: 44, left: 48, zIndex: 2 },
   artBrandMobile: { top: 18, left: 18 },

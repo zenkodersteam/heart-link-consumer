@@ -360,7 +360,7 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <AuthShell title={step.title} subtitle={step.subtitle} compact>
+    <AuthShell title={step.title} subtitle={step.subtitle} compact minimal>
       {/* Compact responsive progress: avoids nine fixed dots cramping on small
           phones. The counter sits with the bar it describes — it used to live in
           the footer, nine steps away from the thing it labelled. */}
