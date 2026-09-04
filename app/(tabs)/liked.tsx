@@ -22,6 +22,7 @@ import type { PublicProfileSummary } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PROFILES } from '../../src/lib/preview';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';
+import { stateName } from '../../src/lib/prefs';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';
 
@@ -33,8 +34,9 @@ const SORTS: { key: SortKey; label: string }[] = [
 ];
 
 function columnsForWidth(w: number): number {
-  if (w >= 1100) return 3;
-  if (w >= 700) return 2;
+  if (w >= 1240) return 4;
+  if (w >= 940) return 3;
+  if (w >= 620) return 2;
   return 1;
 }
 
@@ -239,19 +241,17 @@ export default function LikedScreen() {
           ))}
         </View>
       ) : (
-        <View style={styles.grid}>
+        <View style={styles.wideList}>
           {sorted.map((p) => (
-            <View key={p.id} style={[styles.cardCol, { width: `${100 / cols}%` }]}>
-              <RemovableItem removing={removing.has(p.id)} onDone={() => finishRemove(p.id)}>
-                <GridCard
-                  profile={p}
-                  onOpen={() => router.push(`/(tabs)/profile?id=${p.id}`)}
-                  onMessage={() =>
-                    router.push(`/mailbox?compose=${p.id}&name=${encodeURIComponent(p.displayName)}`)
-                  }
-                />
-              </RemovableItem>
-            </View>
+            <RemovableItem key={p.id} removing={removing.has(p.id)} onDone={() => finishRemove(p.id)}>
+              <WideCard
+                profile={p}
+                onOpen={() => router.push(`/(tabs)/profile?id=${p.id}`)}
+                onMessage={() =>
+                  router.push(`/mailbox?compose=${p.id}&name=${encodeURIComponent(p.displayName)}`)
+                }
+              />
+            </RemovableItem>
           ))}
         </View>
       )}
@@ -286,7 +286,76 @@ function NameRow({ profile }: { profile: PublicProfileSummary }) {
     <View style={styles.nameRow}>
       <Text style={styles.name} numberOfLines={1}>{profile.displayName}</Text>
       {profile.age != null ? <Text style={styles.age}>{profile.age}</Text> : null}
-      <Feather name="shield" size={15} color={colors.goldBright} />
+      {/* Same rule as the browse cards and the profile page: only shown when
+          staff recorded an identity check. */}
+      {profile.isVerified ? (
+        <Feather name="shield" size={15} color={colors.goldBright} />
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Wide card for web / tablet.
+ *
+ * The grid this replaced put a portrait photo in a narrow column, so the image
+ * grew taller as the column grew wider and the two actions had no room to sit
+ * side by side. Laying the card out horizontally fixes both: the photo's height
+ * is set by the row, not by the column width, and the body gets the space it
+ * needs for a bio excerpt and full-width buttons.
+ */
+function WideCard({
+  profile,
+  onOpen,
+  onMessage,
+}: {
+  profile: PublicProfileSummary;
+  onOpen: () => void;
+  onMessage: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  // Only `state` exists on the summary; expand it so the card reads
+  // "Texas" rather than "TX".
+  const place = profile.facility.state ? stateName(profile.facility.state) : '';
+  return (
+    <View
+      style={[styles.wideCard, hovered ? styles.cardHovered : null]}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <Pressable onPress={onOpen} style={styles.widePhotoPress}>
+        <View style={styles.widePhoto}>
+          <ProfilePhoto uri={profile.primaryPhotoUrl} name={profile.displayName} style={styles.image} priority="normal" />
+          {profile.photoCount > 1 ? (
+            <View style={styles.photoCount}>
+              <Feather name="image" size={11} color={colors.sidebarText} />
+              <Text style={styles.photoCountText}>{profile.photoCount}</Text>
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+
+      <View style={styles.wideBody}>
+        <View style={styles.wideTop}>
+          <Pressable onPress={onOpen}>
+            <NameRow profile={profile} />
+          </Pressable>
+          {place ? (
+            <View style={styles.wherePill}>
+              <Feather name="map-pin" size={12} color={colors.textMuted} />
+              <Text style={styles.facility} numberOfLines={1}>{place}</Text>
+            </View>
+          ) : null}
+          {profile.bioExcerpt ? (
+            <Text style={styles.wideBio} numberOfLines={2}>{profile.bioExcerpt}</Text>
+          ) : null}
+        </View>
+
+        <View style={styles.wideActions}>
+          <Button label="View profile" variant="secondary" onPress={onOpen} />
+          <Button label="Write a letter" onPress={onMessage} />
+        </View>
+      </View>
     </View>
   );
 }
@@ -300,8 +369,14 @@ function GridCard({
   onOpen: () => void;
   onMessage: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <View style={styles.card}>
+    <View
+      style={[styles.card, hovered ? styles.cardHovered : null]}
+      // RN Web maps these to mouseenter/leave; they are inert on native.
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
       <Pressable onPress={onOpen}>
         <View style={styles.imageWrap}>
           <ProfilePhoto uri={profile.primaryPhotoUrl} name={profile.displayName} style={styles.image} priority="normal" />
@@ -312,7 +387,7 @@ function GridCard({
         <Text style={styles.facility} numberOfLines={1}>{profile.facility.state ?? ''}</Text>
         <View style={styles.cardActions}>
           <View style={styles.actionFlex}>
-            <Button label="View Profile" variant="secondary" style={styles.actionBtn} onPress={onOpen} />
+            <Button label="View" variant="secondary" style={styles.actionBtn} onPress={onOpen} />
           </View>
           <View style={styles.actionFlex}>
             <Button label="Message" style={styles.actionBtn} onPress={onMessage} />
@@ -418,18 +493,92 @@ const styles = StyleSheet.create({
   },
   errBody: { ...type.bodyMuted, fontSize: 14, textAlign: 'center', maxWidth: 340 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
-  cardCol: { padding: spacing.sm },
-  card: {
+
+  // --- wide (web/tablet) card ---
+  wideList: { gap: spacing.lg },
+  wideCard: {
+    flexDirection: 'row',
     backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 12px rgba(22, 5, 31, 0.06)',
+        transitionProperty: 'transform, box-shadow',
+        transitionDuration: '160ms',
+      } as object,
+      default: {
+        shadowColor: colors.midnight,
+        shadowOpacity: 0.07,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+      },
+    }),
   },
-  imageWrap: { position: 'relative', aspectRatio: 1, backgroundColor: colors.surfaceMuted },
+  widePhotoPress: { alignSelf: 'stretch' },
+  // Fixed width + stretched height: the photo can no longer grow with the
+  // container, which is what made the old grid image so tall.
+  widePhoto: { width: 190, height: '100%', minHeight: 208, position: 'relative', backgroundColor: colors.surfaceMuted },
+  photoCount: {
+    position: 'absolute',
+    right: spacing.sm,
+    bottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(22, 5, 31, 0.62)',
+  },
+  photoCountText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.sidebarText },
+  wideBody: { flex: 1, padding: spacing.xl, justifyContent: 'space-between', gap: spacing.lg },
+  wideTop: { gap: spacing.sm },
+  wherePill: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  wideBio: { ...type.bodyMuted, fontSize: 14 },
+  wideActions: { flexDirection: 'row', gap: spacing.md },
+
+  cardCol: { padding: spacing.sm },
+  card: {
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 10px rgba(22, 5, 31, 0.06)',
+        transitionProperty: 'transform, box-shadow',
+        transitionDuration: '160ms',
+      } as object,
+      default: {
+        shadowColor: colors.midnight,
+        shadowOpacity: 0.07,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 3,
+      },
+    }),
+  },
+  cardHovered: Platform.select({
+    web: { transform: [{ translateY: -3 }], boxShadow: '0 14px 30px rgba(22, 5, 31, 0.14)' } as object,
+    default: {},
+  }) as object,
+  imageWrap: {
+    position: 'relative',
+    // 4:5 matches ProfileCard and the landing tiles — the grid was the odd one
+    // out at 1:1. The cap stops a wide column from turning that into a 500px
+    // slab; the photo just crops tighter instead.
+    aspectRatio: 4 / 5,
+    maxHeight: 300,
+    backgroundColor: colors.surfaceMuted,
+  },
   image: { width: '100%', height: '100%' },
   placeholder: { alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: spacing.lg, gap: spacing.sm },
+  cardBody: { padding: spacing.lg, gap: spacing.xs },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   name: { ...type.h2, flexShrink: 1 },
   age: { ...type.body, color: colors.gold, fontFamily: 'Inter_600SemiBold' },

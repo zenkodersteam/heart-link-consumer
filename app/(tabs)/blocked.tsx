@@ -1,14 +1,22 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ListSkeleton } from '../src/components/Skeleton';
-import type { BlockedProfile } from '../src/lib/api';
-import { humanError } from '../src/lib/errors';
-import { useApiClientFactory } from '../src/lib/use-api-client';
-import { colors, radii, spacing, type } from '../src/theme';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import type { BlockedProfile } from '../../src/lib/api';
+import { humanError } from '../../src/lib/errors';
+import { useApiClientFactory } from '../../src/lib/use-api-client';
+import { colors, radii, spacing, type } from '../../src/theme';
 
 /** People this member has blocked, and the way back from a block made by mistake. */
 export default function BlockedScreen() {
@@ -17,7 +25,6 @@ export default function BlockedScreen() {
   const [items, setItems] = useState<BlockedProfile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState<string | null>(null);
-
   const load = useCallback(async () => {
     try {
       const api = await apiFactory();
@@ -28,6 +35,16 @@ export default function BlockedScreen() {
       setItems([]);
     }
   }, [apiFactory]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -47,7 +64,7 @@ export default function BlockedScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
           <Feather name="arrow-left" size={18} color={colors.textPrimary} />
@@ -55,7 +72,11 @@ export default function BlockedScreen() {
         <Text style={styles.title}>Blocked</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        }
+      >
         <Text style={styles.intro}>
           Blocked profiles do not appear when you browse, and you will not receive letters from
           them.

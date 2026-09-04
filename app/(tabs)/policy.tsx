@@ -9,8 +9,8 @@ import {
   PRIVACY_VERSION,
   TERMS_SECTIONS,
   TERMS_VERSION,
-} from '../src/lib/policies';
-import { colors, radii, spacing, type } from '../src/theme';
+} from '../../src/lib/policies';
+import { colors, radii, spacing, type } from '../../src/theme';
 
 /**
  * Terms of Service and Privacy Policy.
@@ -29,7 +29,7 @@ export default function PolicyScreen() {
   const version = isPrivacy ? PRIVACY_VERSION : TERMS_VERSION;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
           <Feather name="arrow-left" size={18} color={colors.textPrimary} />

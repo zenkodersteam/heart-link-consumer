@@ -16,12 +16,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader, SettingsRow } from '../src/components/ScreenHeader';
-import { ListSkeleton } from '../src/components/Skeleton';
-import { humanError } from '../src/lib/errors';
-import { useApiClientFactory } from '../src/lib/use-api-client';
-import { useMyProfile } from '../src/lib/use-my-profile';
-import { colors, radii, spacing, type } from '../src/theme';
+import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
+import { ListSkeleton } from '../../src/components/Skeleton';
+import { humanError } from '../../src/lib/errors';
+import { useApiClientFactory } from '../../src/lib/use-api-client';
+import { useMyProfile } from '../../src/lib/use-my-profile';
+import { colors, radii, spacing, type } from '../../src/theme';
 
 type FieldKey = 'displayName' | 'location' | 'bio';
 
@@ -101,7 +101,7 @@ export default function EditProfileScreen() {
           : 'Draft';
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <ScreenHeader title="Your profile" subtitle={statusLabel} />
 
       {loading && !profile ? (

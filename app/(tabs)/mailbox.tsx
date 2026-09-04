@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  RefreshControl,
 } from 'react-native';
 
 import type {
@@ -210,6 +211,10 @@ export default function MailboxScreen() {
   const [entitlement, setEntitlement] = useState<LetterEntitlement | null>(null);
   // Word limit is set by the recipient's plan, so it is fetched per profile.
   const [letterLimit, setLetterLimit] = useState<LetterLengthLimit | null>(null);
+  // Pull to refresh. What is on this screen changes because of things that
+  // happen off the device -- staff approving a letter, a reply being scanned
+  // in -- so asking again without leaving the screen matters here.
+  const [refreshing, setRefreshing] = useState(false);
   const [showPacks, setShowPacks] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -261,6 +266,17 @@ export default function MailboxScreen() {
       setLoading(false);
     }
   }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Refetch both: the thread list and the sender's own approval state,
+      // since a letter becoming sendable depends on the latter.
+      await Promise.all([loadThreads(), refreshMyProfile()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadThreads, refreshMyProfile]);
 
   useEffect(() => {
     void loadThreads();
@@ -605,7 +621,11 @@ export default function MailboxScreen() {
               placeholderTextColor={colors.textMuted}
             />
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
+        >
             <ThreadList onPick={openThread} />
           </ScrollView>
           <View style={styles.listColBottom}>{PrivacyNote}</View>

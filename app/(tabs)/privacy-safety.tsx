@@ -2,14 +2,14 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ScreenHeader, SettingsRow } from '../src/components/ScreenHeader';
-import { colors, radii, spacing } from '../src/theme';
+import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
+import { colors, radii, spacing } from '../../src/theme';
 
 /** Privacy and safety controls, grouped away from day-to-day account settings. */
 export default function PrivacySafetyScreen() {
   const router = useRouter();
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <ScreenHeader title="Privacy & safety" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <Text style={styles.intro}>

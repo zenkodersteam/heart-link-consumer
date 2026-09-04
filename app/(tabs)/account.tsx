@@ -2,11 +2,20 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
+import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
 import type { LetterEntitlement, MySubscription } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
@@ -24,6 +33,11 @@ export default function AccountScreen() {
   const [subscription, setSubscription] = useState<MySubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Splitting settings across pushed screens is a phone pattern. On a wide
+  // screen there is room to show the same things in place, and pushing a whole
+  // page for two links reads as leaving the app.
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900;
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -160,7 +174,7 @@ export default function AccountScreen() {
                   ? (subscription.planName ?? 'Active')
                   : 'No active plan'
             }
-            onPress={() => router.push('/plans' as never)}
+            onPress={isDesktop ? undefined : () => router.push('/plans' as never)}
             last
           />
         </View>
@@ -170,7 +184,11 @@ export default function AccountScreen() {
           <SettingsRow
             icon="shield"
             label="Privacy & safety"
-            onPress={() => router.push('/privacy-safety' as never)}
+            onPress={
+              isDesktop
+                ? () => router.push('/policy?doc=terms' as never)
+                : () => router.push('/privacy-safety' as never)
+            }
           />
           <SettingsRow
             icon="life-buoy"
@@ -202,6 +220,12 @@ export default function AccountScreen() {
         </View>
 
         {deleteError ? <Text style={styles.deleteError}>{deleteError}</Text> : null}
+
+        {isDesktop ? (
+          <View style={{ marginTop: spacing.lg }}>
+            <SubscriptionPlans />
+          </View>
+        ) : null}
 
         {plansUnavailable ? (
           <View style={styles.notice}>

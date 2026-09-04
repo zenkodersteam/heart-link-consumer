@@ -129,7 +129,9 @@ export function Button({ label, variant = 'primary', loading, disabled, icon, pi
     >
       {icon && !loading ? <View style={btnStyles.iconLeft}>{icon}</View> : null}
       {loading ? <ActivityIndicator size="small" color={v.fg} style={btnStyles.spinner} /> : null}
-      <Text style={[btnStyles.label, { color: v.fg }]}>{label}</Text>
+      <Text style={[btnStyles.label, { color: v.fg }]} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -167,7 +169,10 @@ const btnStyles = StyleSheet.create({
   pill: { borderRadius: radii.pill, paddingVertical: spacing.lg },
   iconLeft: { position: 'absolute', left: spacing.xl + spacing.sm },
   spinner: { marginRight: spacing.sm },
-  label: { ...type.button },
+  // flexShrink matters because `base` is flexDirection:'row' (to seat the
+  // spinner beside the label). Without it the text refuses to shrink and
+  // overflows the button in narrow containers like the Liked grid.
+  label: { ...type.button, flexShrink: 1, textAlign: 'center' },
 });
 
 export function Card({ style, children, ...rest }: ViewProps & { children: ReactNode }) {
