@@ -37,12 +37,32 @@ export default function HomeScreen() {
   const [query, setQuery] = useState<ListPublicProfilesQuery>({ limit: PAGE_SIZE, offset: 0 });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [saved, setSaved] = useState<Set<string>>(new Set());
-  const { data, loading, error, refresh } = usePublicProfiles(query);
+  const { data, loading, error, refresh, hasMore, loadMore } = usePublicProfiles(query);
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
   const [genderMenuOpen, setGenderMenuOpen] = useState(false);
   const [genderAnchor, setGenderAnchor] = useState<AnchorRect | null>(null);
   const [frontProfile, setFrontProfile] = useState<PublicProfileSummary | null>(null);
+  const [swipedCount, setSwipedCount] = useState(0);
+
+  // Saved state started empty on every launch, so profiles someone had already
+  // liked came back showing an empty heart and looked lost. Hydrate from the
+  // server before the deck is touched.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const client = await factory();
+        const res = await client.listSavedProfiles();
+        if (active) setSaved(new Set(res.items.map((i) => i.id)));
+      } catch {
+        // Leave the hearts empty rather than guessing; the next save will sync.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [factory]);
   const genderChipRef = useRef<View>(null);
 
   const openGenderMenu = useCallback(() => {
@@ -69,8 +89,23 @@ export default function HomeScreen() {
   }, []);
 
   const apiItems = data?.items ?? [];
+
+  // Top the deck up before it runs dry, rather than making someone hit the end
+  // and wait. Browsing previously stopped at the first twenty full stop.
+  useEffect(() => {
+    if (!hasMore) return;
+    const remaining = apiItems.length - swipedCount;
+    if (remaining <= 5) void loadMore();
+  }, [hasMore, loadMore, apiItems.length, swipedCount]);
   const items = PREVIEW_BYPASS_AUTH && apiItems.length === 0 ? PREVIEW_PROFILES : apiItems;
 
+  /**
+   * Save or unsave, and tell the truth when it fails.
+   *
+   * This used to swallow every error, so a save that never reached the server
+   * still showed as saved. The heart then reverted on the next launch and the
+   * profile appeared to have been lost.
+   */
   const persistSave = useCallback(
     (id: string, save: boolean) => {
       void (async () => {
@@ -79,11 +114,21 @@ export default function HomeScreen() {
           if (save) await client.saveProfile(id);
           else await client.unsaveProfile(id);
         } catch {
-          /* non-blocking */
+          // Put the heart back the way it was and say so.
+          setSaved((prev) => {
+            const next = new Set(prev);
+            if (save) next.delete(id);
+            else next.add(id);
+            return next;
+          });
+          toast.show(
+            save ? 'Could not save' : 'Could not remove',
+            'That did not reach us. Check your connection and try again.',
+          );
         }
       })();
     },
-    [factory],
+    [factory, toast],
   );
 
   // Record a deck swipe so the browse query excludes already-actioned profiles
@@ -122,6 +167,7 @@ export default function HomeScreen() {
         setSaved((s) => new Set(s).add(profile.id));
         toast.show('Liked', `${profile.displayName} added to your Liked.`);
       }
+      setSwipedCount((n) => n + 1);
       persistSwipe(profile.id, action);
     },
     [persistSwipe, toast],

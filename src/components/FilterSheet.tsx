@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { ListPublicProfilesQuery, ProfileGender } from '../lib/api';
+import type { ListPublicProfilesQuery, PlanTier, ProfileGender } from '../lib/api';
 import { colors, cta, radii, spacing, type, inputReset } from '../theme';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
@@ -17,6 +17,18 @@ const AGE_PRESETS: { label: string; min?: number; max?: number }[] = [
   { label: '30–39', min: 30, max: 39 },
   { label: '40–49', min: 40, max: 49 },
   { label: '50+', min: 50 },
+];
+
+/**
+ * Membership tier. The API has always accepted this filter; it was simply never
+ * offered, so members could not narrow to the tiers that allow longer letters
+ * and more photos.
+ */
+const TIERS: { label: string; value: PlanTier | undefined }[] = [
+  { label: 'Any tier', value: undefined },
+  { label: 'Basic', value: 'basic' },
+  { label: 'Diamond', value: 'diamond' },
+  { label: 'VIP', value: 'vip' },
 ];
 
 const GENDERS: { label: string; value: ProfileGender | undefined }[] = [
@@ -64,6 +76,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
   const [ageMax, setAgeMax] = useState<number | undefined>(query.ageMax);
   const [state, setState] = useState(query.state ?? '');
   const [gender, setGender] = useState<ProfileGender | undefined>(query.gender);
+  const [tier, setTier] = useState<PlanTier | undefined>(query.planTier);
 
   const scale = useRef(new Animated.Value(0.95)).current;
   const fade = useRef(new Animated.Value(0)).current;
@@ -75,6 +88,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
     setAgeMax(query.ageMax);
     setState(query.state ?? '');
     setGender(query.gender);
+    setTier(query.planTier);
     scale.setValue(0.95);
     fade.setValue(0);
     Animated.parallel([
@@ -99,6 +113,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
     if (hi != null) next.ageMax = hi;
     if (state.trim()) next.state = state.trim().toUpperCase();
     if (gender) next.gender = gender;
+    if (tier) next.planTier = tier;
     onApply(next);
     onClose();
   }
@@ -108,6 +123,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
     setAgeMax(undefined);
     setState('');
     setGender(undefined);
+    setTier(undefined);
     onApply({ limit: query.limit, offset: 0 });
     onClose();
   }
@@ -217,6 +233,21 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
                   </Pressable>
                 );
               })}
+            </View>
+
+            <Text style={styles.label}>MEMBERSHIP TIER</Text>
+            <Text style={styles.sectionHint}>
+              Higher tiers allow longer letters and more photos on a profile.
+            </Text>
+            <View style={styles.chipRow}>
+              {TIERS.map((t) => (
+                <Chip
+                  key={t.label}
+                  label={t.label}
+                  active={tier === t.value}
+                  onPress={() => setTier(t.value)}
+                />
+              ))}
             </View>
 
             <View style={styles.footer}>

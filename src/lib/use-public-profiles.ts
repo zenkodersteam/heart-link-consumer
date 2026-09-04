@@ -51,15 +51,19 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
     loading: true,
     error: null,
   });
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // The ONLY effect dep is the query JSON - guarantees one fetch per query change.
-  const queryKey = JSON.stringify(query);
+  // `offset` is deliberately excluded: paging is additive and handled by
+  // loadMore, so changing the page must not re-run the first-page effect.
+  const { offset: _ignoredOffset, ...filters } = query;
+  const queryKey = JSON.stringify(filters);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const client = await factoryRef.current();
-      const promise = client.listPublicProfiles(JSON.parse(queryKey));
+      const promise = client.listPublicProfiles({ ...JSON.parse(queryKey), offset: 0 });
       const data = signal ? await withTimeout(promise, REQUEST_TIMEOUT_MS, signal) : await promise;
       if (signal?.aborted) return;
       setState({ data, loading: false, error: null });
@@ -79,7 +83,46 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
     return () => ctrl.abort();
   }, [load]);
 
-  return { ...state, refresh: () => load() };
+  const items = state.data?.items ?? [];
+  const total = state.data?.total ?? 0;
+  const hasMore = items.length < total;
+
+  /**
+   * Fetch the next page and append it.
+   *
+   * Browsing stopped dead at the first twenty profiles because nothing ever
+   * asked for more, however many were available. New pages are appended rather
+   * than replacing the deck, so cards already on screen are not pulled away
+   * mid-swipe.
+   */
+  const loadMore = useCallback(async () => {
+    if (loadingMore || state.loading) return;
+    const current = state.data;
+    if (!current || current.items.length >= current.total) return;
+    setLoadingMore(true);
+    try {
+      const client = await factoryRef.current();
+      const next = await client.listPublicProfiles({
+        ...JSON.parse(queryKey),
+        offset: current.items.length,
+      });
+      setState((s) => {
+        const existing = s.data?.items ?? [];
+        const seen = new Set(existing.map((i) => i.id));
+        // Guard against duplicates: a profile activated between pages shifts
+        // every later row, which would otherwise repeat a card in the deck.
+        const merged = [...existing, ...next.items.filter((i) => !seen.has(i.id))];
+        return { ...s, data: { ...next, items: merged } };
+      });
+    } catch {
+      // Silent: the deck still has cards, and an error banner over a working
+      // deck is worse than quietly stopping at what we have.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [queryKey, loadingMore, state.loading, state.data]);
+
+  return { ...state, hasMore, loadingMore, loadMore, refresh: () => load() };
 }
 
 // Module-level cache so a profile's detail is resolved synchronously on
