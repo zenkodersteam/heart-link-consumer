@@ -1,11 +1,19 @@
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
-import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
+import { SubscriptionPlans, openOnWeb, webAppUrl } from '../../src/components/SubscriptionPlans';
 import { useToast } from '../../src/components/Toast';
 import { type MySubscription } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
@@ -14,13 +22,16 @@ import { colors, radii, spacing, type } from '../../src/theme';
 
 /** Plans, on their own screen rather than buried at the bottom of Account. */
 export default function PlansScreen() {
+  // Bumped when the member returns from the website, so the plan they just
+  // bought or cancelled there is reflected here rather than needing a restart.
+  const [syncKey, setSyncKey] = useState(0);
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <ScreenHeader title="Plans" subtitle="Choose what suits you" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>
-          <CurrentPlan />
-          <SubscriptionPlans />
+          <CurrentPlan key={syncKey} />
+          <SubscriptionPlans onReturnFromWeb={() => setSyncKey((n) => n + 1)} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -30,9 +41,12 @@ export default function PlansScreen() {
 /**
  * The plan the member is actually on, and the way out of it.
  *
- * Cancelling used to mean emailing support and waiting for someone to do it by
- * hand. The wording is careful about what cancelling does: the period already
- * paid for is kept, so nobody presses this expecting a refund.
+ * Cancelling, like paying, happens on the website — there is no in-app purchase
+ * and no in-app billing, so the phone app sends people there instead of doing
+ * it itself. On the web build the cancellation runs right here.
+ *
+ * The wording is careful about what cancelling does: the period already paid
+ * for is kept, so nobody presses this expecting a refund.
  */
 function CurrentPlan() {
   const factory = useApiClientFactory();
@@ -107,8 +121,23 @@ function CurrentPlan() {
       </Text>
 
       {!endsOn ? (
-        <Pressable onPress={() => setConfirming(true)} hitSlop={8} style={styles.cancelLink}>
-          <Text style={styles.cancelText}>Cancel plan</Text>
+        <Pressable
+          onPress={() => {
+            if (Platform.OS === 'web') {
+              setConfirming(true);
+              return;
+            }
+            // The browser closes when they are done, and whatever they changed
+            // on the website is already recorded server-side by then — so the
+            // moment we get control back, ask again.
+            void openOnWeb(webAppUrl('/plans')).then(() => load());
+          }}
+          hitSlop={8}
+          style={styles.cancelLink}
+        >
+          <Text style={styles.cancelText}>
+            {Platform.OS === 'web' ? 'Cancel plan' : 'Manage plan on the website'}
+          </Text>
         </Pressable>
       ) : null}
 

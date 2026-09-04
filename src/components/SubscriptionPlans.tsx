@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as ExpoLinking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -136,23 +135,33 @@ function bullets(plan: Plan): string[] {
 }
 
 /**
- * Where the payment provider should send someone once they are done.
+ * The web app, where all paying happens.
  *
- * On the web this is just a page on the same site. On a phone there is no such
- * thing as a current page: `window.location` does not exist, so this fell back
- * to a hard-coded website address, and paying on a phone dropped the member on
- * a web page instead of back in the app they started in.
+ * Buying and cancelling live on the website, not in the phone app: Apple does
+ * not allow this kind of web checkout for digital goods inside an iOS app, and
+ * the client's decision is that there is no in-app purchase either. The phone
+ * app sends people to the website and picks the change up afterwards, because
+ * the payment provider tells the server directly and the app reads the result
+ * from there.
  *
- * `ExpoLinking.createURL` builds a link that reopens this app — `heartlink://`
- * in a real build, and the development URL while running from Expo, so it works
- * in both without a special case.
+ * Override with EXPO_PUBLIC_WEB_APP_URL when the site moves.
  */
+const WEB_APP_URL = (
+  process.env.EXPO_PUBLIC_WEB_APP_URL ?? 'https://heart-link-consumer.vercel.app'
+).replace(/\/$/, '');
+
+/** Where checkout should return to. Only ever called on the web build. */
 function checkoutReturnUrl(path: string, params: Record<string, string>): string {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
-    const search = new URLSearchParams(params).toString();
-    return `${window.location.origin}${path}${search ? `?${search}` : ''}`;
-  }
-  return ExpoLinking.createURL(path, { queryParams: params });
+  const search = new URLSearchParams(params).toString();
+  const origin =
+    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : WEB_APP_URL;
+  return `${origin}${path}${search ? `?${search}` : ''}`;
+}
+
+/** The matching page on the website, for a phone app sending someone there. */
+export function webAppUrl(path: string, params: Record<string, string> = {}): string {
+  const search = new URLSearchParams(params).toString();
+  return `${WEB_APP_URL}${path}${search ? `?${search}` : ''}`;
 }
 
 /**
@@ -163,23 +172,20 @@ function checkoutReturnUrl(path: string, params: Record<string, string>): string
 type Processor = 'stripe';
 
 /**
- * Hand the member to the provider's checkout page.
+ * Open the website so the member can pay there.
  *
- * On a phone this uses an in-app browser session tied to our return link, so
- * the browser closes itself the moment payment finishes and the member is back
- * where they were. Plain `openURL` would leave the checkout page sitting in
- * Safari behind the app with no way back.
+ * A browser the app can present, rather than throwing them out into Safari
+ * with no way back — they return to where they were by closing it, and the
+ * plan they bought is already waiting because the server was told directly.
  */
-async function openCheckout(url: string, returnUrl: string): Promise<void> {
+export async function openOnWeb(url: string): Promise<void> {
   if (Platform.OS === 'web') {
     await Linking.openURL(url);
     return;
   }
   try {
-    await WebBrowser.openAuthSessionAsync(url, returnUrl);
+    await WebBrowser.openBrowserAsync(url);
   } catch {
-    // Some devices have no browser the session API can drive; a plain open
-    // still gets them to the payment page.
     await Linking.openURL(url);
   }
 }
@@ -195,9 +201,11 @@ interface SubscriptionPlansProps {
   profileId?: string;
   /** First name shown in sponsor-flow copy ("Choose Marcus's plan"). */
   forName?: string;
+  /** Called after the member comes back from paying on the website. */
+  onReturnFromWeb?: () => void;
 }
 
-export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps = {}) {
+export function SubscriptionPlans({ profileId, forName, onReturnFromWeb }: SubscriptionPlansProps = {}) {
   const apiFactory = useApiClientFactory();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
@@ -263,6 +271,17 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
       setPending({ planId: plan.id, processor });
       setNotice(null);
       try {
+        // Paying happens on the website. On a phone we hand over rather than
+        // starting a checkout here, and the plan appears in the app once the
+        // payment provider has told the server about it.
+        if (Platform.OS !== 'web') {
+          await openOnWeb(webAppUrl('/plans', profileId ? { profile: profileId } : {}));
+          // Back from the website. Anything bought there is already recorded
+          // against the account, so reload rather than leaving a stale screen.
+          onReturnFromWeb?.();
+          return;
+        }
+
         const api = await apiFactory();
         const returnPath = profileId ? '/sponsor' : '/account';
         const base: Record<string, string> = profileId ? { profile: profileId } : {};
@@ -274,7 +293,7 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
         };
         const res = await api.createSubscriptionCheckout(input);
         if (res.configured && res.url) {
-          await openCheckout(res.url, input.successUrl);
+          await openOnWeb(res.url);
         } else {
           setNotice('Card payment is not available just yet. Please try again soon.');
         }
@@ -284,7 +303,7 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
         setPending(null);
       }
     },
-    [apiFactory, profileId],
+    [apiFactory, profileId, onReturnFromWeb],
   );
 
   if (loading) {

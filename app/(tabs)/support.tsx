@@ -79,7 +79,7 @@ const TOPICS: Topic[] = [
     faqs: [
       {
         q: 'How do plans and payments work?',
-        a: 'HeartLink runs on yearly plans: Basic $30, Diamond $45, and VIP $60 per year. Each tier sets how many profile photos you can view per profile and how long your letters can be. Pay by card from the Account page; your plan renews yearly. You can cancel it yourself from the Account page at any time, and you keep the time you have already paid for. To move to a different tier, contact support and our team will switch it for you.',
+        a: 'HeartLink runs on yearly plans: Basic $30, Diamond $45, and VIP $60 per year. Each tier sets how many profile photos you can view per profile and how long your letters can be. Paying and cancelling are both done on the HeartLink website — the app will take you there, and your plan appears in the app straight afterwards. Plans renew yearly, and if you cancel you keep the time you have already paid for. To move to a different tier, contact support and our team will switch it for you.',
       },
       {
         q: 'Can I get a refund on my plan?',
