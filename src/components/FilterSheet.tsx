@@ -188,7 +188,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: spacing.sm }}
+              contentContainerStyle={{ paddingBottom: spacing.lg }}
             >
             <Text style={styles.label}>AGE RANGE</Text>
             <View style={styles.chipRow}>
@@ -316,23 +316,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    // Detached from the edges so the sheet reads as a card resting over the
+    // screen, rather than a panel welded to the bottom of it.
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
   backdropWide: { justifyContent: 'center', padding: spacing.xl },
   card: {
     width: '100%',
+    maxWidth: 520,
     backgroundColor: colors.bgElevated,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderRadius: 28,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    maxHeight: '86%',
+    paddingBottom: spacing.md,
+    maxHeight: '84%',
     gap: 2,
-    boxShadow: '0 -12px 40px rgba(26, 8, 51, 0.26)',
+    boxShadow: '0 -10px 44px rgba(26, 8, 51, 0.30)',
   },
   cardWide: {
     maxWidth: 440,
     borderRadius: radii.xl,
+    paddingBottom: spacing.lg,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
     maxHeight: '90%',
@@ -400,7 +405,15 @@ const styles = StyleSheet.create({
   segmentItemActive: { backgroundColor: colors.primary },
   segmentText: { ...type.button, fontSize: 14, color: colors.textSecondary },
   segmentTextActive: { color: colors.onPrimary },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xl },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    marginTop: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   clearBtn: { paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
   clearText: { ...type.button, color: colors.textSecondary },
   applyBtn: {
