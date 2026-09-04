@@ -56,9 +56,59 @@ export default function ProfileDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { data, loading, error } = usePublicProfile(typeof id === 'string' ? id : undefined);
+  const factory = useApiClientFactory();
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [saved, setSaved] = useState(false);
-  const factory = useApiClientFactory();
+
+  // Safety actions. Reporting and blocking are deliberately separate: a member
+  // may want a profile looked at without cutting contact, or the reverse.
+  // Shown in a real dialog — Alert does nothing on the web build.
+  //
+  // Declared above the early returns below: these are hooks, and React
+  // requires the same hooks to run in the same order on every render. Placing
+  // them after a conditional return crashed this screen, and with it every
+  // screen in the tab group.
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [safetyBusy, setSafetyBusy] = useState(false);
+  const [safetyNote, setSafetyNote] = useState<string | null>(null);
+
+  const submitReport = useCallback(
+    (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
+      void (async () => {
+        setSafetyBusy(true);
+        try {
+          const api = await factory();
+          if (!data) return;
+          await api.reportProfile(data.id, { reason });
+          setSafetyNote('Thank you. Our team will review this profile.');
+        } catch {
+          setSafetyNote('We could not send that report. Please try again.');
+        } finally {
+          setSafetyBusy(false);
+          setReportOpen(false);
+        }
+      })();
+    },
+    [factory, data],
+  );
+
+  const submitBlock = useCallback(() => {
+    void (async () => {
+      setSafetyBusy(true);
+      try {
+        const api = await factory();
+        if (!data) return;
+        await api.blockProfile(data.id);
+        router.replace('/(tabs)');
+      } catch {
+        setSafetyNote('We could not block that profile. Please try again.');
+        setSafetyBusy(false);
+        setBlockOpen(false);
+      }
+    })();
+  }, [factory, data, router]);
+
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
 
@@ -187,48 +237,6 @@ export default function ProfileDetailScreen() {
   );
 
   const column = <EditorialColumn data={data} />;
-
-  // Safety actions. Reporting and blocking are deliberately separate: a member
-  // may want a profile looked at without cutting contact, or the reverse.
-  // Shown in a real dialog — Alert does nothing on the web build.
-  const [reportOpen, setReportOpen] = useState(false);
-  const [blockOpen, setBlockOpen] = useState(false);
-  const [safetyBusy, setSafetyBusy] = useState(false);
-  const [safetyNote, setSafetyNote] = useState<string | null>(null);
-
-  const submitReport = useCallback(
-    (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
-      void (async () => {
-        setSafetyBusy(true);
-        try {
-          const api = await factory();
-          await api.reportProfile(data.id, { reason });
-          setSafetyNote('Thank you. Our team will review this profile.');
-        } catch {
-          setSafetyNote('We could not send that report. Please try again.');
-        } finally {
-          setSafetyBusy(false);
-          setReportOpen(false);
-        }
-      })();
-    },
-    [factory, data.id],
-  );
-
-  const submitBlock = useCallback(() => {
-    void (async () => {
-      setSafetyBusy(true);
-      try {
-        const api = await factory();
-        await api.blockProfile(data.id);
-        router.replace('/(tabs)');
-      } catch {
-        setSafetyNote('We could not block that profile. Please try again.');
-        setSafetyBusy(false);
-        setBlockOpen(false);
-      }
-    })();
-  }, [factory, data.id, router]);
 
   const actionBar = (
     <View style={styles.stickybar}>
