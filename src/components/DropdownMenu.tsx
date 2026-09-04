@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { useCallback, useRef } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing } from '../theme';
@@ -45,18 +46,48 @@ export function DropdownMenu({
 }) {
   const top = anchor?.top ?? 96;
   const right = anchor?.right ?? spacing.md;
+
+  /**
+   * Run the chosen action only once this menu has actually gone.
+   *
+   * iOS silently drops a modal presented while another is still dismissing, so
+   * closing the menu and opening a confirmation in the same tick meant Report
+   * and Block appeared to do nothing at all. The action is held until the
+   * dismissal completes.
+   */
+  const pending = useRef<(() => void) | null>(null);
+
+  const runPending = useCallback(() => {
+    const fn = pending.current;
+    pending.current = null;
+    fn?.();
+  }, []);
+
+  const choose = useCallback(
+    (item: MenuItem) => {
+      if (item.disabled) return;
+      pending.current = item.onPress;
+      onClose();
+      // onDismiss is iOS-only; elsewhere the modal is gone by the next frame.
+      if (Platform.OS !== 'ios') setTimeout(runPending, 0);
+    },
+    [onClose, runPending],
+  );
+
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={open}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      onDismiss={runPending}
+    >
       <Pressable style={styles.backdrop} onPress={onClose}>
         <View style={[styles.sheet, { top, right }]}>
           {items.map((item) => (
             <Pressable
               key={item.label}
-              onPress={() => {
-                if (item.disabled) return;
-                onClose();
-                item.onPress();
-              }}
+              onPress={() => choose(item)}
               disabled={item.disabled}
               style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
                 styles.item,
