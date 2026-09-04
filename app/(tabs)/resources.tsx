@@ -186,7 +186,7 @@ export default function ResourcesScreen() {
         <SearchPill
           value={search}
           onChange={setSearch}
-          placeholder={`Search within ${activeCategory.title}...`}
+          placeholder={`Search ${activeCategory.title}`}
         />
 
         <Animated.View style={[styles.orgList, gridStyle]}>
@@ -218,7 +218,7 @@ export default function ResourcesScreen() {
         <SearchPill
           value={search}
           onChange={setSearch}
-          placeholder="Search resources, topics, or organizations..."
+          placeholder="Search resources and organizations"
         />
       </View>
 
@@ -277,6 +277,11 @@ function SearchPill({
 }) {
   return (
     <View style={styles.searchPill}>
+      {/* Leading glyph rather than a trailing button. The trailing pink circle
+          sat on top of the placeholder and, once there was text, crowded the
+          clear button beside it. A search field does not need a button: typing
+          already searches. */}
+      <Feather name="search" size={17} color={colors.textMuted} />
       <TextInput
         style={[styles.searchInput, inputReset]}
         value={value}
@@ -286,11 +291,18 @@ function SearchPill({
         autoCapitalize="none"
         autoCorrect={false}
         returnKeyType="search"
-        clearButtonMode="while-editing"
       />
-      <View style={styles.searchGo}>
-        <Feather name="search" size={17} color={colors.onPrimary} />
-      </View>
+      {value.length > 0 ? (
+        <Pressable
+          onPress={() => onChange('')}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+          style={styles.searchClear}
+        >
+          <Feather name="x" size={13} color={colors.textSecondary} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -417,26 +429,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.pill,
-    paddingLeft: 22,
-    paddingRight: 8,
-    paddingVertical: 8,
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     maxWidth: 560,
     width: '100%',
     alignSelf: 'center',
     boxShadow: '0 10px 30px rgba(46,18,64,0.10)',
   },
-  searchInput: { flex: 1, paddingVertical: 4, color: colors.textPrimary, fontFamily: fonts.body, fontSize: 14.5 },
-  searchGo: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  searchInput: { flex: 1, paddingVertical: 0, color: colors.textPrimary, fontFamily: fonts.body, fontSize: 14.5 },
+  searchClear: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
-    boxShadow: '0 6px 14px rgba(233,30,115,0.35)',
-    ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(135deg, #FF4F92, #E91E73)' } as object,
-    }),
+    backgroundColor: colors.surfaceMuted,
   },
 
   rchips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center', paddingVertical: spacing.lg },
