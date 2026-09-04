@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
+import { DropdownMenu } from '../../src/components/DropdownMenu';
 import { EmptyState } from '../../src/components/EmptyState';
 import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/components/profile-bits';
 import { Button } from '../../src/components/primitives';
@@ -275,60 +276,59 @@ export default function ProfileDetailScreen() {
 
   const column = <EditorialColumn data={data} />;
 
+  // Everything a person can do with this profile now lives in the one menu
+  // hanging off the button that opened it, rather than two large buttons
+  // pinned over the content plus links underneath.
   const actionBar = (
-    <View style={styles.stickybar}>
-      <View style={styles.mbar}>
-        <View style={styles.mbtnFlex}>
-          <Button
-            label={saved ? 'Saved to Liked' : 'Save to Liked'}
-            variant="secondary"
-            onPress={() => toggleSave(data.id)}
-          />
+    <>
+      {safetyNote ? (
+        <View style={styles.stickybar}>
+          <Text style={styles.safetyNote}>{safetyNote}</Text>
         </View>
-        {data.acceptsMail ? (
-          <View style={styles.mbtnFlex}>
-            <Button
-              label={saved ? 'Write a letter' : 'Like to write'}
-              disabled={!saved}
-              onPress={() =>
-                router.push(`/mailbox?compose=${data.id}&name=${encodeURIComponent(data.displayName)}`)
-              }
-            />
-          </View>
-        ) : null}
-      </View>
-      {safetyNote ? <Text style={styles.safetyNote}>{safetyNote}</Text> : null}
-      <ConfirmDialog
+      ) : null}
+
+      <DropdownMenu
         open={menuOpen}
-        title={data.displayName}
-        message="What would you like to do?"
-        actions={[
+        onClose={() => setMenuOpen(false)}
+        items={[
+          {
+            label: saved ? 'Saved to Liked' : 'Save to Liked',
+            icon: 'heart',
+            onPress: () => toggleSave(data.id),
+          },
+          ...(data.acceptsMail
+            ? [
+                {
+                  label: saved ? 'Write a letter' : 'Like first to write',
+                  icon: 'edit-3' as const,
+                  disabled: !saved,
+                  onPress: () =>
+                    router.push(
+                      `/mailbox?compose=${data.id}&name=${encodeURIComponent(data.displayName)}`,
+                    ),
+                },
+              ]
+            : []),
           {
             label: 'Sponsor their membership',
-            onPress: () => {
-              setMenuOpen(false);
-              router.push(`/sponsor?profile=${data.id}`);
-            },
+            icon: 'gift',
+            onPress: () => router.push(`/sponsor?profile=${data.id}`),
           },
           {
             label: 'Report this profile',
-            onPress: () => {
-              setMenuOpen(false);
-              setReportOpen(true);
-            },
+            icon: 'flag',
+            separated: true,
+            onPress: () => setReportOpen(true),
           },
           {
             label: `Block ${data.displayName}`,
+            icon: 'slash',
             destructive: true,
-            onPress: () => {
-              setMenuOpen(false);
-              setBlockOpen(true);
-            },
+            onPress: () => setBlockOpen(true),
           },
         ]}
-        cancelLabel="Close"
-        onCancel={() => setMenuOpen(false)}
       />
+
       <ConfirmDialog
         open={reportOpen}
         icon="flag"
@@ -351,7 +351,7 @@ export default function ProfileDetailScreen() {
         onCancel={() => setBlockOpen(false)}
         busy={safetyBusy}
       />
-    </View>
+    </>
   );
 
   if (isDesktop) {
