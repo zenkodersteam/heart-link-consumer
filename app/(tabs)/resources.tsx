@@ -21,6 +21,7 @@ import { Button } from '../../src/components/primitives';
 import type { ListResourcesResponse, ResourceItem } from '../../src/lib/api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, fonts, radii, spacing, type, inputReset } from '../../src/theme';
+import { ErrorState } from '../../src/components/ErrorState';
 import { ListSkeleton } from '../../src/components/Skeleton';
 
 /**
@@ -93,7 +94,8 @@ const CATEGORIES: Category[] = [
 interface FetchState {
   data: ListResourcesResponse | null;
   loading: boolean;
-  error: string | null;
+  /** The caught value itself, so ErrorState can tell offline from a real fault. */
+  error: unknown;
 }
 
 export default function ResourcesScreen() {
@@ -135,7 +137,7 @@ export default function ResourcesScreen() {
         setState({ data, loading: false, error: null });
       } catch (e) {
         if (signal?.aborted) return;
-        setState({ data: null, loading: false, error: e instanceof Error ? e.message : 'Could not load resources.' });
+        setState({ data: null, loading: false, error: e });
       }
     },
     [active, q],
@@ -195,7 +197,12 @@ export default function ResourcesScreen() {
               <ListSkeleton count={4} />
             </View>
           ) : state.error ? (
-            <Text style={styles.empty}>{state.error}</Text>
+            <ErrorState
+              error={state.error}
+              fallback="We could not load these resources."
+              onRetry={() => void load()}
+              compact
+            />
           ) : items.length === 0 ? (
             <Text style={styles.empty}>No resources match{q ? ` "${q}"` : ''}.</Text>
           ) : (
@@ -236,7 +243,12 @@ export default function ResourcesScreen() {
               <ListSkeleton count={4} />
             </View>
           ) : state.error ? (
-            <Text style={styles.empty}>{state.error}</Text>
+            <ErrorState
+              error={state.error}
+              fallback="We could not load these resources."
+              onRetry={() => void load()}
+              compact
+            />
           ) : items.length === 0 ? (
             <Text style={styles.empty}>No resources match "{q}".</Text>
           ) : (

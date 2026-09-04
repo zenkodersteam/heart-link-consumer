@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { DropdownMenu } from '../../src/components/DropdownMenu';
+import { ErrorState } from '../../src/components/ErrorState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/components/profile-bits';
 import { Button } from '../../src/components/primitives';
@@ -58,7 +59,7 @@ function channelIcon(label: string): keyof typeof Feather.glyphMap {
 export default function ProfileDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const { data, loading, error } = usePublicProfile(typeof id === 'string' ? id : undefined);
+  const { data, loading, error, reload } = usePublicProfile(typeof id === 'string' ? id : undefined);
   const factory = useApiClientFactory();
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -181,13 +182,27 @@ export default function ProfileDetailScreen() {
       </SafeAreaView>
     );
   }
-  if (error || !data) {
+  // A failure and an empty result mean different things. Something went wrong
+  // is worth retrying; a listing that has genuinely ended is not, and offering
+  // "Try again" there would just fail again.
+  if (error) {
+    return (
+      <Fallback>
+        <ErrorState
+          error={error}
+          fallback="We couldn't open this profile just now."
+          onRetry={reload}
+        />
+      </Fallback>
+    );
+  }
+  if (!data) {
     return (
       <Fallback>
         <EmptyState
           icon="user-x"
           title="This profile isn't available"
-          body={error ?? 'It may have been removed, or the membership behind it has ended.'}
+          body="It may have been removed, or the membership behind it has ended."
           ctaLabel="Browse profiles"
           onPress={() => router.replace('/(tabs)')}
         />

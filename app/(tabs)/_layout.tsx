@@ -4,8 +4,10 @@ import { ActivityIndicator, Platform, StyleSheet, View, useWindowDimensions } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabBar, MobileTopBar, Sidebar } from '../../src/components/AppNav';
+import { OfflineBanner } from '../../src/components/ErrorState';
 import { savePendingRoute } from '../../src/lib/pending-route';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
+import { useIsOffline } from '../../src/lib/connectivity';
 import { isOnboarded, useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, shell } from '../../src/theme';
 
@@ -33,6 +35,7 @@ export default function TabLayout() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const { profile, loading: profileLoading, error: profileError } = useMyProfile();
+  const offline = useIsOffline();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
@@ -89,6 +92,7 @@ export default function TabLayout() {
     // on web instead of collapsing to content height; footer pins to the bottom.
     return (
       <SafeAreaView style={styles.desktopShell} edges={['top']}>
+        {offline ? <OfflineBanner /> : null}
         <View style={styles.desktopRow}>
           <Sidebar />
           <View style={styles.main}>
@@ -104,6 +108,9 @@ export default function TabLayout() {
   return (
     <SafeAreaView style={[styles.mobileSafe, { height }]} edges={['top', 'bottom']}>
       <MobileTopBar />
+      {/* Between the bar and the content so it never covers either, and is
+          equally visible on whichever screen the member is on. */}
+      {offline ? <OfflineBanner /> : null}
       <View style={styles.content}>{content}</View>
       <BottomTabBar />
     </SafeAreaView>

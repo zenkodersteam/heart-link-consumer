@@ -9,6 +9,8 @@
  * Source of truth: heart-link/packages/api-contract/src/index.ts (M3 W8 section).
  */
 
+import { reportReachable, reportUnreachable } from './connectivity';
+
 // =============================================================================
 // Public consumer profile browse types
 // =============================================================================
@@ -406,6 +408,9 @@ export function createApiClient(options: ApiClientOptions) {
       const detail = e instanceof Error ? e.message : String(e);
       // eslint-disable-next-line no-console
       console.error('[api] network error', url, detail);
+      // Nothing came back at all, so the app is cut off from the API. Screens
+      // read this to show an offline state rather than a generic failure.
+      reportUnreachable();
       throw new ApiClientError(
         0,
         'NETWORK_ERROR',
@@ -413,6 +418,9 @@ export function createApiClient(options: ApiClientOptions) {
         null,
       );
     }
+
+    // A reply of any status means the API is reachable, a 500 included.
+    reportReachable();
 
     // eslint-disable-next-line no-console
     console.log('[api] ←', res.status, url);

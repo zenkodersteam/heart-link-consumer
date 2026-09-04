@@ -36,6 +36,7 @@ import {
   ThreadDetailSkeleton,
   ThreadListSkeleton,
 } from '../../src/components/Skeleton';
+import { ErrorState } from '../../src/components/ErrorState';
 
 /**
  * Secure Mailbox - PostGrid letter correspondence (real backend).
@@ -222,7 +223,8 @@ export default function MailboxScreen() {
   const [showPacks, setShowPacks] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // The caught value, not a message: ErrorState decides the wording.
+  const [error, setError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   // Debounced so filtering does not run on every keystroke.
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -270,7 +272,7 @@ export default function MailboxScreen() {
         setEntitlement(PREVIEW_LETTER_ENTITLEMENT);
         setError(null);
       } else {
-        setError(err instanceof Error ? err.message : 'Could not load your mailbox.');
+        setError(err);
       }
     } finally {
       setLoading(false);
@@ -467,7 +469,16 @@ export default function MailboxScreen() {
 
   function ThreadList({ onPick }: { onPick: (id: string) => void }) {
     if (loading) return <ThreadListSkeleton />;
-    if (error) return <Text style={styles.emptyList}>{error}</Text>;
+    if (error) {
+      return (
+        <ErrorState
+          error={error}
+          fallback="We couldn't load your mailbox just now."
+          onRetry={() => void loadThreads()}
+          compact
+        />
+      );
+    }
     if (filteredThreads.length === 0) {
       return (
         <View style={styles.emptyWrap}>

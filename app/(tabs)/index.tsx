@@ -8,6 +8,7 @@ import { BrandDecor } from '../../src/components/BrandDecor';
 import { FilterSheet } from '../../src/components/FilterSheet';
 import { GenderMenu, type AnchorRect } from '../../src/components/GenderMenu';
 import { ProfileDeck, type SwipeDir } from '../../src/components/ProfileDeck';
+import { ErrorState } from '../../src/components/ErrorState';
 import { DeckSkeleton } from '../../src/components/Skeleton';
 import { StoryPanel } from '../../src/components/StoryPanel';
 import { useToast } from '../../src/components/Toast';
@@ -210,11 +211,11 @@ export default function HomeScreen() {
         <DeckSkeleton />
       ) : error && items.length === 0 ? (
         <View style={styles.center}>
-          <Text style={type.h2}>Couldn't load profiles</Text>
-          <Text style={[type.bodyMuted, { textAlign: 'center' }]} selectable>
-            {error}
-          </Text>
-          <Button label="Try again" variant="secondary" onPress={refresh} />
+          <ErrorState
+            error={error}
+            fallback="We couldn't load profiles just now."
+            onRetry={refresh}
+          />
         </View>
       ) : (
         <ProfileDeck

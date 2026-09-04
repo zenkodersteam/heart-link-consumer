@@ -5,14 +5,14 @@ import type {
   ListPublicProfilesResponse,
   PublicProfileDetail,
 } from './api';
-import { humanError } from './errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_DETAILS } from './preview';
 import { useApiClientFactory } from './use-api-client';
 
 interface FetchState<T> {
   data: T | null;
   loading: boolean;
-  error: string | null;
+  /** The caught value itself; screens word it via ErrorState/humanError. */
+  error: unknown;
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -72,7 +72,7 @@ export function usePublicProfiles(query: ListPublicProfilesQuery) {
       setState({
         data: null,
         loading: false,
-        error: humanError(e, "We couldn't load profiles just now. Please try again."),
+        error: e,
       });
     }
   }, [queryKey]);
@@ -143,6 +143,10 @@ export function usePublicProfile(id: string | undefined) {
   factoryRef.current = factory;
 
   const [state, setState] = useState<FetchState<PublicProfileDetail>>(() => initialDetail(id));
+  // Bumped by reload() to re-run the fetch. A failed load leaves nothing
+  // cached, so retrying is just asking again.
+  const [attempt, setAttempt] = useState(0);
+  const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     if (!id) {
@@ -175,13 +179,13 @@ export function usePublicProfile(id: string | undefined) {
         setState({
           data: null,
           loading: false,
-          error: humanError(e, 'It may have been removed, or the membership behind it has ended.'),
+          error: e,
         });
       }
     })();
 
     return () => ctrl.abort();
-  }, [id]);
+  }, [id, attempt]);
 
-  return state;
+  return { ...state, reload };
 }
