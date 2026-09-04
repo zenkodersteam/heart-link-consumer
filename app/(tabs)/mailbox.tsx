@@ -24,6 +24,7 @@ import type {
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
+import { ProfileReviewOverlay } from '../../src/components/ProfileReviewOverlay';
 import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useToast } from '../../src/components/Toast';
@@ -198,7 +199,8 @@ export default function MailboxScreen() {
 
   // Letters unlock once the member's own profile clears moderation. Read via a
   // ref so the sendLetter callback always sees the latest status.
-  const { profile: myProfile } = useMyProfile();
+  const { profile: myProfile, refresh: refreshMyProfile } = useMyProfile();
+  const [recheckingProfile, setRecheckingProfile] = useState(false);
   const profileApproved = PREVIEW_BYPASS_AUTH || myProfile?.status === 'approved';
   const profileApprovedRef = useRef(profileApproved);
   profileApprovedRef.current = profileApproved;
@@ -715,6 +717,23 @@ export default function MailboxScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <ThreadList onPick={openThread} />
       </ScrollView>
+
+      {!profileApproved && myProfile ? (
+        <ProfileReviewOverlay
+          status={myProfile.status}
+          moderationNotes={myProfile.moderationNotes}
+          refreshing={recheckingProfile}
+          onEditProfile={() => router.push('/onboarding' as never)}
+          onRefresh={async () => {
+            setRecheckingProfile(true);
+            try {
+              await refreshMyProfile();
+            } finally {
+              setRecheckingProfile(false);
+            }
+          }}
+        />
+      ) : null}
     </View>
   );
 }

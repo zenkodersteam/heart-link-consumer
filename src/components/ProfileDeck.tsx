@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -33,6 +33,10 @@ interface ProfileDeckProps {
   onExhausted?: () => void;
   /** Reports the profile currently on top (drives the desktop story panel). */
   onFrontChange?: (profile: PublicProfileSummary | null) => void;
+  /** Action offered when the deck runs dry (e.g. reset filters). */
+  emptyAction?: ReactNode;
+  /** True when filters are narrowing the deck, so the copy can say so. */
+  filtered?: boolean;
 }
 
 const SWIPE_THRESHOLD = 110;
@@ -61,7 +65,7 @@ function formatRelease(value: string): string {
   return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
-export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExhausted, onFrontChange }: ProfileDeckProps) {
+export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExhausted, onFrontChange, emptyAction, filtered }: ProfileDeckProps) {
   const router = useRouter();
   const makeClient = useApiClientFactory();
   const { width } = useWindowDimensions();
@@ -214,20 +218,26 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
   }, [current, index, makeClient]);
 
   if (!current) {
+    // No card means nothing to swipe, so the three swipe controls used to sit
+    // here disabled and inert — a third of the screen of dead UI. Offer the one
+    // action that can actually refill the deck instead.
     return (
       <View style={styles.deckArea}>
         <View style={styles.emptyWrap}>
           <View style={styles.emptyCard}>
-            <Text style={type.h2}>You're all caught up</Text>
-            <Text style={[type.bodyMuted, { textAlign: 'center' }]}>
-              No more profiles match right now. Adjust your filters or check back soon.
+            <View style={styles.emptyIcon}>
+              <Feather name={filtered ? 'sliders' : 'compass'} size={26} color={colors.gold} />
+            </View>
+            <Text style={[type.h2, { textAlign: 'center' }]}>
+              {filtered ? 'No matches for these filters' : "You're all caught up"}
             </Text>
+            <Text style={[type.bodyMuted, { textAlign: 'center' }]}>
+              {filtered
+                ? 'Try widening your age, location or gender filters to see more people.'
+                : 'You have seen everyone for now. New profiles are added as they clear review.'}
+            </Text>
+            {emptyAction ? <View style={styles.emptyAction}>{emptyAction}</View> : null}
           </View>
-        </View>
-        <View style={styles.actions} pointerEvents="none">
-          <ActionButton variant="pass" label="Pass" onPress={() => undefined} disabled />
-          <ActionButton variant="second" label="Second Look" onPress={() => undefined} disabled />
-          <ActionButton variant="like" label="Like" onPress={() => undefined} disabled />
         </View>
       </View>
     );
@@ -580,6 +590,18 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   state: { ...type.label, color: 'rgba(255,255,255,0.75)' },
   emptyWrap: { flex: 1, width: '100%', maxWidth: CARD_MAX_WIDTH, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.goldFaint,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    marginBottom: spacing.xs,
+  },
+  emptyAction: { marginTop: spacing.md, alignSelf: 'stretch' },
   emptyCard: {
     width: '100%',
     alignItems: 'center',

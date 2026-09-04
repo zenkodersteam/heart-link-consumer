@@ -31,6 +31,8 @@ export interface PublicProfilePhoto {
 }
 
 export interface PublicProfileSummary {
+  /** True only when staff recorded a completed identity check. */
+  isVerified: boolean;
   id: string;
   displayName: string;
   age: number | null;
@@ -184,6 +186,31 @@ export interface MailboxMessage {
   readAt: string | null;
   createdAt: string;
 }
+
+export interface ConsentStatus {
+  termsVersion: string;
+  privacyVersion: string;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+  /** True only when the versions currently in force have been accepted. */
+  upToDate: boolean;
+}
+
+export interface MySubscription {
+  active: boolean;
+  planName: string | null;
+  priceCents: number | null;
+  billingInterval: string | null;
+  renewsOn: string | null;
+}
+
+export interface BlockedProfile {
+  profileId: string;
+  displayName: string;
+  blockedAt: string;
+}
+
+export type ReportReason = 'inappropriate_content' | 'fake_identity' | 'policy_violation';
 
 /** Words allowed in a letter to a given profile, set by that profile's tier. */
 export interface LetterLengthLimit {
@@ -467,6 +494,44 @@ export function createApiClient(options: ApiClientOptions) {
     },
 
     // Outside-user self profile. GET creates an empty draft on first read.
+    // Account: consent, plan, blocking, reporting, deletion.
+    async getConsent(): Promise<ConsentStatus> {
+      return request<ConsentStatus>(`/api/me/consent`);
+    },
+    async acceptPolicies(): Promise<ConsentStatus> {
+      return request<ConsentStatus>(`/api/me/consent`, { method: 'POST' });
+    },
+    async getMySubscription(): Promise<MySubscription> {
+      return request<MySubscription>(`/api/me/subscription`);
+    },
+    async listBlocks(): Promise<{ items: BlockedProfile[]; total: number }> {
+      return request<{ items: BlockedProfile[]; total: number }>(`/api/me/blocks`);
+    },
+    async blockProfile(profileId: string, reason?: string): Promise<{ blocked: boolean }> {
+      return request<{ blocked: boolean }>(`/api/me/blocks/${encodeURIComponent(profileId)}`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+    },
+    async unblockProfile(profileId: string): Promise<{ blocked: boolean }> {
+      return request<{ blocked: boolean }>(`/api/me/blocks/${encodeURIComponent(profileId)}`, {
+        method: 'DELETE',
+      });
+    },
+    async reportProfile(
+      profileId: string,
+      input: { reason: ReportReason; details?: string },
+    ): Promise<{ reported: boolean }> {
+      return request<{ reported: boolean }>(`/api/me/reports/${encodeURIComponent(profileId)}`, {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+    },
+    /** Irreversible: removes the sign-in and scrubs personal details. */
+    async deleteAccount(): Promise<{ deleted: boolean }> {
+      return request<{ deleted: boolean }>(`/api/me/account`, { method: 'DELETE' });
+    },
+
     async getMyProfile(): Promise<OutsideUserProfile> {
       return request<OutsideUserProfile>(`/api/me/profile`);
     },

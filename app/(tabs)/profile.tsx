@@ -2,8 +2,9 @@ import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   Platform,
   Pressable,
@@ -155,10 +156,12 @@ export default function ProfileDetailScreen() {
         style={styles.photoScrim}
         pointerEvents="none"
       />
+      {data.isVerified ? (
       <View style={styles.vbadge} pointerEvents="none">
         <Feather name="shield" size={13} color={colors.goldBright} />
         <Text style={styles.vbadgeText}>Verified Profile</Text>
       </View>
+      ) : null}
       {photos.length > 1 ? (
         <View style={styles.thumbs}>
           {photos.map((p, idx) => (
@@ -184,6 +187,53 @@ export default function ProfileDetailScreen() {
   );
 
   const column = <EditorialColumn data={data} />;
+
+  // Safety actions. Reporting and blocking are deliberately separate: a member
+  // may want a profile looked at without cutting contact, or the reverse.
+  const onReport = useCallback(() => {
+    const ask = (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
+      void (async () => {
+        try {
+          const api = await factory();
+          await api.reportProfile(data.id, { reason });
+          Alert.alert('Thank you', 'Our team will review this profile.');
+        } catch {
+          Alert.alert('Could not send report', 'Please try again in a moment.');
+        }
+      })();
+    };
+    Alert.alert('Report this profile', 'What is the problem?', [
+      { text: 'Inappropriate content', onPress: () => ask('inappropriate_content') },
+      { text: 'Pretending to be someone else', onPress: () => ask('fake_identity') },
+      { text: 'Breaks the rules', onPress: () => ask('policy_violation') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [factory, data.id]);
+
+  const onBlock = useCallback(() => {
+    Alert.alert(
+      `Block ${data.displayName}?`,
+      'They will no longer appear when you browse, and you will not receive letters from them. You can undo this from your account.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                const api = await factory();
+                await api.blockProfile(data.id);
+                router.replace('/(tabs)');
+              } catch {
+                Alert.alert('Could not block', 'Please try again in a moment.');
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }, [factory, data.id, data.displayName, router]);
 
   const actionBar = (
     <View style={styles.stickybar}>
@@ -211,6 +261,17 @@ export default function ProfileDetailScreen() {
         <Feather name="gift" size={14} color={colors.gold} />
         <Text style={styles.sponsorLinkText}>Sponsor their membership</Text>
       </Pressable>
+      <View style={styles.safetyRow}>
+        <Pressable onPress={onReport} hitSlop={8} style={styles.safetyBtn}>
+          <Feather name="flag" size={13} color={colors.textMuted} />
+          <Text style={styles.safetyText}>Report</Text>
+        </Pressable>
+        <Text style={styles.safetyDot}>·</Text>
+        <Pressable onPress={onBlock} hitSlop={8} style={styles.safetyBtn}>
+          <Feather name="slash" size={13} color={colors.textMuted} />
+          <Text style={styles.safetyText}>Block</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -388,6 +449,10 @@ const styles = StyleSheet.create({
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   photoTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.photoTint },
   photoScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
+  safetyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 10 },
+  safetyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  safetyText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.textMuted },
+  safetyDot: { color: colors.textMuted },
   vbadge: {
     position: 'absolute',
     top: 14,

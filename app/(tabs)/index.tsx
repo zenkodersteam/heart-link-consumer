@@ -178,6 +178,14 @@ export default function HomeScreen() {
           onSecondLook={onSecondLook}
           onSave={onSave}
           onFrontChange={setFrontProfile}
+          filtered={hasFilters}
+          emptyAction={
+            hasFilters ? (
+              <Button label="Reset filters" variant="secondary" onPress={() => setQuery({ limit: PAGE_SIZE, offset: 0 })} />
+            ) : (
+              <Button label="Refresh" variant="secondary" onPress={refresh} />
+            )
+          }
         />
       )}
     </View>

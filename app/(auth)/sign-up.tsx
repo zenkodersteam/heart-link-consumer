@@ -1,11 +1,12 @@
+import { Feather } from '@expo/vector-icons';
 import { useSignUp } from '@clerk/clerk-expo';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthShell } from '../../src/components/AuthShell';
 import { Button, Field } from '../../src/components/primitives';
-import { colors, spacing, type } from '../../src/theme';
+import { colors, fonts, spacing, type } from '../../src/theme';
 
 type Stage = 'collect' | 'verify';
 
@@ -19,6 +20,9 @@ export default function SignUpScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Both stores require the member accepts the terms and privacy policy at
+  // sign-up, and reviewers check the documents are reachable from here.
+  const [accepted, setAccepted] = useState(false);
 
   function clerkErrorMessage(e: unknown, fallback: string): string {
     if (typeof e === 'object' && e !== null && 'errors' in e) {
@@ -30,6 +34,10 @@ export default function SignUpScreen() {
 
   async function onCreate() {
     if (!isLoaded) return;
+    if (!accepted) {
+      setError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -99,8 +107,35 @@ export default function SignUpScreen() {
             placeholder="At least 8 characters"
             autoComplete="password-new"
           />
+          <Pressable
+            onPress={() => setAccepted((v) => !v)}
+            style={styles.acceptRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: accepted }}
+          >
+            <View style={[styles.box, accepted ? styles.boxOn : null]}>
+              {accepted ? <Feather name="check" size={12} color={colors.onPrimary} /> : null}
+            </View>
+            <Text style={styles.acceptText}>
+              I agree to the{' '}
+              <Text
+                style={styles.acceptLink}
+                onPress={() => router.push('/policy?doc=terms')}
+              >
+                Terms of Service
+              </Text>{' '}
+              and{' '}
+              <Text
+                style={styles.acceptLink}
+                onPress={() => router.push('/policy?doc=privacy')}
+              >
+                Privacy Policy
+              </Text>
+              .
+            </Text>
+          </Pressable>
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Button label="Continue" onPress={onCreate} loading={submitting} />
+          <Button label="Continue" onPress={onCreate} loading={submitting} disabled={!accepted} />
         </>
       ) : (
         <>
@@ -130,6 +165,20 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
+  acceptRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 },
+  box: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  boxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  acceptText: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+  acceptLink: { color: colors.primary, fontFamily: fonts.bodySemibold },
   footerRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
   link: { color: colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
   error: { ...type.caption, color: colors.danger, marginTop: spacing.xs },

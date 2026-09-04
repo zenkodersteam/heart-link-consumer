@@ -10,7 +10,7 @@ import { ApiClientError, type UpdateOutsideProfileInput } from '../../src/lib/ap
 import { takePendingRoute } from '../../src/lib/pending-route';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
-import { colors, radii, spacing, type } from '../../src/theme';
+import { colors, fonts, radii, spacing, type } from '../../src/theme';
 
 /**
  * Post-signup onboarding. Before an outside member can write to anyone, they
@@ -360,18 +360,24 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <AuthShell
-      title={step.title}
-      subtitle={step.subtitle}
-      footer={
-        <Text style={type.caption}>
-          Step {stepIndex + 1} of {STEPS.length}
-        </Text>
-      }
-    >
-      {/* Compact responsive progress: avoids nine fixed dots cramping on small phones. */}
-      <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 1, max: STEPS.length, now: stepIndex + 1 }}>
-        <View style={[styles.progressFill, { width: `${((stepIndex + 1) / STEPS.length) * 100}%` }]} />
+    <AuthShell title={step.title} subtitle={step.subtitle} compact>
+      {/* Compact responsive progress: avoids nine fixed dots cramping on small
+          phones. The counter sits with the bar it describes — it used to live in
+          the footer, nine steps away from the thing it labelled. */}
+      <View style={styles.progressBlock}>
+        <View style={styles.progressMeta}>
+          <Text style={styles.progressStep}>
+            Step {stepIndex + 1} of {STEPS.length}
+          </Text>
+          <Text style={styles.progressPct}>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</Text>
+        </View>
+        <View
+          style={styles.progressTrack}
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 1, max: STEPS.length, now: stepIndex + 1 }}
+        >
+          <View style={[styles.progressFill, { width: `${((stepIndex + 1) / STEPS.length) * 100}%` }]} />
+        </View>
       </View>
 
       {rejected && profile?.moderationNotes ? (
@@ -627,12 +633,15 @@ function OptionGroup({
 }
 
 const styles = StyleSheet.create({
+  progressBlock: { gap: spacing.sm, marginBottom: spacing.xs },
+  progressMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  progressStep: { fontFamily: fonts.bodySemibold, fontSize: 12, letterSpacing: 0.6, color: colors.textSecondary },
+  progressPct: { fontFamily: fonts.bodySemibold, fontSize: 12, color: colors.primary },
   progressTrack: {
-    height: 6,
+    height: 8,
     width: '100%',
     borderRadius: radii.pill,
     backgroundColor: colors.surfaceMuted,
-    marginBottom: spacing.md,
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: radii.pill, backgroundColor: colors.primary },

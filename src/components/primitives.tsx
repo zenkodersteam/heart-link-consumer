@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   PressableProps,
@@ -12,6 +13,24 @@ import {
 } from 'react-native';
 
 import { colors, cta, radii, spacing, type } from '../theme';
+
+/**
+ * Cross-platform elevation. `boxShadow` is a web-only CSS property, so shadows
+ * declared with it alone render on web and vanish on device — which is why the
+ * native build read flat next to the web build.
+ */
+function elevation(y: number, blur: number, opacity: number, color = colors.midnight) {
+  return Platform.select({
+    web: { boxShadow: `0 ${y}px ${blur}px rgba(22, 5, 31, ${opacity})` } as object,
+    default: {
+      shadowColor: color,
+      shadowOpacity: opacity,
+      shadowRadius: blur / 2,
+      shadowOffset: { width: 0, height: y },
+      elevation: Math.round(y * 1.5),
+    },
+  });
+}
 
 // RN Web honors CSS transitions via inline style; native ignores these keys,
 // so guard so we don't trip RN's style validation on iOS/Android.
@@ -109,7 +128,8 @@ export function Button({ label, variant = 'primary', loading, disabled, icon, pi
       {...rest}
     >
       {icon && !loading ? <View style={btnStyles.iconLeft}>{icon}</View> : null}
-      <Text style={[btnStyles.label, { color: v.fg }]}>{loading ? '...' : label}</Text>
+      {loading ? <ActivityIndicator size="small" color={v.fg} style={btnStyles.spinner} /> : null}
+      <Text style={[btnStyles.label, { color: v.fg }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -128,16 +148,25 @@ const btnStyles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
+    minHeight: 48,
+    flexDirection: 'row',
   },
   // Mockup CTA finish: pink gradient material + glow (web), solid pink native.
   primaryFinish: {
-    boxShadow: cta.glow,
     ...Platform.select({
-      web: { backgroundImage: cta.gradientCss } as object,
+      web: { boxShadow: cta.glow, backgroundImage: cta.gradientCss } as object,
+      default: {
+        shadowColor: colors.primary,
+        shadowOpacity: 0.34,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+      },
     }),
   },
   pill: { borderRadius: radii.pill, paddingVertical: spacing.lg },
   iconLeft: { position: 'absolute', left: spacing.xl + spacing.sm },
+  spinner: { marginRight: spacing.sm },
   label: { ...type.button },
 });
 
@@ -156,6 +185,7 @@ const cardStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
+    ...elevation(2, 12, 0.06),
   },
 });
 

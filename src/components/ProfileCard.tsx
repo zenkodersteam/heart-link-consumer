@@ -58,10 +58,14 @@ export function ProfileCard({ profile, focused }: ProfileCardProps) {
             style={styles.scrim}
           />
         </View>
-        <View style={styles.verifiedBadge} pointerEvents="none">
-          <Feather name="shield" size={13} color={colors.goldBright} />
-          <Text style={styles.verifiedBadgeText}>Verified Profile</Text>
-        </View>
+        {/* Shown only when staff recorded an identity check. It was previously
+            on every card, which made the claim meaningless. */}
+        {profile.isVerified ? (
+          <View style={styles.verifiedBadge} pointerEvents="none">
+            <Feather name="shield" size={13} color={colors.goldBright} />
+            <Text style={styles.verifiedBadgeText}>Verified Profile</Text>
+          </View>
+        ) : null}
         <View style={styles.saveBadge} pointerEvents="none">
           <Feather name="heart" size={16} color={colors.textSecondary} />
         </View>

@@ -2,14 +2,14 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
-import type { LetterEntitlement } from '../../src/lib/api';
+import type { LetterEntitlement, MySubscription } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
-import { useMyProfile } from '../../src/lib/use-my-profile';
+import { clearMyProfileCache, useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, radii, spacing, type } from '../../src/theme';
 
 export default function AccountScreen() {
@@ -20,6 +20,8 @@ export default function AccountScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const [entitlement, setEntitlement] = useState<LetterEntitlement | null>(null);
   const [plansUnavailable, setPlansUnavailable] = useState<string | null>(null);
+  const [subscription, setSubscription] = useState<MySubscription | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -28,6 +30,10 @@ export default function AccountScreen() {
         const api = await apiFactory();
         const e = await api.getLetterEntitlement();
         if (active) setEntitlement(e);
+        // The plan row said "No active plan" for everyone, paying members
+        // included, because nothing ever asked what they were on.
+        const sub = await api.getMySubscription();
+        if (active) setSubscription(sub);
       } catch (e) {
         if (active) setPlansUnavailable(humanError(e, "Plan details aren't available right now."));
       }
@@ -37,10 +43,45 @@ export default function AccountScreen() {
     };
   }, [apiFactory]);
 
+  /**
+   * Close the account. Both stores require this to be reachable in the app.
+   * Irreversible, so it confirms first and names what actually happens.
+   */
+  function onDeleteAccount() {
+    Alert.alert(
+      'Delete your account?',
+      'Your sign-in is removed and your personal details are erased. Records of payments are kept, as we are required to. This cannot be undone.',
+      [
+        { text: 'Keep my account', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const api = await apiFactory();
+              await api.deleteAccount();
+              clearMyProfileCache();
+              await signOut();
+              router.replace('/(auth)/sign-in');
+            } catch (e) {
+              Alert.alert('Could not close your account', humanError(e, 'Please try again, or contact support.'));
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   async function onSignOut() {
     setSigningOut(true);
     try {
       await signOut();
+      // Shared caches are module-level and would otherwise survive into the
+      // next session, leaking this member's data to whoever signs in next.
+      clearMyProfileCache();
       router.replace('/(auth)/sign-in');
     } finally {
       setSigningOut(false);
@@ -122,7 +163,17 @@ export default function AccountScreen() {
           ) : null}
           <View style={[styles.row, quotaLabel || profileStatusLabel ? styles.rowDivider : null]}>
             <Text style={styles.rowText}>
-              Plan: <Text style={styles.rowStrong}>No active plan</Text>
+              Plan:{' '}
+              <Text style={styles.rowStrong}>
+                {subscription === null
+                  ? '...'
+                  : subscription.active
+                    ? subscription.planName
+                    : 'No active plan'}
+              </Text>
+              {subscription?.active && subscription.renewsOn
+                ? `  ·  renews ${new Date(subscription.renewsOn).toLocaleDateString()}`
+                : ''}
             </Text>
           </View>
           <View style={[styles.row, styles.rowDivider]}>
@@ -135,6 +186,28 @@ export default function AccountScreen() {
             <Text style={styles.rowText}>Questions or trouble with the app?</Text>
             <Pressable onPress={() => router.push('/support' as never)}>
               <Text style={styles.rowLink}>Visit Support</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <Text style={styles.rowText}>People you have blocked</Text>
+            <Pressable onPress={() => router.push('/blocked' as never)}>
+              <Text style={styles.rowLink}>Manage</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <Text style={styles.rowText}>Terms and privacy</Text>
+            <Pressable onPress={() => router.push('/policy?doc=terms' as never)}>
+              <Text style={styles.rowLink}>Read</Text>
+            </Pressable>
+          </View>
+          <View style={[styles.row, styles.rowDivider]}>
+            <Text style={styles.rowText}>Close your account</Text>
+            <Pressable onPress={onDeleteAccount} disabled={deleting}>
+              {deleting ? (
+                <ActivityIndicator size="small" color={colors.danger} />
+              ) : (
+                <Text style={styles.rowDanger}>Delete account</Text>
+              )}
             </Pressable>
           </View>
           {plansUnavailable ? (
@@ -212,6 +285,7 @@ const styles = StyleSheet.create({
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   rowText: { ...type.body, fontSize: 14, color: colors.textSecondary },
   rowStrong: { color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
+  rowDanger: { ...type.body, color: colors.danger, fontFamily: 'Inter_600SemiBold' },
   rowLink: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.primary },
   notice: {
     flexDirection: 'row',

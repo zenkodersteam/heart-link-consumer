@@ -12,7 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { art } from '../art';
 import { auth, colors, fonts, radii, spacing, type } from '../theme';
@@ -35,6 +35,14 @@ interface AuthShellProps {
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  /**
+   * Shrink the mobile art panel for form-heavy screens.
+   *
+   * The full-height panel is a landing flourish; on a nine-step onboarding it
+   * costs a third of the phone screen and pushes the fields into a cramped
+   * strip. Long forms opt out.
+   */
+  compact?: boolean;
 }
 
 function Brand({ size }: { size: number }) {
@@ -60,9 +68,9 @@ function Statement({ size }: { size: number }) {
 }
 
 /** Midnight art panel: bridge artwork, veil, brand, statement, trust proofs. */
-function ArtPanel({ mobile }: { mobile?: boolean }) {
+function ArtPanel({ mobile, height }: { mobile?: boolean; height?: number }) {
   return (
-    <View style={mobile ? styles.artMobile : styles.artDesktop}>
+    <View style={mobile ? [styles.artMobile, height ? { height } : null] : styles.artDesktop}>
       <LinearGradient
         colors={[...auth.panelGradient]}
         start={{ x: 0.1, y: 0 }}
@@ -100,8 +108,13 @@ function ArtPanel({ mobile }: { mobile?: boolean }) {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
-  const { width } = useWindowDimensions();
+export function AuthShell({ title, subtitle, children, footer, compact }: AuthShellProps) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Cap the art as a share of the viewport so short phones are not swallowed.
+  const artHeight = Math.round(
+    Math.min(compact ? 172 : auth.mobileArtHeight, height * (compact ? 0.2 : 0.32)),
+  );
   const isDesktop = width >= 900;
   const reduce = useReduceMotion();
 
@@ -172,14 +185,14 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
   return (
     <View style={styles.rootMobile}>
       <SafeAreaView style={styles.flex} edges={['top']}>
-        <ArtPanel mobile />
+        <ArtPanel mobile height={artHeight} />
         <Animated.View style={[styles.sheet, revealStyle(formReveal)]}>
           <KeyboardAvoidingView
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
             <ScrollView
-              contentContainerStyle={styles.scrollMobile}
+              contentContainerStyle={[styles.scrollMobile, { paddingBottom: 24 + insets.bottom }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -217,15 +230,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    marginTop: -14,
+    marginTop: -20,
   },
-  scrollMobile: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 22 },
+  scrollMobile: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 26 },
   brandWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   wordmark: { flexDirection: 'row', alignItems: 'baseline' },
   wordHeart: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText },
   wordLink: { fontFamily: 'BreeSerif_400Regular', color: colors.primary },
   title: { ...type.h1, marginBottom: spacing.xs },
-  subtitle: { ...type.bodyMuted, fontSize: 14, marginBottom: spacing.xl },
-  body: { gap: spacing.md },
+  subtitle: { ...type.bodyMuted, fontSize: 14, marginBottom: spacing.xl, maxWidth: 460 },
+  body: { gap: spacing.lg },
   footer: { marginTop: spacing.lg, alignItems: 'center' },
 });

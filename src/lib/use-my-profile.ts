@@ -11,7 +11,20 @@ import { useApiClientFactory } from './use-api-client';
  */
 let cached: OutsideUserProfile | null = null;
 let inflight: Promise<OutsideUserProfile> | null = null;
+/**
+ * Clerk id the cache belongs to. The cache is module-level, so without this it
+ * outlives the session: sign out, sign in as someone else, and the new member
+ * gets the previous one's profile — visibly, as prefilled onboarding answers.
+ */
+let cachedUserId: string | null = null;
 const listeners = new Set<(p: OutsideUserProfile) => void>();
+
+/** Drop the shared profile. Call on sign-out and whenever the user changes. */
+export function clearMyProfileCache() {
+  cached = null;
+  inflight = null;
+  cachedUserId = null;
+}
 
 function publish(p: OutsideUserProfile) {
   cached = p;
@@ -30,7 +43,7 @@ export function isOnboarded(p: OutsideUserProfile | null): boolean {
 }
 
 export function useMyProfile() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
   const apiFactory = useApiClientFactory();
   const [profile, setProfile] = useState<OutsideUserProfile | null>(cached);
   const [loading, setLoading] = useState(!cached);
@@ -42,6 +55,12 @@ export function useMyProfile() {
         setLoading(false);
         return;
       }
+      // A different member is signed in than the one the cache was filled for.
+      if (userId && cachedUserId && cachedUserId !== userId) {
+        clearMyProfileCache();
+        setProfile(null);
+      }
+      cachedUserId = userId ?? null;
       if (cached && !force) {
         setProfile(cached);
         setLoading(false);
@@ -63,7 +82,7 @@ export function useMyProfile() {
         setLoading(false);
       }
     },
-    [apiFactory, isSignedIn],
+    [apiFactory, isSignedIn, userId],
   );
 
   useEffect(() => {
