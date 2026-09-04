@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import type { PublicProfileSummary } from '../lib/api';
+import { ProfilePhoto } from './ProfilePhoto';
 import { stateName } from '../lib/prefs';
 import { useApiClientFactory } from '../lib/use-api-client';
 import { usePublicProfile } from '../lib/use-public-profiles';
@@ -335,24 +336,16 @@ function DeckCard({
   return (
     <View style={styles.card}>
       <View style={styles.imageWrap}>
-        {profile.primaryPhotoUrl ? (
-          // pointerEvents="none" wrapper stops the browser's native image drag
-          // on web; the swipe pan + tap fall through to the handlers behind it.
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Image
-              source={{ uri: profile.primaryPhotoUrl }}
-              style={styles.image}
-              contentFit="cover"
-              transition={80}
-              cachePolicy="memory-disk"
-              priority={front ? 'high' : preload ? 'normal' : 'low'}
-            />
-          </View>
-        ) : (
-          <View style={[styles.image, styles.imagePlaceholder]}>
-            <Text style={styles.placeholderText}>No photo</Text>
-          </View>
-        )}
+        {/* pointerEvents="none" wrapper stops the browser's native image drag
+            on web; the swipe pan + tap fall through to the handlers behind it. */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <ProfilePhoto
+            uri={profile.primaryPhotoUrl}
+            name={profile.displayName}
+            style={styles.image}
+            priority={front ? 'high' : preload ? 'normal' : 'low'}
+          />
+        </View>
 
         {/* Midnight tint + bottom scrim: unifies the photo set and carries the
             identity block, so the person and their story read as one surface. */}

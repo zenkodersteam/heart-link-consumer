@@ -20,6 +20,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/components/profile-bits';
 import { Button } from '../../src/components/primitives';
 import type { PublicProfileDetail, PublicProfilePhoto } from '../../src/lib/api';
+import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { formatReleaseMonth, parsePrefs, stateName } from '../../src/lib/prefs';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { usePublicProfile } from '../../src/lib/use-public-profiles';
@@ -68,6 +69,7 @@ export default function ProfileDetailScreen() {
   // requires the same hooks to run in the same order on every render. Placing
   // them after a conditional return crashed this screen, and with it every
   // screen in the tab group.
+  const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [safetyBusy, setSafetyBusy] = useState(false);
@@ -193,24 +195,42 @@ export default function ProfileDetailScreen() {
 
   const photoPane = (
     <View style={isDesktop ? styles.photoDesktop : styles.photoMobile}>
-      {photoUri ? (
-        <Image source={{ uri: photoUri }} style={styles.photoImg} contentFit="cover" transition={80} cachePolicy="memory-disk" priority="high" />
-      ) : (
-        <View style={[styles.photoImg, styles.photoPlaceholder]}>
-          <View style={styles.phInitial}>
-            <Text style={styles.phInitialText}>
-              {(data.displayName || '?').charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={styles.phText}>Photo coming soon</Text>
-        </View>
-      )}
+      <ProfilePhoto uri={photoUri} name={data.displayName} style={styles.photoImg} priority="high" />
       <View style={styles.photoTint} pointerEvents="none" />
       <LinearGradient
         colors={['rgba(22,5,31,0)', 'rgba(22,5,31,0.7)']}
         style={styles.photoScrim}
         pointerEvents="none"
       />
+      {/* Controls sit on the photo, the way a phone app puts them, instead of
+          a text link in the page flow above it. */}
+      <View style={styles.photoTopBar}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.roundBtn,
+            pressed ? { transform: [{ scale: 0.94 }] } : null,
+          ]}
+        >
+          <Feather name="chevron-left" size={20} color={colors.textPrimary} />
+        </Pressable>
+        <Pressable
+          onPress={() => setMenuOpen(true)}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+          style={({ pressed }: { pressed: boolean }) => [
+            styles.roundBtn,
+            pressed ? { transform: [{ scale: 0.94 }] } : null,
+          ]}
+        >
+          <Feather name="more-vertical" size={18} color={colors.textPrimary} />
+        </Pressable>
+      </View>
+
       <View style={styles.photoIdentity} pointerEvents="none">
         <Text style={styles.photoName} numberOfLines={1}>
           {data.displayName}
@@ -277,22 +297,38 @@ export default function ProfileDetailScreen() {
           </View>
         ) : null}
       </View>
-      <Pressable onPress={() => router.push(`/sponsor?profile=${data.id}`)} style={styles.sponsorLink}>
-        <Feather name="gift" size={14} color={colors.gold} />
-        <Text style={styles.sponsorLinkText}>Sponsor their membership</Text>
-      </Pressable>
       {safetyNote ? <Text style={styles.safetyNote}>{safetyNote}</Text> : null}
-      <View style={styles.safetyRow}>
-        <Pressable onPress={() => setReportOpen(true)} hitSlop={8} style={styles.safetyBtn}>
-          <Feather name="flag" size={13} color={colors.textMuted} />
-          <Text style={styles.safetyText}>Report</Text>
-        </Pressable>
-        <Text style={styles.safetyDot}>·</Text>
-        <Pressable onPress={() => setBlockOpen(true)} hitSlop={8} style={styles.safetyBtn}>
-          <Feather name="slash" size={13} color={colors.textMuted} />
-          <Text style={styles.safetyText}>Block</Text>
-        </Pressable>
-      </View>
+      <ConfirmDialog
+        open={menuOpen}
+        title={data.displayName}
+        message="What would you like to do?"
+        actions={[
+          {
+            label: 'Sponsor their membership',
+            onPress: () => {
+              setMenuOpen(false);
+              router.push(`/sponsor?profile=${data.id}`);
+            },
+          },
+          {
+            label: 'Report this profile',
+            onPress: () => {
+              setMenuOpen(false);
+              setReportOpen(true);
+            },
+          },
+          {
+            label: `Block ${data.displayName}`,
+            destructive: true,
+            onPress: () => {
+              setMenuOpen(false);
+              setBlockOpen(true);
+            },
+          },
+        ]}
+        cancelLabel="Close"
+        onCancel={() => setMenuOpen(false)}
+      />
       <ConfirmDialog
         open={reportOpen}
         icon="flag"
@@ -343,10 +379,6 @@ export default function ProfileDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={16} color={colors.primary} />
-          <Text style={styles.backLabel}>Back</Text>
-        </Pressable>
         {photoPane}
         <View style={styles.mobileBody}>
           <EditorialColumn data={data} hideName />
@@ -500,6 +532,23 @@ const styles = StyleSheet.create({
   photoMobile: { position: 'relative', aspectRatio: 5 / 4, overflow: 'hidden' },
   photoImg: { width: '100%', height: '100%', backgroundColor: colors.surfaceMuted },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  photoTopBar: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  roundBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(251,245,232,0.92)',
+  },
   photoIdentity: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.lg, gap: 3 },
   photoName: { fontFamily: fonts.heading, fontSize: 26, color: '#FBF5E8' },
   photoAge: { fontFamily: fonts.heading, fontSize: 20, color: 'rgba(251,245,232,0.85)' },

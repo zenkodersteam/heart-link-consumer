@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
-import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
+import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import type { LetterEntitlement, MySubscription } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
@@ -105,8 +105,7 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Identity: a row, not a stacked block. Centred it cost roughly a
-            third of a phone screen before any content appeared. */}
+        {/* Identity: a row, not a stacked block. */}
         <View style={styles.lid}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initial}</Text>
@@ -121,116 +120,80 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        <Text style={styles.groupLabel}>LETTERS &amp; PLAN</Text>
-        <View style={styles.subcard}>
-          {quotaLabel ? (
-            <View style={styles.row}>
-              <Text style={styles.rowText}>
-                <Text style={styles.rowStrong}>{quotaLabel}</Text> this month
-              </Text>
-              <Pressable onPress={() => router.push('/mailbox' as never)}>
-                <Text style={styles.rowLink}>Write a letter</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          {profileStatusLabel ? (
-            <View style={[styles.row, quotaLabel ? styles.rowDivider : null]}>
-              <Text style={styles.rowText}>
-                Your profile: <Text style={styles.rowStrong}>{profileStatusLabel}</Text>
-              </Text>
-              <Pressable onPress={() => router.push('/onboarding' as never)}>
-                <Text style={styles.rowLink}>
-                  {profile?.status === 'rejected' ? 'Fix and resubmit' : 'Edit profile'}
-                </Text>
-              </Pressable>
-            </View>
-          ) : null}
-          <View style={[styles.row, quotaLabel || profileStatusLabel ? styles.rowDivider : null]}>
-            <Text style={styles.rowText}>
-              Plan:{' '}
-              <Text style={styles.rowStrong}>
-                {subscription === null
-                  ? '...'
-                  : subscription.active
-                    ? subscription.planName
-                    : 'No active plan'}
-              </Text>
-              {subscription?.active && subscription.renewsOn
-                ? `  ·  renews ${new Date(subscription.renewsOn).toLocaleDateString()}`
-                : ''}
-            </Text>
-          </View>
+        {/* At-a-glance, then everything else behind its own screen. Account was
+            one long scroll of unrelated settings; each area now has a page. */}
+        <View style={styles.card}>
+          <SettingsRow
+            icon="send"
+            label="Letters"
+            value={quotaLabel ?? undefined}
+            onPress={() => router.push('/mailbox' as never)}
+          />
+          <SettingsRow
+            icon="user"
+            label="Your profile"
+            value={profileStatusLabel ?? undefined}
+            onPress={() => router.push('/onboarding' as never)}
+          />
+          <SettingsRow
+            icon="credit-card"
+            label="Plan"
+            value={
+              subscription === null
+                ? '…'
+                : subscription.active
+                  ? (subscription.planName ?? 'Active')
+                  : 'No active plan'
+            }
+            onPress={() => router.push('/plans' as never)}
+            last
+          />
         </View>
 
-        <Text style={styles.groupLabel}>SUPPORT</Text>
-        <View style={styles.subcard}>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>Not sure what to write?</Text>
-            <Pressable onPress={() => router.push('/circle' as never)}>
-              <Text style={styles.rowLink}>Open Support Circle</Text>
-            </Pressable>
-          </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={styles.rowText}>Questions or trouble with the app?</Text>
-            <Pressable onPress={() => router.push('/support' as never)}>
-              <Text style={styles.rowLink}>Visit Support</Text>
-            </Pressable>
-          </View>
+        <Text style={styles.groupLabel}>SETTINGS</Text>
+        <View style={styles.card}>
+          <SettingsRow
+            icon="shield"
+            label="Privacy & safety"
+            onPress={() => router.push('/privacy-safety' as never)}
+          />
+          <SettingsRow
+            icon="life-buoy"
+            label="Support"
+            onPress={() => router.push('/support' as never)}
+          />
+          <SettingsRow
+            icon="message-circle"
+            label="Support Circle"
+            onPress={() => router.push('/circle' as never)}
+            last
+          />
         </View>
 
-        <Text style={styles.groupLabel}>PRIVACY &amp; SAFETY</Text>
-        <View style={styles.subcard}>
-          <View style={styles.row}>
-            <Text style={styles.rowText}>People you have blocked</Text>
-            <Pressable onPress={() => router.push('/blocked' as never)}>
-              <Text style={styles.rowLink}>Manage</Text>
-            </Pressable>
-          </View>
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={styles.rowText}>Terms and privacy</Text>
-            <Pressable onPress={() => router.push('/policy?doc=terms' as never)}>
-              <Text style={styles.rowLink}>Read</Text>
-            </Pressable>
-          </View>
-
-          {plansUnavailable ? (
-            <View style={[styles.notice, styles.rowDivider]}>
-              <Feather name="wifi-off" size={16} color={colors.gold} />
-              <Text style={styles.noticeText}>{plansUnavailable}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <SubscriptionPlans />
-
-        <Text style={styles.groupLabel}>SESSION</Text>
-        <View style={styles.subcard}>
-          <Pressable onPress={onSignOut} disabled={signingOut} style={styles.row}>
-            <Text style={styles.rowText}>Signed in as {email}</Text>
-            <Text style={styles.rowLink}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.dangerZone}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.dangerTitle}>Close your account</Text>
-            <Text style={styles.dangerBody}>
-              Your sign-in is removed and your personal details are erased. This cannot be undone.
-            </Text>
-            {deleteError ? <Text style={styles.dangerError}>{deleteError}</Text> : null}
-          </View>
-          <Pressable
+        <Text style={styles.groupLabel}>ACCOUNT</Text>
+        <View style={styles.card}>
+          <SettingsRow
+            icon="log-out"
+            label={signingOut ? 'Signing out…' : 'Sign out'}
+            onPress={onSignOut}
+          />
+          <SettingsRow
+            icon="trash-2"
+            label="Delete account"
+            danger
             onPress={() => setConfirmDelete(true)}
-            disabled={deleting}
-            style={styles.dangerBtn}
-          >
-            {deleting ? (
-              <ActivityIndicator size="small" color={colors.danger} />
-            ) : (
-              <Text style={styles.rowDanger}>Delete</Text>
-            )}
-          </Pressable>
+            last
+          />
         </View>
+
+        {deleteError ? <Text style={styles.deleteError}>{deleteError}</Text> : null}
+
+        {plansUnavailable ? (
+          <View style={styles.notice}>
+            <Feather name="wifi-off" size={15} color={colors.gold} />
+            <Text style={styles.noticeText}>{plansUnavailable}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       <ConfirmDialog
@@ -274,7 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgElevated,
   },
   signoutText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.textSecondary },
-  subcard: {
+  card: {
     backgroundColor: colors.bgElevated,
     borderWidth: 1,
     borderColor: 'rgba(46,18,64,0.05)',
@@ -340,6 +303,7 @@ const styles = StyleSheet.create({
     minWidth: 84,
     alignItems: 'center',
   },
+  deleteError: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: colors.danger, paddingHorizontal: 4, marginBottom: spacing.md },
   rowDanger: { ...type.body, color: colors.danger, fontFamily: 'Inter_600SemiBold' },
   rowLink: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.primary },
   notice: {

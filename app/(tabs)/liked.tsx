@@ -21,6 +21,7 @@ import { art } from '../../src/art';
 import type { PublicProfileSummary } from '../../src/lib/api';
 import { humanError } from '../../src/lib/errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PROFILES } from '../../src/lib/preview';
+import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';
 
@@ -303,13 +304,7 @@ function GridCard({
     <View style={styles.card}>
       <Pressable onPress={onOpen}>
         <View style={styles.imageWrap}>
-          {profile.primaryPhotoUrl ? (
-            <Image source={{ uri: profile.primaryPhotoUrl }} style={styles.image} contentFit="cover" transition={80} cachePolicy="memory-disk" priority="normal" />
-          ) : (
-            <View style={[styles.image, styles.placeholder]}>
-              <Text style={type.caption}>No photo</Text>
-            </View>
-          )}
+          <ProfilePhoto uri={profile.primaryPhotoUrl} name={profile.displayName} style={styles.image} priority="normal" />
         </View>
       </Pressable>
       <View style={styles.cardBody}>
@@ -344,13 +339,9 @@ function ListRow({
         pressed ? { opacity: 0.92 } : null,
       ]}
     >
-      {profile.primaryPhotoUrl ? (
-        <Image source={{ uri: profile.primaryPhotoUrl }} style={styles.rowThumb} contentFit="cover" transition={80} cachePolicy="memory-disk" priority="normal" />
-      ) : (
-        <View style={[styles.rowThumb, styles.placeholder]}>
-          <Text style={type.caption}>-</Text>
-        </View>
-      )}
+      <View style={[styles.rowThumb, { overflow: 'hidden' }]}>
+        <ProfilePhoto uri={profile.primaryPhotoUrl} name={profile.displayName} priority="normal" compact />
+      </View>
       <View style={styles.rowBody}>
         <NameRow profile={profile} />
         <Text style={styles.facility} numberOfLines={1}>{profile.facility.state ?? ''}</Text>

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import type { PublicProfileSummary } from '../lib/api';
+import { ProfilePhoto } from './ProfilePhoto';
 import { usePublicProfile } from '../lib/use-public-profiles';
 import { colors, fonts, radii, spacing, type } from '../theme';
 
@@ -36,20 +37,12 @@ export function ProfileCard({ profile, focused }: ProfileCardProps) {
       onPress={() => router.push(`/(tabs)/profile?id=${profile.id}`)}
     >
       <View style={styles.imageWrap}>
-        {profile.primaryPhotoUrl ? (
-          <Image
-            source={{ uri: profile.primaryPhotoUrl }}
-            style={styles.image}
-            contentFit="cover"
-            transition={80}
-            cachePolicy="memory-disk"
-            priority={focused ? 'high' : 'normal'}
-          />
-        ) : (
-          <View style={[styles.image, styles.imagePlaceholder]}>
-            <Text style={styles.placeholderText}>No photo</Text>
-          </View>
-        )}
+        <ProfilePhoto
+          uri={profile.primaryPhotoUrl}
+          name={profile.displayName}
+          style={styles.image}
+          priority={focused ? 'high' : 'normal'}
+        />
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <View style={styles.photoTint} />
           <LinearGradient
