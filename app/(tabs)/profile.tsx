@@ -197,7 +197,12 @@ export default function ProfileDetailScreen() {
         <Image source={{ uri: photoUri }} style={styles.photoImg} contentFit="cover" transition={80} cachePolicy="memory-disk" priority="high" />
       ) : (
         <View style={[styles.photoImg, styles.photoPlaceholder]}>
-          <Text style={type.caption}>No photo</Text>
+          <View style={styles.phInitial}>
+            <Text style={styles.phInitialText}>
+              {(data.displayName || '?').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.phText}>Photo coming soon</Text>
         </View>
       )}
       <View style={styles.photoTint} pointerEvents="none" />
@@ -206,6 +211,18 @@ export default function ProfileDetailScreen() {
         style={styles.photoScrim}
         pointerEvents="none"
       />
+      <View style={styles.photoIdentity} pointerEvents="none">
+        <Text style={styles.photoName} numberOfLines={1}>
+          {data.displayName}
+          {data.age ? <Text style={styles.photoAge}>  {data.age}</Text> : null}
+        </Text>
+        {data.facility?.state ? (
+          <View style={styles.photoMetaRow}>
+            <Feather name="home" size={12} color="rgba(251,245,232,0.9)" />
+            <Text style={styles.photoMeta}>{stateName(data.facility.state)}</Text>
+          </View>
+        ) : null}
+      </View>
       {data.isVerified ? (
       <View style={styles.vbadge} pointerEvents="none">
         <Feather name="shield" size={13} color={colors.goldBright} />
@@ -324,21 +341,23 @@ export default function ProfileDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Feather name="arrow-left" size={16} color={colors.primary} />
           <Text style={styles.backLabel}>Back</Text>
         </Pressable>
         {photoPane}
-        <View style={styles.mobileBody}>{column}</View>
+        <View style={styles.mobileBody}>
+          <EditorialColumn data={data} hideName />
+        </View>
       </ScrollView>
       {actionBar}
     </SafeAreaView>
   );
 }
 
-function EditorialColumn({ data }: { data: PublicProfileDetail }) {
+function EditorialColumn({ data, hideName }: { data: PublicProfileDetail; hideName?: boolean }) {
   const prefs = parsePrefs(data.matchPreferences);
   const basics: { label: string; icon: keyof typeof Feather.glyphMap }[] = [];
   const push = (v: string | null, icon: keyof typeof Feather.glyphMap) => {
@@ -370,10 +389,14 @@ function EditorialColumn({ data }: { data: PublicProfileDetail }) {
       {prefs.typeOfConnection.length ? (
         <Text style={styles.overline}>{prefs.typeOfConnection.join(' · ').toUpperCase()}</Text>
       ) : null}
-      <View style={styles.nmrow}>
-        <Text style={styles.nm}>{data.displayName}</Text>
-        {data.age != null ? <Text style={styles.ag}>{data.age}</Text> : null}
-      </View>
+      {/* On a phone the name is already over the photo above, so repeating it
+          here just pushed the bio further down. */}
+      {hideName ? null : (
+        <View style={styles.nmrow}>
+          <Text style={styles.nm}>{data.displayName}</Text>
+          {data.age != null ? <Text style={styles.ag}>{data.age}</Text> : null}
+        </View>
+      )}
       {data.bio ? <Text style={styles.prose}>{data.bio}</Text> : null}
 
       <VitalsStrip releaseDate={release} state={stateName(data.facility.state)} acceptsMail={data.acceptsMail} />
@@ -470,9 +493,25 @@ const styles = StyleSheet.create({
 
   pd: { flex: 1, flexDirection: 'row', minHeight: 0 },
   photoDesktop: { width: '46%', position: 'relative', overflow: 'hidden' },
-  photoMobile: { position: 'relative', aspectRatio: 4 / 5, overflow: 'hidden' },
+  // 4/5 made this ~500pt tall on a phone, which filled the screen and pushed
+  // the person's name and story below the fold: you opened a profile and saw a
+  // photo and nothing else. Shorter, so identity and the start of the bio are
+  // visible without scrolling.
+  photoMobile: { position: 'relative', aspectRatio: 5 / 4, overflow: 'hidden' },
   photoImg: { width: '100%', height: '100%', backgroundColor: colors.surfaceMuted },
   photoPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  photoIdentity: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.lg, gap: 3 },
+  photoName: { fontFamily: fonts.heading, fontSize: 26, color: '#FBF5E8' },
+  photoAge: { fontFamily: fonts.heading, fontSize: 20, color: 'rgba(251,245,232,0.85)' },
+  photoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  photoMeta: { fontFamily: fonts.body, fontSize: 13, color: 'rgba(251,245,232,0.9)' },
+  phInitial: {
+    width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.sidebar, marginBottom: 10,
+  },
+  phInitialText: { fontFamily: fonts.heading, fontSize: 26, color: colors.sidebarText },
+  phText: { fontFamily: fonts.body, fontSize: 13, color: colors.textMuted },
   photoTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.photoTint },
   photoScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
   safetyNote: { fontFamily: fonts.body, fontSize: 12.5, color: colors.primary, textAlign: 'center', paddingTop: 8 },
@@ -515,10 +554,10 @@ const styles = StyleSheet.create({
 
   bodyCol: { flex: 1, minWidth: 0 },
   bodyScroll: { paddingHorizontal: 40, paddingTop: 20, paddingBottom: 0, flexGrow: 1 },
-  mobileScroll: { paddingBottom: 90, flexGrow: 1 },
+  mobileScroll: { paddingBottom: 90, flexGrow: 1, paddingTop: 0 },
   mobileBody: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
 
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: spacing.sm, alignSelf: 'flex-start', paddingHorizontal: Platform.select({ default: 0 }) },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingLeft: spacing.lg, alignSelf: 'flex-start', paddingHorizontal: Platform.select({ default: 0 }) },
   backLabel: { ...type.button, color: colors.primary, fontSize: 14 },
 
   overline: {
