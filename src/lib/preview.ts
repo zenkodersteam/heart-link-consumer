@@ -10,7 +10,7 @@
  *     the Home screen shows placeholder people.
  */
 
-import type { PublicProfileDetail, PublicProfileSummary } from './api';
+import type { Plan, PublicProfileDetail, PublicProfileSummary } from './api';
 
 // Opt-in via env for local design review (renders every screen + sample data
 // without a Clerk session). Defaults to false so a production build can never
@@ -78,3 +78,62 @@ export const PREVIEW_DETAILS: Record<string, PublicProfileDetail> = Object.fromE
     },
   ]),
 );
+
+/**
+ * Plans for design review. Mirrors the seeded catalogue so the picker can be
+ * looked at without a signed-in session, the same way the Home deck falls back
+ * to sample profiles. Both sets are here because the picker shows the outside
+ * plans on Account and the listing plans in the sponsor flow.
+ */
+export const PREVIEW_PLANS: Plan[] = [
+  {
+    id: 'preview-outside-basic',
+    name: 'Outside Basic - Monthly',
+    type: 'outside_basic',
+    priceCents: 999,
+    billingInterval: 'monthly',
+    features: { browseProfiles: true, saveFavorites: true, mailbox: false, swipeDailyCap: 50, letterAllowance: 0 },
+    stripePriceId: null,
+    isActive: true,
+  },
+  {
+    id: 'preview-outside-premium',
+    name: 'Outside Premium - Monthly',
+    type: 'outside_premium',
+    priceCents: 1999,
+    billingInterval: 'monthly',
+    features: { browseProfiles: true, saveFavorites: true, mailbox: true, prioritySupport: true, swipeDailyCap: 150, letterAllowance: 4 },
+    stripePriceId: null,
+    isActive: true,
+  },
+  {
+    id: 'preview-basic',
+    name: 'Basic',
+    type: 'inmate_listing',
+    priceCents: 3000,
+    billingInterval: 'annual',
+    features: { tier: 'basic', photoLimit: 3, bioWordLimit: 200 },
+    stripePriceId: null,
+    isActive: true,
+  },
+  {
+    id: 'preview-diamond',
+    name: 'Diamond',
+    type: 'inmate_listing',
+    priceCents: 4500,
+    billingInterval: 'annual',
+    features: { tier: 'diamond', photoLimit: 4, bioWordLimit: 300 },
+    stripePriceId: null,
+    isActive: true,
+  },
+  {
+    id: 'preview-vip',
+    name: 'VIP',
+    type: 'inmate_listing',
+    priceCents: 6000,
+    billingInterval: 'annual',
+    features: { tier: 'vip', photoLimit: 6, bioWordLimit: 350 },
+    stripePriceId: null,
+    isActive: true,
+  },
+];

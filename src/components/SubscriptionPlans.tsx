@@ -15,6 +15,7 @@ import {
 import { art } from '../art';
 import { ApiClientError, type Plan } from '../lib/api';
 import { humanError } from '../lib/errors';
+import { PREVIEW_BYPASS_AUTH, PREVIEW_PLANS } from '../lib/preview';
 import { useApiClientFactory } from '../lib/use-api-client';
 import { colors, cta, radii, spacing, type } from '../theme';
 import { Card } from './primitives';
@@ -194,6 +195,17 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
         setPlans(chosen);
       } catch (e) {
         if (!active) return;
+        // In design-review mode there is no session, so fall back to the sample
+        // catalogue rather than an error, matching the Home deck's behaviour.
+        if (PREVIEW_BYPASS_AUTH) {
+          const wantListing = Boolean(profileId);
+          setPlans(
+            PREVIEW_PLANS.filter((p) =>
+              wantListing ? p.type === 'inmate_listing' : p.type !== 'inmate_listing',
+            ),
+          );
+          return;
+        }
         setError(humanError(e, 'We could not load plans right now. You can still use support if you need help with billing.'));
       } finally {
         if (active) setLoading(false);
@@ -304,7 +316,9 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
                     pressed ? { opacity: 0.8 } : null,
                   ]}
                 >
-                  <Text style={styles.planName}>{plan.name}</Text>
+                  <Text style={styles.planName} numberOfLines={1}>
+        {planLabel(plan)}
+      </Text>
                   <Text style={styles.compactPrice}>
                     <Text style={styles.priceAmountSmall}>{amount}</Text>
                     <Text style={styles.priceInterval}>{interval === '/year' ? '/yr' : interval}</Text>
@@ -318,6 +332,24 @@ export function SubscriptionPlans({ profileId, forName }: SubscriptionPlansProps
       <Text style={styles.reassure}>{renewalNotice(plans)}</Text>
     </View>
   );
+}
+
+/**
+ * Display name for a plan.
+ *
+ * The stored names carry their billing interval ("Outside Premium - Monthly")
+ * and an audience prefix that only makes sense internally. Shown raw they
+ * wrapped onto two lines, pushed the price off a shared baseline, and made the
+ * button label long enough to spill out of its own pill.
+ *
+ * The interval is already printed next to the price, and each screen shows one
+ * audience's plans, so both parts are redundant to the person reading it.
+ */
+function planLabel(plan: Plan): string {
+  return plan.name
+    .replace(/\s*-\s*(monthly|quarterly|annual|annually|yearly)\s*$/i, '')
+    .replace(/^outside\s+/i, '')
+    .trim();
 }
 
 function PlanCard({
@@ -360,7 +392,9 @@ function PlanCard({
           contentFit="contain"
         />
       </View>
-      <Text style={styles.planName}>{plan.name}</Text>
+      <Text style={styles.planName} numberOfLines={1}>
+        {planLabel(plan)}
+      </Text>
       <Text style={styles.price}>
         <Text style={styles.priceAmount}>{amount}</Text>
         <Text style={styles.priceInterval}> {interval}</Text>
@@ -388,13 +422,11 @@ function PlanCard({
           busy ? { opacity: 0.6 } : null,
         ]}
       >
-        <Text style={[styles.ctaText, featured ? styles.ctaTextFeatured : null]}>
-          {busy && pending?.processor === 'stripe' ? '...' : `Choose ${plan.name}`}
-        </Text>
-      </Pressable>
-      <Pressable onPress={() => onSubscribe(plan, 'paypal')} disabled={busy}>
-        <Text style={styles.paypal}>
-          {busy && pending?.processor === 'paypal' ? 'Opening PayPal...' : 'or pay with PayPal'}
+        <Text
+          style={[styles.ctaText, featured ? styles.ctaTextFeatured : null]}
+          numberOfLines={1}
+        >
+          {busy && pending?.processor === 'stripe' ? 'Opening…' : `Choose ${planLabel(plan)}`}
         </Text>
       </Pressable>
         </>
@@ -430,7 +462,7 @@ const styles = StyleSheet.create({
     boxShadow:
       '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06), 0 24px 48px rgba(46,18,64,0.10)',
   },
-  planDesktop: { width: 250 },
+  planDesktop: { width: 268 },
   planFeatured: {
     borderWidth: 1.5,
     borderColor: 'rgba(214,168,79,0.65)',
@@ -508,14 +540,17 @@ const styles = StyleSheet.create({
   priceAmount: { fontFamily: 'BreeSerif_400Regular', fontSize: 34, color: colors.textPrimary },
   priceAmountSmall: { fontFamily: 'BreeSerif_400Regular', fontSize: 19, color: colors.textPrimary },
   priceInterval: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.textMuted },
-  features: { marginTop: 16, marginBottom: 22, gap: 9 },
+  features: { marginTop: 16, marginBottom: 22, gap: 9, flexGrow: 1 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   featureText: { fontFamily: 'Inter_400Regular', fontSize: 13.5, color: colors.textSecondary },
   cta: {
     marginTop: 'auto',
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: radii.pill,
     paddingVertical: 12,
+    paddingHorizontal: 14,
+    minHeight: 44,
     ...Platform.select({
       web: { transitionProperty: 'transform, box-shadow', transitionDuration: '160ms' } as object,
     }),
