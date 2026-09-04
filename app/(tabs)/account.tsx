@@ -105,33 +105,24 @@ export default function AccountScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Luma-style centered identity block */}
+        {/* Identity: a row, not a stacked block. Centred it cost roughly a
+            third of a phone screen before any content appeared. */}
         <View style={styles.lid}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initial}</Text>
           </View>
-          <Text style={styles.email}>{email}</Text>
-          <Pressable
-            onPress={onSignOut}
-            disabled={signingOut}
-            style={({ pressed }: { pressed: boolean }) => [
-              styles.signout,
-              pressed ? { opacity: 0.7 } : null,
-            ]}
-          >
-            <Text style={styles.signoutText}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
-          </Pressable>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.lidName} numberOfLines={1}>
+              {profile?.displayName || 'Your account'}
+            </Text>
+            <Text style={styles.email} numberOfLines={1}>
+              {email}
+            </Text>
+          </View>
         </View>
 
-        {/* Subscription card: quota + plan rows with row-level actions */}
+        <Text style={styles.groupLabel}>LETTERS &amp; PLAN</Text>
         <View style={styles.subcard}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.kicker}>MEMBER ACCOUNT</Text>
-              <Text style={styles.cardTitle}>Letters, plan, and support</Text>
-            </View>
-            <Feather name="shield" size={18} color={colors.gold} />
-          </View>
           {quotaLabel ? (
             <View style={styles.row}>
               <Text style={styles.rowText}>
@@ -169,8 +160,11 @@ export default function AccountScreen() {
                 : ''}
             </Text>
           </View>
-          <Text style={styles.groupLabel}>SUPPORT</Text>
-          <View style={[styles.row, styles.rowDivider]}>
+        </View>
+
+        <Text style={styles.groupLabel}>SUPPORT</Text>
+        <View style={styles.subcard}>
+          <View style={styles.row}>
             <Text style={styles.rowText}>Not sure what to write?</Text>
             <Pressable onPress={() => router.push('/circle' as never)}>
               <Text style={styles.rowLink}>Open Support Circle</Text>
@@ -182,8 +176,11 @@ export default function AccountScreen() {
               <Text style={styles.rowLink}>Visit Support</Text>
             </Pressable>
           </View>
-          <Text style={styles.groupLabel}>PRIVACY &amp; SAFETY</Text>
-          <View style={[styles.row, styles.rowDivider]}>
+        </View>
+
+        <Text style={styles.groupLabel}>PRIVACY &amp; SAFETY</Text>
+        <View style={styles.subcard}>
+          <View style={styles.row}>
             <Text style={styles.rowText}>People you have blocked</Text>
             <Pressable onPress={() => router.push('/blocked' as never)}>
               <Text style={styles.rowLink}>Manage</Text>
@@ -205,27 +202,36 @@ export default function AccountScreen() {
         </View>
 
         <SubscriptionPlans />
-      </ScrollView>
-      <View style={styles.dangerZone}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.dangerTitle}>Close your account</Text>
-          <Text style={styles.dangerBody}>
-            Your sign-in is removed and your personal details are erased. This cannot be undone.
-          </Text>
-          {deleteError ? <Text style={styles.dangerError}>{deleteError}</Text> : null}
+
+        <Text style={styles.groupLabel}>SESSION</Text>
+        <View style={styles.subcard}>
+          <Pressable onPress={onSignOut} disabled={signingOut} style={styles.row}>
+            <Text style={styles.rowText}>Signed in as {email}</Text>
+            <Text style={styles.rowLink}>{signingOut ? 'Signing out…' : 'Sign out'}</Text>
+          </Pressable>
         </View>
-        <Pressable
-          onPress={() => setConfirmDelete(true)}
-          disabled={deleting}
-          style={styles.dangerBtn}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color={colors.danger} />
-          ) : (
-            <Text style={styles.rowDanger}>Delete</Text>
-          )}
-        </Pressable>
-      </View>
+
+        <View style={styles.dangerZone}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dangerTitle}>Close your account</Text>
+            <Text style={styles.dangerBody}>
+              Your sign-in is removed and your personal details are erased. This cannot be undone.
+            </Text>
+            {deleteError ? <Text style={styles.dangerError}>{deleteError}</Text> : null}
+          </View>
+          <Pressable
+            onPress={() => setConfirmDelete(true)}
+            disabled={deleting}
+            style={styles.dangerBtn}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <Text style={styles.rowDanger}>Delete</Text>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
 
       <ConfirmDialog
         open={confirmDelete}
@@ -243,20 +249,21 @@ export default function AccountScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent' },
-  body: { padding: spacing.xl, paddingTop: spacing.xxl, width: '100%', maxWidth: 980, alignSelf: 'center' },
-  lid: { alignItems: 'center', marginBottom: spacing.xl },
+  body: { padding: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl, width: '100%', maxWidth: 980, alignSelf: 'center' },
+  lid: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: colors.sidebar,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
     boxShadow: '0 0 0 3px #fff, 0 0 0 5px rgba(214,168,79,0.6)',
   },
-  avatarText: { fontFamily: 'Inter_600SemiBold', fontSize: 22, color: colors.sidebarText },
-  email: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: colors.textPrimary },
+  avatarText: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: colors.sidebarText },
+  lidName: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: colors.textPrimary },
+  email: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.textMuted },
   signout: {
     marginTop: spacing.md,
     borderWidth: 1.5,
@@ -272,7 +279,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(46,18,64,0.05)',
     borderRadius: 20,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
     boxShadow: '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06)',
   },
   cardHeader: {
@@ -304,19 +311,18 @@ const styles = StyleSheet.create({
   rowStrong: { color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
   groupLabel: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 10.5,
-    letterSpacing: 0.9,
+    fontSize: 11,
+    letterSpacing: 0.8,
     color: colors.textMuted,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: 2,
+    paddingHorizontal: 4,
+    paddingBottom: 7,
   },
   dangerZone: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     padding: spacing.lg,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(179,37,63,0.22)',
