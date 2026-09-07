@@ -1,7 +1,8 @@
 'use client';
 
-import { UserButton } from '@clerk/nextjs';
 import Image from 'next/image';
+
+import { UserMenu } from '@/components/auth/user-menu';
 import Link from 'next/link';
 
 export function MobileTopBar() {
@@ -14,7 +15,7 @@ export function MobileTopBar() {
           <span className="text-primary">Link</span>
         </span>
       </Link>
-      <UserButton />
+      <UserMenu tone="light" />
     </header>
   );
 }

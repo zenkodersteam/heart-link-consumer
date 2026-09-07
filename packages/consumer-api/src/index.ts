@@ -8,3 +8,4 @@
 export * from './api';
 export * from './connectivity';
 export * from './prefs';
+export * from './auth';

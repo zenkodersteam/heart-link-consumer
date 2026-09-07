@@ -14,7 +14,13 @@ export function AuthShell({
   subtitle,
   children,
 }: {
-  title: string;
+  /**
+   * Optional: the sign-in form owns its own heading, because that heading
+   * changes when it moves from asking for an address to asking for the code.
+   * Two <h1>s on one page would be wrong, so the shell draws none when the
+   * child brings its own.
+   */
+  title?: string;
   subtitle?: string;
   children: ReactNode;
 }) {
@@ -45,7 +51,9 @@ export function AuthShell({
 
       <main className="flex flex-1 items-center justify-center bg-surface-elevated px-6 py-12">
         <div className="w-full max-w-[420px]">
-          <h1 className="font-[family-name:var(--font-bree)] text-3xl text-ink">{title}</h1>
+          {title ? (
+            <h1 className="font-[family-name:var(--font-bree)] text-3xl text-ink">{title}</h1>
+          ) : null}
           {subtitle ? <p className="mt-2 text-sm text-ink-soft">{subtitle}</p> : null}
           <div className="mt-8">{children}</div>
         </div>

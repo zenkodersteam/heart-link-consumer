@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { ClerkProvider } from '@clerk/nextjs';
 import { Inter, Bree_Serif } from 'next/font/google';
 import { Toaster } from 'sonner';
 
+import { SessionProvider } from '@/components/auth/session-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
+import { hasSessionCookie } from '@/lib/session';
 import './globals.css';
 
 // next/font self-hosts these, so there is no render-blocking request to Google
@@ -22,15 +23,19 @@ export const metadata: Metadata = {
     'A calm, private place to write to people inside. Real letters, honest conversations, and trust that builds over time.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Read here rather than in the provider so an anonymous visitor never makes
+  // a refresh call: with no cookie there is nothing to refresh.
+  const hasSession = await hasSessionCookie();
+
   return (
-    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up" afterSignOutUrl="/">
+    <SessionProvider hasSession={hasSession}>
       <html lang="en" className={`${inter.variable} ${bree.variable}`}>
         <body className="min-h-dvh antialiased">
           <QueryProvider>{children}</QueryProvider>
           <Toaster position="top-center" richColors />
         </body>
       </html>
-    </ClerkProvider>
+    </SessionProvider>
   );
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import { useClerk, useUser } from '@clerk/nextjs';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2,
@@ -17,6 +16,7 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { useSession } from '@/components/auth/session-provider';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
@@ -39,8 +39,7 @@ export function Account() {
   const params = useSearchParams();
   const checkout = params.get('checkout');
 
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { user, signOut } = useSession();
   const queryClient = useQueryClient();
 
   const { data: profile } = useMyProfile();
@@ -52,7 +51,7 @@ export function Account() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? '—';
+  const email = user?.email ?? '—';
   const initial = (profile?.displayName?.[0] ?? email[0] ?? '?').toUpperCase();
 
   const lettersLabel =
@@ -74,7 +73,7 @@ export function Account() {
   const onSignOut = async () => {
     setSigningOut(true);
     try {
-      await signOut({ redirectUrl: '/' });
+      await signOut();
       queryClient.clear();
     } finally {
       setSigningOut(false);
@@ -86,7 +85,7 @@ export function Account() {
     deleteAccount.mutate(undefined, {
       onSuccess: async () => {
         queryClient.clear();
-        await signOut({ redirectUrl: '/' });
+        await signOut();
       },
       onError: (err) =>
         setDeleteError(

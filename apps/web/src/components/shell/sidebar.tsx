@@ -1,11 +1,11 @@
 'use client';
 
-import { UserButton } from '@clerk/nextjs';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart } from 'lucide-react';
 
+import { UserMenu } from '@/components/auth/user-menu';
 import { NAV_ITEMS, isActive } from '@/components/shell/nav-items';
 import { UnreadBadge, useUnreadCount } from '@/components/shell/unread-badge';
 import { cn } from '@/lib/utils';
@@ -61,7 +61,7 @@ export function Sidebar() {
       </div>
 
       <div className="mt-4 flex justify-center border-t border-white/10 pt-4">
-        <UserButton />
+        <UserMenu tone="dark" />
       </div>
     </aside>
   );
