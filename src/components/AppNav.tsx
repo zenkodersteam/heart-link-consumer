@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useApiClientFactory } from '../lib/use-api-client';
 import { colors, radii, shell, spacing, type } from '../theme';
@@ -147,25 +148,61 @@ export function Sidebar() {
   );
 }
 
-/** White bottom tab bar shown on narrow (mobile) layouts. */
+/**
+ * Bottom tab bar for narrow (mobile) layouts, built to iOS conventions.
+ *
+ * This is a hand-rolled bar rather than a real `<Tabs>` navigator, because the
+ * shell is shared with the desktop web build. Three things were making it read
+ * as a web nav pasted onto a phone:
+ *
+ * - The bar stopped above the home indicator, with page background showing
+ *   below it. A native tab bar runs to the bottom of the screen and carries the
+ *   safe-area inset as its own padding, so its surface sits under the
+ *   indicator. The layout hands us the bottom edge to do that.
+ * - The active tab was a filled pink pill, which is Material's navigation bar.
+ *   iOS marks the active tab with tint alone.
+ * - The top border was a full point; iOS uses a hairline, which is thinner than
+ *   1pt on every retina screen.
+ *
+ * Tapping a tab also used to `push`, so the history grew without bound - five
+ * taps meant five stacked screens, all still mounted. Tabs switch rather than
+ * stack, so this navigates in place.
+ */
 export function BottomTabBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+  const unread = useUnreadCount();
 
   return (
-    <View style={tabStyles.bar}>
+    <View style={[tabStyles.bar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
       {TAB_ITEMS.map((item) => {
         const active = isActive(pathname, item);
+        const tint = active ? colors.primary : colors.textMuted;
+        const showBadge = item.key === 'mailbox' && unread > 0;
         return (
           <Pressable
             key={item.key}
-            onPress={() => router.push(item.path as never)}
-            style={({ pressed }: { pressed: boolean }) => [tabStyles.tab, pressed ? { opacity: 0.6 } : null]}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            onPress={() => {
+              if (active) return;
+              router.replace(item.path as never);
+            }}
+            style={({ pressed }: { pressed: boolean }) => [tabStyles.tab, pressed ? { opacity: 0.4 } : null]}
           >
-            <View style={[tabStyles.iconPill, active ? tabStyles.iconPillActive : null]}>
-              <Feather name={item.icon} size={21} color={active ? colors.primary : colors.textMuted} />
+            <View>
+              <Feather name={item.icon} size={24} color={tint} />
+              {showBadge ? (
+                <View style={tabStyles.badge}>
+                  <Text style={tabStyles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+                </View>
+              ) : null}
             </View>
-            <Text style={[tabStyles.tabLabel, active ? tabStyles.tabLabelActive : null]}>{item.short}</Text>
+            <Text style={[tabStyles.tabLabel, { color: tint }, active ? tabStyles.tabLabelActive : null]}>
+              {item.short}
+            </Text>
           </Pressable>
         );
       })}
@@ -285,17 +322,31 @@ const sidebarStyles = StyleSheet.create({
 const tabStyles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     backgroundColor: colors.bgElevated,
-    borderTopWidth: 1,
+    // Hairline, not 1pt - the system separator is thinner than a point on
+    // every retina screen, and a full point reads as a drawn-on rule.
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    paddingBottom: spacing.sm,
-    paddingTop: spacing.sm,
+    paddingTop: 6,
   },
-  tab: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: spacing.xs },
-  iconPill: { paddingVertical: 4, paddingHorizontal: 16, borderRadius: radii.pill },
-  iconPillActive: { backgroundColor: colors.primaryFaint },
-  tabLabel: { ...type.caption, fontSize: 10.5 },
-  tabLabelActive: { color: colors.primary, fontFamily: 'Inter_600SemiBold' },
+  // 49pt of touch target above the safe-area inset, matching UITabBar.
+  tab: { flex: 1, height: 49, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  tabLabel: { ...type.caption, fontSize: 10, lineHeight: 13 },
+  tabLabelActive: { fontFamily: 'Inter_600SemiBold' },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    left: 14,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: colors.onPrimary },
 });
 
 const topStyles = StyleSheet.create({
@@ -306,7 +357,7 @@ const topStyles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     backgroundColor: colors.bgDeep,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
   right: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

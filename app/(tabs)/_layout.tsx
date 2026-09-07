@@ -106,7 +106,11 @@ export default function TabLayout() {
   }
 
   return (
-    <SafeAreaView style={[styles.mobileSafe, { height }]} edges={['top', 'bottom']}>
+    // Only the top edge is inset here. The tab bar takes the bottom inset as
+    // its own padding, so its surface runs under the home indicator the way a
+    // native tab bar does - insetting the whole screen instead left a strip of
+    // page background below the bar, which is what made it look stuck on.
+    <SafeAreaView style={[styles.mobileSafe, { height }]} edges={['top']}>
       <MobileTopBar />
       {/* Between the bar and the content so it never covers either, and is
           equally visible on whichever screen the member is on. */}
