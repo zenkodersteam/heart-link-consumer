@@ -42,8 +42,34 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/favicon.png',
   },
 
+  // EAS project link. Written by hand because `eas init` cannot edit a dynamic
+  // (.ts) config; spread `config.extra` first so expo-router's own `extra`
+  // survives rather than being replaced.
+  extra: {
+    ...config.extra,
+    eas: { projectId: '0d754966-dd40-44e2-b113-96a02f9b098d' },
+  },
+
   plugins: [
     'expo-router',
+    [
+      // Sets the Android notification icon/colour and, on iOS, the push
+      // entitlement the OS requires before it will issue a device token.
+      'expo-notifications',
+      {
+        icon: './assets/icon.png',
+        color: '#E91E73',
+      },
+    ],
+    [
+      // iOS crashes outright if a permission is requested without a usage
+      // string, so these are required, not cosmetic.
+      'expo-image-picker',
+      {
+        photosPermission: 'HeartLink uses your photos so you can add a profile picture.',
+        cameraPermission: 'HeartLink uses your camera so you can take a profile picture.',
+      },
+    ],
     [
       // Without this the prebuilt splash is blank white on both platforms: the
       // generated iOS storyboard carried constraints pointing at an image view
