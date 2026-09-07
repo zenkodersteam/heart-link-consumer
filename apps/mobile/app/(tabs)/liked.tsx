@@ -22,7 +22,7 @@ import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PROFILES } from '../../src/lib/preview';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';
-import { stateName } from '../../src/lib/prefs';
+import { stateName } from '@heartlink/consumer-api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';
 

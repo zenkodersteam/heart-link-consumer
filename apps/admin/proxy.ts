@@ -11,6 +11,9 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
  *
  * Matching by exception keeps that from rotting — a new route is protected by
  * default, rather than protected only if someone remembers to add it.
+ *
+ * Named `proxy` rather than `middleware`: Next 16 renamed the convention, and
+ * the old file name now builds with a deprecation warning.
  */
 const isPublicRoute = createRouteMatcher([
   '/',

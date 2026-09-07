@@ -1,6 +1,10 @@
 /**
  * Defensive reader for the API's untyped matchPreferences OCR blob.
  * Absent or malformed keys yield null/[] so sections simply hide.
+ *
+ * It lives beside the client rather than in either app: both the website and
+ * the phone app render these fields, and a second copy would be a second set
+ * of labels to keep in step with the intake form.
  */
 
 export interface Prefs {

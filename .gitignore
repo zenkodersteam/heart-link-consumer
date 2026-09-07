@@ -7,3 +7,6 @@ dist/
 .next/
 out/
 *.log
+
+# TypeScript incremental build state — churns on every build
+*.tsbuildinfo

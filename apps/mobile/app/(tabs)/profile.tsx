@@ -23,7 +23,7 @@ import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/comp
 import { Button } from '../../src/components/primitives';
 import type { PublicProfileDetail, PublicProfilePhoto } from '@heartlink/consumer-api';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';
-import { formatReleaseMonth, parsePrefs, stateName } from '../../src/lib/prefs';
+import { formatReleaseMonth, parsePrefs, stateName } from '@heartlink/consumer-api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { usePublicProfile } from '../../src/lib/use-public-profiles';
 import { colors, fonts, radii, spacing, type } from '../../src/theme';

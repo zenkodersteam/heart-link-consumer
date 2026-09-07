@@ -3,6 +3,16 @@ import { NextResponse } from 'next/server';
 
 import { PUBLIC_ROUTES, AFTER_SIGN_IN } from '@/lib/routes';
 
+/**
+ * The edge gate for every request.
+ *
+ * Named `proxy` rather than `middleware`: Next 16 renamed the convention, and
+ * the old file name now builds with a deprecation warning.
+ *
+ * Routes are protected by exception, so a screen added later is behind the
+ * sign-in wall by default instead of only if someone remembered to list it.
+ */
+
 const isPublicRoute = createRouteMatcher([...PUBLIC_ROUTES]);
 const isAuthRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)']);
 

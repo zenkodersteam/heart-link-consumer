@@ -46,6 +46,13 @@ export default function GlobalError({
         >
           Try again
         </button>
+        {/* The digest is the only handle support has on which failure this
+            was, so it is shown rather than swallowed. */}
+        {error.digest ? (
+          <p style={{ color: '#9c8cae', fontSize: 12, margin: 0 }}>
+            Reference: {error.digest}
+          </p>
+        ) : null}
       </body>
     </html>
   );

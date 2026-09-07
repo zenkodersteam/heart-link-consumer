@@ -49,3 +49,44 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
+
+/**
+ * Entrance animations for the Radix overlays.
+ *
+ * Written here rather than pulled in with tailwindcss-animate: Tailwind 4
+ * generates utilities from @theme, and the plugin's `animate-in` family is a
+ * v3 plugin. Two keyframes cover every overlay this app has.
+ */
+@keyframes hl-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes hl-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hl-anim-fade[data-state='open'] {
+    animation: hl-fade-in 140ms ease-out;
+  }
+
+  .hl-anim-pop[data-state='open'] {
+    animation: hl-pop-in 140ms ease-out;
+  }
+}
+
+/** Swipeable rows keep their scrolling but lose the bar, which on a photo
+ *  carousel reads as a stray line across the bottom of the picture. */
+.hl-no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hl-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

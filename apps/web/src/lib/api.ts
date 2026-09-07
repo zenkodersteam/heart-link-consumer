@@ -2,7 +2,7 @@
 
 import { useAuth } from '@clerk/nextjs';
 import { createApiClient, type ApiClient } from '@heartlink/consumer-api';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -17,7 +17,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 export function useApiFactory(): () => Promise<ApiClient> {
   const { getToken } = useAuth();
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
+  useEffect(() => {
+    getTokenRef.current = getToken;
+  }, [getToken]);
 
   return useCallback(async () => {
     if (!API_BASE_URL) throw new Error('NEXT_PUBLIC_API_BASE_URL is not configured');

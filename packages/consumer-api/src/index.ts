@@ -7,3 +7,4 @@
  */
 export * from './api';
 export * from './connectivity';
+export * from './prefs';

@@ -18,7 +18,7 @@ import {
 
 import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { ProfilePhoto } from './ProfilePhoto';
-import { stateName } from '../lib/prefs';
+import { stateName } from '@heartlink/consumer-api';
 import { useApiClientFactory } from '../lib/use-api-client';
 import { usePublicProfile } from '../lib/use-public-profiles';
 import { colors, fonts, radii, spacing, type } from '../theme';

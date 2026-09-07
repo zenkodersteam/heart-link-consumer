@@ -1,7 +1,7 @@
 'use client';
 
 import { User } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -35,8 +35,11 @@ export function ProfilePhoto({
   name?: string | null;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+  // The failure is remembered against the URL that produced it, rather than as
+  // a bare flag reset by an effect: a new photo then starts clean on the same
+  // render, with no frame where a fresh URL is still treated as broken.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc !== null && failedSrc === src;
 
   const initial = name?.trim()?.[0]?.toUpperCase();
 
@@ -62,12 +65,12 @@ export function ProfilePhoto({
 
   // Plain <img>: these are presigned S3 URLs on a rotating host, which
   // next/image cannot optimise without whitelisting every bucket domain.
-  // eslint-disable-next-line @next/next/no-img-element
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={name ?? ''}
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
       className={cn('h-full w-full object-cover', className)}
     />
   );
