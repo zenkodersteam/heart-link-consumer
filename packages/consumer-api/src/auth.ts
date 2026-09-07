@@ -93,13 +93,14 @@ async function post<T>(baseUrl: string, path: string, body: unknown): Promise<T>
 /**
  * Ask for a code.
  *
- * `intent` only chooses the wording of the email. Whether an account is created
- * is decided on verify, from what is actually in the database — so someone who
- * lands on the wrong form still ends up in the right place.
+ * The address is the only input. Which email arrives — welcome, confirm your
+ * address, or here is your sign-in code — and whether an account is created are
+ * both decided by the server from what it holds, so landing on the wrong form
+ * still gets you to the right place.
  */
 export function requestSignInCode(
   baseUrl: string,
-  input: { email: string; intent?: 'sign_in' | 'sign_up' },
+  input: { email: string },
 ): Promise<RequestCodeResult> {
   return post<RequestCodeResult>(baseUrl, '/auth/otp/request', input);
 }

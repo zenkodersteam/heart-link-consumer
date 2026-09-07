@@ -8,6 +8,10 @@ import { apiBaseUrl } from '@/lib/session';
  * The API answers the same way for every address, so this endpoint cannot be
  * used to find out who has an admin account. Whether the address is staff is
  * settled on verify, where the role actually comes back.
+ *
+ * A member of staff an administrator added has never had a code sent to them,
+ * so the API sends them a "confirm your address" email here rather than a
+ * plain sign-in code — which is how a new colleague gets in the first time.
  */
 export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null);
@@ -18,7 +22,7 @@ export async function POST(request: Request) {
       'Content-Type': 'application/json',
       'x-forwarded-for': request.headers.get('x-forwarded-for') ?? '',
     },
-    body: JSON.stringify({ ...(body as object), intent: 'sign_in' }),
+    body: JSON.stringify(body ?? {}),
     cache: 'no-store',
   });
 

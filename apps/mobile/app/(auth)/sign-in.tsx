@@ -46,9 +46,10 @@ export default function SignInScreen() {
     setError(null);
     setNotice(null);
     try {
-      // `sign_in` only chooses the wording of the email; an address with no
-      // account still gets a code and still ends up with one.
-      setExpiresInMinutes(await requestCode(address, 'sign_in'));
+      // The address is the only input: the server decides whether this code
+      // opens an account, creates one, or confirms an address that has never
+      // been confirmed.
+      setExpiresInMinutes(await requestCode(address));
       setStage('code');
       if (resend) setNotice('Sent again — it can take a moment to arrive.');
     } catch (e) {

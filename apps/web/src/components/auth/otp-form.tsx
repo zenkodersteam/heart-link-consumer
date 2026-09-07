@@ -18,10 +18,11 @@ type Step = 'email' | 'code';
 /**
  * Sign in, or sign up — the same two steps either way.
  *
- * `intent` changes the wording and the email that gets sent, not the mechanics:
- * holding the address is the whole of what either one proves, so the server
- * decides from the database whether this opens an account or creates one. That
- * means someone who clicks the wrong link still ends up in the right place.
+ * `intent` changes this screen's wording and nothing else. Holding the address
+ * is the whole of what either one proves, so the server decides from its own
+ * records whether a code opens an account, creates one, or confirms an address
+ * that has never been confirmed. Someone who clicks the wrong link still ends
+ * up in the right place.
  */
 export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
   const router = useRouter();
@@ -50,7 +51,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       const response = await fetch('/api/auth/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, intent }),
+        body: JSON.stringify({ email }),
       });
       const data = (await response.json()) as { message?: string; expiresInMinutes?: number };
       if (!response.ok) {

@@ -37,7 +37,7 @@ interface SessionValue {
   isSignedIn: boolean;
   /** False until the stored token has been checked, so screens can hold. */
   isLoaded: boolean;
-  requestCode: (email: string, intent: 'sign_in' | 'sign_up') => Promise<number>;
+  requestCode: (email: string) => Promise<number>;
   signIn: (email: string, code: string) => Promise<{ created: boolean }>;
   signOut: () => Promise<void>;
 }
@@ -133,8 +133,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })();
   }, [refresh]);
 
-  const requestCode = useCallback(async (email: string, intent: 'sign_in' | 'sign_up') => {
-    const result = await requestSignInCode(API_BASE_URL, { email, intent });
+  const requestCode = useCallback(async (email: string) => {
+    const result = await requestSignInCode(API_BASE_URL, { email });
     return result.expiresInMinutes;
   }, []);
 
