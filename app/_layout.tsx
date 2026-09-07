@@ -16,6 +16,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastProvider } from '../src/components/Toast';
 import { tokenCache } from '../src/lib/token-cache';
+import {
+  configureNotificationHandler,
+  usePushRegistration,
+} from '../src/lib/use-push-registration';
 import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -29,6 +33,17 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 }
 
 const PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+/**
+ * Registers this device for notifications once someone is signed in, and sends
+ * a tapped notification to the screen it was about. Renders nothing.
+ */
+function PushRegistration() {
+  usePushRegistration();
+  return null;
+}
+
+configureNotificationHandler();
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -60,6 +75,10 @@ export default function RootLayout() {
         <View style={styles.root}>
           <StatusBar style="dark" />
           <ToastProvider>
+            {/* Inside ClerkProvider: registration waits until somebody is
+                signed in, so the permission prompt arrives when there is
+                something to be notified about rather than on first launch. */}
+            <PushRegistration />
             <Slot />
           </ToastProvider>
         </View>

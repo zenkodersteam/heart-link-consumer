@@ -611,6 +611,23 @@ export function createApiClient(options: ApiClientOptions) {
       });
     },
 
+    /**
+     * Remember this device, so the member can be told when a letter arrives.
+     * The API decides what counts as a valid token.
+     */
+    async registerPushToken(token: string, platform: string): Promise<{ registered: boolean }> {
+      return request(`/api/push/tokens`, {
+        method: 'POST',
+        body: JSON.stringify({ token, platform }),
+      });
+    },
+    /** Forget it, on sign-out. */
+    async unregisterPushToken(token: string): Promise<{ unregistered: boolean }> {
+      return request(`/api/push/tokens?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+      });
+    },
+
     // PayPal - separate processor. Same shape + same `configured: false`
     // degradation as Stripe checkout.
     async createPayPalCheckout(
