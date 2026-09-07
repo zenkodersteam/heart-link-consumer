@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { useAuth } from '@clerk/clerk-expo';
+import { useSession } from './session';
 import { router } from 'expo-router';
 
 import { useApiClientFactory } from './use-api-client';
@@ -21,7 +21,7 @@ import { useApiClientFactory } from './use-api-client';
  * none of it should keep anyone out of the app.
  */
 export function usePushRegistration(): void {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSession();
   const factory = useApiClientFactory();
   const registered = useRef(false);
 

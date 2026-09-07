@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/clerk-expo';
 import { BreeSerif_400Regular } from '@expo-google-fonts/bree-serif';
 import {
   Inter_400Regular,
@@ -15,7 +14,7 @@ import { Platform, View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ToastProvider } from '../src/components/Toast';
-import { tokenCache } from '../src/lib/token-cache';
+import { SessionProvider } from '../src/lib/session';
 import {
   configureNotificationHandler,
   usePushRegistration,
@@ -32,7 +31,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.head.appendChild(style);
 }
 
-const PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 /**
  * Registers this device for notifications once someone is signed in, and sends
@@ -60,29 +58,24 @@ export default function RootLayout() {
     if (fontsLoaded || Platform.OS === 'web') SplashScreen.hideAsync().catch(() => undefined);
   }, [fontsLoaded]);
 
-  if (!PUBLISHABLE_KEY) {
-    throw new Error(
-      'EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. Add it to .env or the deploy env.',
-    );
-  }
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      {/* No ClerkLoaded gate here: the public marketing page at `/` must paint
-          before Clerk finishes booting. Every authed layout ((tabs), (auth),
-          (onboarding)) already waits on its own `useAuth().isLoaded`. */}
-      <ClerkProvider publishableKey={PUBLISHABLE_KEY} tokenCache={tokenCache}>
+      {/* No gate on the session here: the public marketing page at `/` must
+          paint before the stored token has been checked. Every authed layout
+          ((tabs), (auth), (onboarding)) waits on its own `isLoaded`. */}
+      <SessionProvider>
         <View style={styles.root}>
           <StatusBar style="dark" />
           <ToastProvider>
-            {/* Inside ClerkProvider: registration waits until somebody is
+            {/* Inside SessionProvider: registration waits until somebody is
                 signed in, so the permission prompt arrives when there is
                 something to be notified about rather than on first launch. */}
             <PushRegistration />
             <Slot />
           </ToastProvider>
         </View>
-      </ClerkProvider>
+      </SessionProvider>
     </GestureHandlerRootView>
   );
 }

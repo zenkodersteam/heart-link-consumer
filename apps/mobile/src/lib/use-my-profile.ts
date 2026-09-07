@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useSession } from './session';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { OutsideUserProfile } from '@heartlink/consumer-api';
@@ -12,7 +12,7 @@ import { useApiClientFactory } from './use-api-client';
 let cached: OutsideUserProfile | null = null;
 let inflight: Promise<OutsideUserProfile> | null = null;
 /**
- * Clerk id the cache belongs to. The cache is module-level, so without this it
+ * user the cache belongs to. The cache is module-level, so without this it
  * outlives the session: sign out, sign in as someone else, and the new member
  * gets the previous one's profile — visibly, as prefilled onboarding answers.
  */
@@ -43,7 +43,8 @@ export function isOnboarded(p: OutsideUserProfile | null): boolean {
 }
 
 export function useMyProfile() {
-  const { isSignedIn, userId } = useAuth();
+  const { isSignedIn, user } = useSession();
+  const userId = user?.id ?? null;
   const apiFactory = useApiClientFactory();
   const [profile, setProfile] = useState<OutsideUserProfile | null>(cached);
   const [loading, setLoading] = useState(!cached);

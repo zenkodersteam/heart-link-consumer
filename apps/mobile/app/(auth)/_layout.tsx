@@ -1,10 +1,10 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useSession } from '../../src/lib/session';
 import { Redirect, Stack } from 'expo-router';
 
 import { colors } from '../../src/theme';
 
 export default function AuthLayout() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useSession();
   if (!isLoaded) return null;
   if (isSignedIn) return <Redirect href="/(tabs)" />;
 

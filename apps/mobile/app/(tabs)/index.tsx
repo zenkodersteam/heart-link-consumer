@@ -1,4 +1,4 @@
-import { useUser } from '@clerk/clerk-expo';
+import { useSession } from '../../src/lib/session';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -32,8 +32,8 @@ export default function HomeScreen() {
   const factory = useApiClientFactory();
   const toast = useToast();
   const router = useRouter();
-  const { user } = useUser();
-  const email = user?.primaryEmailAddress?.emailAddress ?? '';
+  const { user } = useSession();
+  const email = user?.email ?? '';
   const avatarInitial = email ? email[0].toUpperCase() : null;
   const [query, setQuery] = useState<ListPublicProfilesQuery>({ limit: PAGE_SIZE, offset: 0 });
   const [filtersOpen, setFiltersOpen] = useState(false);

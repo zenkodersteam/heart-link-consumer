@@ -1,30 +1,33 @@
-import { useAuth } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { createApiClient, type ApiClient } from '@heartlink/consumer-api';
 import { clearMyProfileCache } from './use-my-profile';
+import { useSession } from './session';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
- * Returns a factory that builds an ApiClient with a fresh Clerk session token.
+ * Returns a factory that builds an ApiClient carrying a fresh access token.
  *
- * Clerk tokens are short-lived (~60s). Callers should invoke this on every
- * request rather than caching the returned client across renders.
+ * A token, not a client, is what goes stale: access tokens last fifteen
+ * minutes, so a client captured once starts sending an expired one. The session
+ * refreshes ahead of expiry, and asking it per call is what picks that up.
  *
  * The returned function has a STABLE identity for the life of the component.
- * `@clerk/clerk-expo`'s `getToken` reference changes on every render, so we read
- * it through a ref rather than listing it as a useCallback dependency. Without
- * this, any effect that depends on the factory (e.g. the Liked screen's load)
- * re-fires on every render and spins into an infinite request loop.
+ * Any effect that depends on the factory (the Liked screen's load, for one)
+ * would otherwise re-fire on every render and spin into a request loop.
  */
 export function useApiClientFactory(): () => Promise<ApiClient> {
-  const { getToken, signOut } = useAuth();
+  const { getToken, signOut } = useSession();
+
   const getTokenRef = useRef(getToken);
-  getTokenRef.current = getToken;
   const signOutRef = useRef(signOut);
-  signOutRef.current = signOut;
+  useEffect(() => {
+    getTokenRef.current = getToken;
+    signOutRef.current = signOut;
+  }, [getToken, signOut]);
+
   // One sign-out per expiry, not one per in-flight request: a screen that
   // fires several calls at once would otherwise stack redirects.
   const expiring = useRef(false);

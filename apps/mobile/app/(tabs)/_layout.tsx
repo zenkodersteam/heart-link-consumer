@@ -1,4 +1,4 @@
-import { useAuth } from '@clerk/clerk-expo';
+import { useSession } from '../../src/lib/session';
 import { Redirect, Slot, useGlobalSearchParams, usePathname } from 'expo-router';
 import { ActivityIndicator, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,7 +30,7 @@ function queryString(params: Record<string, string | string[] | undefined>): str
 }
 
 export default function TabLayout() {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useSession();
   const { width, height } = useWindowDimensions();
   const pathname = usePathname();
   const params = useGlobalSearchParams();
@@ -39,7 +39,7 @@ export default function TabLayout() {
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
-  // Boot: Clerk hasn't resolved a session yet, so we don't know which shell to
+  // Boot: the stored session has not resolved yet, so we don't know which shell to
   // draw. Paint the brand surface rather than `null` - returning null here left
   // a bare blush page with no top bar and no tab bar, which reads as a broken
   // screen on mobile where the boot window is longest.

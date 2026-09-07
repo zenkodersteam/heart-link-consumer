@@ -158,7 +158,7 @@ export function Landing() {
     useNativeDriver: USE_NATIVE_DRIVER,
   });
 
-  const goSignUp = () => router.push('/(auth)/sign-up');
+  const goSignUp = () => router.push('/(auth)/sign-in');
   const goSignIn = () => router.push('/(auth)/sign-in');
 
   return (

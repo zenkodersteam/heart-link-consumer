@@ -13,7 +13,7 @@
 import type { Plan, PublicProfileDetail, PublicProfileSummary } from '@heartlink/consumer-api';
 
 // Opt-in via env for local design review (renders every screen + sample data
-// without a Clerk session). Defaults to false so a production build can never
+// without a session). Defaults to false so a production build can never
 // ship with the bypass on by accident.
 export const PREVIEW_BYPASS_AUTH = process.env.EXPO_PUBLIC_PREVIEW_BYPASS_AUTH === 'true';
 

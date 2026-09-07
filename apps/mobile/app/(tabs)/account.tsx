@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useSession } from '../../src/lib/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -23,8 +23,7 @@ import { clearMyProfileCache, useMyProfile } from '../../src/lib/use-my-profile'
 import { colors, radii, spacing, type } from '../../src/theme';
 
 export default function AccountScreen() {
-  const { signOut } = useAuth();
-  const { user } = useUser();
+  const { signOut, user } = useSession();
   const router = useRouter();
   // Set by the link the payment provider sends people back to. Without this the
   // return from checkout looked identical to opening the tab normally, so there
@@ -111,7 +110,7 @@ export default function AccountScreen() {
             ? 'Needs changes'
             : 'Incomplete';
 
-  const email = user?.primaryEmailAddress?.emailAddress ?? '-';
+  const email = user?.email ?? '-';
   const initial = (profile?.displayName?.[0] ?? email[0] ?? '?').toUpperCase();
   const quotaLabel =
     entitlement === null

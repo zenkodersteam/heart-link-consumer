@@ -42,7 +42,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, signal: AbortSignal): P
 export function usePublicProfiles(query: ListPublicProfilesQuery) {
   const factory = useApiClientFactory();
 
-  // Stabilize factory via ref so it doesn't bust effect deps when Clerk re-renders.
+  // Stabilize factory via ref so it doesn't bust effect deps when the session re-renders.
   const factoryRef = useRef(factory);
   factoryRef.current = factory;
 
