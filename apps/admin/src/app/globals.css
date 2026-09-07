@@ -666,12 +666,59 @@ body {
   border-color: #e91e73;
 }
 
-/* The code is six characters and reads as a code, not as prose. */
-.hl-auth__input--code {
-  text-align: center;
-  font-size: 1.6rem;
-  letter-spacing: 0.5em;
-  text-indent: 0.5em;
+/* Six boxes drawn from one real input, so paste and autofill still work. */
+.hl-otp {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.hl-otp__box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 3.4rem;
+  border: 1px solid #e4d5eb;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  font-family: var(--font-bree-serif), Georgia, serif;
+  font-size: 1.5rem;
+  color: #2e1240;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.hl-otp__box--active {
+  z-index: 1;
+  border-color: #e91e73;
+  box-shadow: 0 0 0 3px rgba(233, 30, 115, 0.18);
+}
+
+.hl-otp__box--invalid {
+  border-color: #d64550;
+}
+
+/* The real input is transparent, so the active box needs a caret of its own. */
+.hl-otp__caret {
+  position: absolute;
+  width: 1px;
+  height: 1.7rem;
+  background: #2e1240;
+  animation: hl-caret-blink 1.25s ease-out infinite;
+}
+
+@keyframes hl-caret-blink {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .hl-auth__submit {

@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { InputOtp, InputOtpGroup, InputOtpSlot } from '@/components/ui/otp-input';
 import { Spinner } from '@/components/ui/spinner';
 import { AFTER_SIGN_IN, AFTER_SIGN_UP } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,19 @@ type Step = 'email' | 'code';
  * that has never been confirmed. Someone who clicks the wrong link still ends
  * up in the right place.
  */
+/**
+ * What to show when a request fails.
+ *
+ * The API's own wording is used where it wrote one deliberately — it is careful
+ * about not saying whether a code was wrong, expired or never existed. A 5xx
+ * has no such wording, only the framework's "Internal server error", which
+ * tells someone nothing and reads as though they did something wrong.
+ */
+function failureMessage(status: number, message: string | undefined, fallback: string): string {
+  if (status >= 500) return 'Something went wrong on our side. Please try again in a moment.';
+  return message ?? fallback;
+}
+
 export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -55,7 +69,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       });
       const data = (await response.json()) as { message?: string; expiresInMinutes?: number };
       if (!response.ok) {
-        setError(data.message ?? 'We could not send a code. Please try again.');
+        setError(failureMessage(response.status, data.message, 'We could not send a code. Please try again.'));
         return;
       }
       setExpiresInMinutes(data.expiresInMinutes ?? 10);
@@ -83,7 +97,9 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         created?: boolean;
       };
       if (!response.ok) {
-        setError(data.message ?? 'That code is not right, or it has expired.');
+        setError(
+          failureMessage(response.status, data.message, 'That code is not right, or it has expired.'),
+        );
         // The code is spent either way; clearing it saves someone editing a
         // dead one digit at a time.
         setCode('');
@@ -140,30 +156,32 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
           <label htmlFor="code" className="sr-only">
             Your six-digit code
           </label>
-          <input
-            ref={codeInput}
+          <InputOtp
             id="code"
+            ref={codeInput}
+            maxLength={6}
             value={code}
-            onChange={(event) => {
-              const digits = event.target.value.replace(/\D/g, '').slice(0, 6);
-              setCode(digits);
+            onChange={(value) => {
+              setCode(value);
               // Submitted on the sixth digit: it saves a deliberate press for
               // the one thing everybody does next. The value is passed rather
               // than read back from state, which has not updated yet.
-              if (digits.length === 6) void verify(digits);
+              if (value.length === 6) void verify(value);
             }}
-            // A numeric keypad on a phone, and the code filled straight from
-            // the notification on iOS and Android.
+            // Digits only, and the code offered by the OS from the email or SMS.
             inputMode="numeric"
-            autoComplete="one-time-code"
             pattern="[0-9]*"
-            placeholder="••••••"
+            autoComplete="one-time-code"
+            autoFocus
+            disabled={busy}
             aria-invalid={error ? true : undefined}
-            className={cn(
-              'w-full rounded-2xl border bg-surface-elevated px-4 py-4 text-center font-[family-name:var(--font-bree)] text-3xl tracking-[0.4em] text-ink outline-none transition-colors placeholder:text-ink-faint/50',
-              error ? 'border-danger' : 'border-line focus:border-primary',
-            )}
-          />
+          >
+            <InputOtpGroup>
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <InputOtpSlot key={index} index={index} invalid={Boolean(error)} />
+              ))}
+            </InputOtpGroup>
+          </InputOtp>
 
           {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
 

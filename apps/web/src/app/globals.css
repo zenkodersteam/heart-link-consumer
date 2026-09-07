@@ -90,3 +90,19 @@ body {
 .hl-no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* The caret in the active one-time-code box. Blinks like a real one. */
+@keyframes caret-blink {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-caret-blink {
+  animation: caret-blink 1.25s ease-out infinite;
+}
