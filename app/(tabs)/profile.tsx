@@ -62,6 +62,10 @@ export default function ProfileDetailScreen() {
   const { data, loading, error, reload } = usePublicProfile(typeof id === 'string' ? id : undefined);
   const factory = useApiClientFactory();
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  // Page width is measured rather than assumed: the pane is full-bleed on a
+  // phone but a fixed column on desktop.
+  const [paneWidth, setPaneWidth] = useState(0);
+  const carouselRef = useRef<ScrollView>(null);
   const [saved, setSaved] = useState(false);
 
   // Safety actions. Reporting and blocking are deliberately separate: a member
@@ -214,9 +218,41 @@ export default function ProfileDetailScreen() {
   const activePhoto: PublicProfilePhoto | undefined = photos[activePhotoIdx];
   const photoUri = activePhoto?.presignedUrl ?? data.primaryPhotoUrl ?? null;
 
+  // One page per photo; with none we still render a single page so the
+  // placeholder, scrim and identity block all keep their positions.
+  const pages = photos.length ? photos : [{ id: 'placeholder', presignedUrl: photoUri ?? '' }];
+
   const photoPane = (
-    <View style={isDesktop ? styles.photoDesktop : styles.photoMobile}>
-      <ProfilePhoto uri={photoUri} name={data.displayName} style={styles.photoImg} priority="high" />
+    <View
+      style={isDesktop ? styles.photoDesktop : styles.photoMobile}
+      onLayout={(e) => setPaneWidth(e.nativeEvent.layout.width)}
+    >
+      {paneWidth > 0 ? (
+        <ScrollView
+          ref={carouselRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={pages.length > 1}
+          onMomentumScrollEnd={(e) => {
+            const i = Math.round(e.nativeEvent.contentOffset.x / paneWidth);
+            if (i !== activePhotoIdx) setActivePhotoIdx(i);
+          }}
+          style={StyleSheet.absoluteFill}
+        >
+          {pages.map((p, idx) => (
+            <View key={p.id} style={{ width: paneWidth, height: '100%' }}>
+              <ProfilePhoto
+                uri={p.presignedUrl || null}
+                name={data.displayName}
+                style={styles.photoImg}
+                priority={idx === 0 ? 'high' : 'low'}
+                showCaption={false}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
       <View style={styles.photoTint} pointerEvents="none" />
       <LinearGradient
         colors={['rgba(22,5,31,0)', 'rgba(22,5,31,0.7)']}
@@ -261,7 +297,7 @@ export default function ProfileDetailScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.photoIdentity} pointerEvents="none">
+      <View style={[styles.photoIdentity, pages.length > 1 ? styles.photoIdentityRaised : null]} pointerEvents="none">
         <Text style={styles.photoName} numberOfLines={1}>
           {data.displayName}
           {data.age ? <Text style={styles.photoAge}>  {data.age}</Text> : null}
@@ -279,24 +315,20 @@ export default function ProfileDetailScreen() {
         <Text style={styles.vbadgeText}>Verified Profile</Text>
       </View>
       ) : null}
-      {photos.length > 1 ? (
-        <View style={styles.thumbs}>
-          {photos.map((p, idx) => (
-            <Pressable key={p.id} onPress={() => setActivePhotoIdx(idx)}>
-              {({ hovered }: { hovered?: boolean }) => (
-                <Image
-                  source={{ uri: p.presignedUrl }}
-                  style={[
-                    styles.thumb,
-                    idx === activePhotoIdx ? styles.thumbActive : null,
-                    hovered ? styles.thumbHover : null,
-                  ]}
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  priority={idx === activePhotoIdx ? 'high' : 'low'}
-                />
-              )}
-            </Pressable>
+      {pages.length > 1 ? (
+        <View style={styles.dots} pointerEvents="box-none">
+          {pages.map((p, idx) => (
+            <Pressable
+              key={p.id}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`Photo ${idx + 1} of ${pages.length}`}
+              onPress={() => {
+                setActivePhotoIdx(idx);
+                carouselRef.current?.scrollTo({ x: idx * paneWidth, animated: true });
+              }}
+              style={[styles.dot, idx === activePhotoIdx ? styles.dotActive : null]}
+            />
           ))}
         </View>
       ) : null}
@@ -580,6 +612,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(251,245,232,0.92)',
   },
   photoIdentity: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.lg, gap: 3 },
+  // The thumbnail strip is pinned to the same corner, so with more than one
+  // photo the name sat underneath it. Clear the strip (52px) plus a gap.
+  photoIdentityRaised: { bottom: spacing.lg + 18 },
   photoName: { fontFamily: fonts.heading, fontSize: 26, color: '#FBF5E8' },
   photoAge: { fontFamily: fonts.heading, fontSize: 20, color: 'rgba(251,245,232,0.85)' },
   photoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -613,7 +648,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   vbadgeText: { fontFamily: fonts.bodySemibold, fontSize: 12, color: colors.goldBright },
-  thumbs: { position: 'absolute', bottom: 16, left: 16, flexDirection: 'row', gap: 8 },
+  dots: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(251,245,232,0.45)',
+    ...Platform.select({
+      web: { transitionProperty: 'width, background-color', transitionDuration: '200ms' } as object,
+    }),
+  },
+  // The active page reads as a pill rather than a bigger circle, so the row
+  // keeps a steady rhythm.
+  dotActive: { width: 20, backgroundColor: colors.goldBright },
   thumb: {
     width: 52,
     height: 52,
@@ -621,6 +676,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.85)',
     backgroundColor: colors.surfaceMuted,
+    overflow: 'hidden',
   },
   thumbActive: { borderColor: colors.goldBright },
   thumbHover: {

@@ -116,9 +116,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ringCompact: { width: 54, height: 54, borderRadius: 27 },
+  ringCompact: { width: 32, height: 32, borderRadius: 16, borderWidth: 1 },
   initial: { fontFamily: fonts.heading, fontSize: 40, color: colors.goldBright },
-  initialCompact: { fontSize: 22 },
+  initialCompact: { fontSize: 15 },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   caption: { fontFamily: fonts.body, fontSize: 12, color: colors.sidebarTextMuted },
 });
