@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { AuthShell } from '@/components/auth/auth-shell';
 import { clerkAppearance } from '@/components/auth/clerk-appearance';
+import { AFTER_SIGN_IN } from '@/lib/routes';
 
 export default function SignInPage() {
   return (
@@ -15,7 +16,7 @@ export default function SignInPage() {
       <SignIn
         appearance={clerkAppearance}
         signUpUrl="/sign-up"
-        fallbackRedirectUrl="/browse"
+        fallbackRedirectUrl={AFTER_SIGN_IN}
       />
       <p className="mt-6 text-center text-sm text-ink-soft">
         New here?{' '}
