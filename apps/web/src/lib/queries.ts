@@ -94,6 +94,24 @@ export function useToggleSaved() {
       const api = await factory();
       return saved ? api.unsaveProfile(id) : api.saveProfile(id);
     },
+    // Flip the cache first so the heart responds to the tap, then reconcile.
+    // Waiting on the round trip makes it feel broken on a slow connection.
+    onMutate: async ({ id, saved }) => {
+      await queryClient.cancelQueries({ queryKey: qk.saved() });
+      const previous = queryClient.getQueryData(qk.saved());
+      queryClient.setQueryData(qk.saved(), (old: { items: { id: string }[] } | undefined) => {
+        if (!old) return old;
+        return saved
+          ? { ...old, items: old.items.filter((p) => p.id !== id) }
+          : old;
+      });
+      return { previous };
+    },
+    // Put the old list back if the request failed, or the UI keeps a change
+    // the server never accepted.
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(qk.saved(), context.previous);
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: qk.saved() });
     },

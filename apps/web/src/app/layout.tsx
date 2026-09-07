@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up">
+    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up" afterSignOutUrl="/">
       <html lang="en" className={`${inter.variable} ${bree.variable}`}>
         <body className="min-h-dvh antialiased">
           <QueryProvider>{children}</QueryProvider>
