@@ -1,37 +1,38 @@
-# HeartLink Consumer App
+# HeartLink — client applications
 
-Public-facing consumer surface for HeartLink. Expo Web (with iOS/Android post-MVP).
+All client work lives here. The API lives in the `heart-link` repo.
 
-## Stack
-
-- Expo SDK 52 + Expo Router 4
-- Clerk for auth (shared with admin)
-- React Native Web
-- Bree Serif + Inter via @expo-google-fonts
-
-## Setup
-
-```powershell
-npm install
-cp .env.example .env   # fill in EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY + EXPO_PUBLIC_API_BASE_URL + EXPO_PUBLIC_SUPPORT_EMAIL
-npm run web
+```
+apps/mobile    Expo app (iOS/Android)
+apps/web       Next.js consumer site
+apps/admin     Next.js staff console
+packages/      API contract, API client, and the slice of domain the UI needs
 ```
 
-## Build for production
+## Running
 
-```powershell
-npm run build:web      # produces dist/
+```bash
+npm install          # once, from the root
+npm run mobile:dev   # Expo
+npm run web          # consumer site, :3000
+npm run admin        # staff console, :3001
 ```
 
-## Deploy (Vercel)
+## Deploying
 
-```powershell
-vercel --prod
-```
+Two Vercel projects from this one repo, each with its own **Root Directory**:
 
-Vercel handles the build via `vercel.json` (runs `expo export --platform web`). Set the two `EXPO_PUBLIC_*` env vars in the Vercel dashboard.
+| Project | Root Directory |
+| --- | --- |
+| consumer web | `apps/web` |
+| staff console | `apps/admin` |
 
-## Notes
+## Shared packages
 
-- API types are inlined in `src/lib/api.ts` from the main HeartLink monorepo's `@heartlink/api-contract` + `@heartlink/api-client`. Re-sync by hand when the admin API contract changes.
-- Web-first for MVP. Native iOS/Android via EAS Build is post-MVP.
+`packages/api-contract` and `packages/api-client` are copies of the API repo's
+packages. `packages/domain` carries only the intake-form schema and the
+application state machine — the two pieces the admin UI needs. The rest of that
+package is server business logic and deliberately stays on the server.
+
+They are kept in step by hand. Change the contract in `heart-link` and it must
+be copied here.
