@@ -371,6 +371,17 @@ export interface ApiClientOptions {
   baseUrl: string;
   token?: string;
   cache?: RequestCache;
+  /**
+   * Called when the signed-in account cannot proceed and re-authenticating is
+   * the only way forward: a 401 (session gone), or a 403 the API marked
+   * `ROLE_NOT_AUTHORIZED` (right session, wrong kind of account — e.g. staff
+   * signing in to the member app, where every endpoint refuses them).
+   *
+   * Deliberately NOT every 403. Business rules answer 403 too ("Like this
+   * profile before writing to them"), and signing someone out of the app for
+   * that would be absurd.
+   */
+  onSessionExpired?: () => void;
 }
 
 export function createApiClient(options: ApiClientOptions) {
@@ -443,6 +454,10 @@ export function createApiClient(options: ApiClientOptions) {
         (typeof body === 'string' ? body : `HTTP ${res.status}`);
       // eslint-disable-next-line no-console
       console.error('[api] error body', res.status, body);
+      const bodyCode = (body as { code?: string } | null)?.code;
+      if (res.status === 401 || (res.status === 403 && bodyCode === 'ROLE_NOT_AUTHORIZED')) {
+        options.onSessionExpired?.();
+      }
       throw new ApiClientError(res.status, String(res.status), msg, body);
     }
 

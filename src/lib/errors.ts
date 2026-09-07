@@ -17,6 +17,14 @@ const TECHNICAL =
 const OFFLINE = "We couldn't reach HeartLink just now. Check your connection and try again.";
 const SERVER = 'Something went wrong on our end. Please try again in a moment.';
 const SESSION = 'Your session has expired. Sign in again to pick up where you left off.';
+/**
+ * 403 is not an expired session. The member app is gated to `outside_user`, so
+ * a staff/admin account signs in successfully and is then refused by every
+ * endpoint. Reporting that as "session expired" sent people to sign in again
+ * with the same account, which cannot fix it.
+ */
+const NOT_A_MEMBER_ACCOUNT =
+  'This account cannot use the member app. Sign in with your member account instead.';
 
 /** True when the request never reached the API (offline, blocked, host down). */
 export function isOffline(e: unknown): boolean {
@@ -33,7 +41,8 @@ export function humanError(e: unknown, fallback: string): string {
   if (isOffline(e)) return OFFLINE;
 
   if (e instanceof ApiClientError) {
-    if (e.status === 401 || e.status === 403) return SESSION;
+    if (e.status === 401) return SESSION;
+    if (e.status === 403) return NOT_A_MEMBER_ACCOUNT;
     if (e.status >= 500) return SERVER;
     // Validation-shaped responses (400/409/422) usually carry a message written
     // for a person. Pass it through only when it reads like one.

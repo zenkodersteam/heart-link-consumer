@@ -1,7 +1,9 @@
 import { useAuth } from '@clerk/clerk-expo';
+import { router } from 'expo-router';
 import { useCallback, useRef } from 'react';
 
 import { createApiClient, type ApiClient } from './api';
+import { clearMyProfileCache } from './use-my-profile';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -18,15 +20,36 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
  * re-fires on every render and spins into an infinite request loop.
  */
 export function useApiClientFactory(): () => Promise<ApiClient> {
-  const { getToken } = useAuth();
+  const { getToken, signOut } = useAuth();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
+  const signOutRef = useRef(signOut);
+  signOutRef.current = signOut;
+  // One sign-out per expiry, not one per in-flight request: a screen that
+  // fires several calls at once would otherwise stack redirects.
+  const expiring = useRef(false);
+
+  const onSessionExpired = useCallback(() => {
+    if (expiring.current) return;
+    expiring.current = true;
+    void (async () => {
+      try {
+        await signOutRef.current();
+      } catch {
+        // Sign-out is best effort; we leave regardless so no stale screen shows.
+      } finally {
+        clearMyProfileCache();
+        router.replace('/(auth)/sign-in');
+        expiring.current = false;
+      }
+    })();
+  }, []);
 
   return useCallback(async () => {
     if (!API_BASE_URL) {
       throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
     }
     const token = (await getTokenRef.current()) ?? undefined;
-    return createApiClient({ baseUrl: API_BASE_URL, token });
-  }, []);
+    return createApiClient({ baseUrl: API_BASE_URL, token, onSessionExpired });
+  }, [onSessionExpired]);
 }
