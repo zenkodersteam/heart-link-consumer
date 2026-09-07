@@ -29,13 +29,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const hasSession = await hasSessionCookie();
 
   return (
-    <SessionProvider hasSession={hasSession}>
-      <html lang="en" className={`${inter.variable} ${bree.variable}`}>
-        <body className="min-h-dvh antialiased">
+    <html lang="en" className={`${inter.variable} ${bree.variable}`}>
+      <body className="min-h-dvh antialiased">
+        {/* Inside <body>, not around <html>. The root layout has to render the
+            document itself, and a provider placed above it ends up outside the
+            tree that hydrates — so every `useSession` below found no provider
+            and the page rendered as an error boundary. */}
+        <SessionProvider hasSession={hasSession}>
           <QueryProvider>{children}</QueryProvider>
-          <Toaster position="top-center" richColors />
-        </body>
-      </html>
-    </SessionProvider>
+        </SessionProvider>
+        <Toaster position="top-center" richColors />
+      </body>
+    </html>
   );
 }

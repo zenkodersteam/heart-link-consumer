@@ -28,11 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-      <html lang="en" className={`${inter.variable} ${breeSerif.variable}`}>
-        <body className="bg-canvas text-text font-sans">
-          {children}
-          <Toaster position="top-right" richColors closeButton />
-        </body>
-      </html>
+    <html lang="en" className={`${inter.variable} ${breeSerif.variable}`}>
+      <body className="bg-canvas text-text font-sans">
+        {children}
+        <Toaster position="top-right" richColors closeButton />
+      </body>
+    </html>
   );
 }
