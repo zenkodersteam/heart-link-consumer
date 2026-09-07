@@ -9,7 +9,7 @@ import {
   PRIVACY_VERSION,
   TERMS_SECTIONS,
   TERMS_VERSION,
-} from '../../src/lib/policies';
+} from '@heartlink/consumer-content';
 import { colors, radii, spacing, type } from '../../src/theme';
 
 /**

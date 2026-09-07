@@ -35,6 +35,9 @@ export const BUILT_ROUTES = new Set<string>([
   '/account',
   '/plans',
   '/profiles',
+  '/support',
+  '/privacy-safety',
+  '/policy',
 ]);
 
 export function isBuilt(href: string): boolean {
