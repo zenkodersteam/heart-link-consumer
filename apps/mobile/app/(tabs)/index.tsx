@@ -378,7 +378,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.xl,
   },
-  heading: { ...type.h1, textAlign: 'center' },
+  // flexShrink, or the Text keeps its intrinsic width inside the row and the
+  // last word is clipped off the screen edge rather than wrapping. Sized to sit
+  // on one line at phone widths, as the client screens set it.
+  heading: { ...type.h1, fontSize: 20, lineHeight: 26, textAlign: 'center', flexShrink: 1 },
   filterScroll: { flexGrow: 0 },
   filterBar: {
     flexGrow: 1,

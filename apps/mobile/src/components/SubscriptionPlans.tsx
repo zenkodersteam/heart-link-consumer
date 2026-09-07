@@ -472,7 +472,7 @@ function PlanCard({
           hovered && !busy
             ? featured
               ? { transform: [{ translateY: -2 }], boxShadow: cta.glowHover }
-              : { transform: [{ translateY: -2 }], boxShadow: '0 8px 20px rgba(233,30,115,0.25)' }
+              : { transform: [{ translateY: -2 }], boxShadow: '0 8px 20px rgba(219, 2, 82,0.25)' }
             : null,
           pressed && !busy ? { transform: [{ scale: 0.98 }] } : null,
           busy ? { opacity: 0.6 } : null,

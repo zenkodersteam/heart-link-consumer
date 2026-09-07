@@ -64,7 +64,7 @@ export function Support() {
       <section className="relative overflow-hidden rounded-[20px] bg-sidebar px-6 py-11 text-center">
         <span
           aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(420px_240px_at_85%_0%,rgba(233,30,115,0.4),transparent_60%),linear-gradient(160deg,#1b0826,#2e1240_55%,#451a5e)]"
+          className="absolute inset-0 bg-[radial-gradient(420px_240px_at_85%_0%,color-mix(in_srgb,var(--color-primary)_40%,transparent),transparent_60%),linear-gradient(160deg,#1b0826,#2e1240_55%,#451a5e)]"
         />
         <div className="relative">
           <h1 className="font-[family-name:var(--font-bree)] text-3xl text-sidebar-text">

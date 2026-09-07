@@ -12,6 +12,7 @@
     "web": "npm run --workspace @heartlink/web dev",
     "admin": "npm run --workspace @heartlink/admin dev",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "tokens:build": "npm run tokens:build --workspace @heartlink/design-tokens"
   }
 }

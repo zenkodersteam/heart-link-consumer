@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -307,9 +306,11 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
             <Animated.View style={[styles.stamp, styles.stampPass, { opacity: passOpacity }]}>
               <Text style={[styles.stampText, styles.stampTextPass]}>PASS</Text>
             </Animated.View>
-            <Animated.View style={[styles.stamp, styles.stampLike, { opacity: likeOpacity }]}>
-              <Feather name="heart" size={20} color={colors.onPrimary} />
-              <Text style={[styles.stampText, styles.stampTextLike]}>LIKE</Text>
+            <Animated.View style={[styles.stampLike, { opacity: likeOpacity }]}>
+              <View style={styles.likeDisc}>
+                <Feather name="heart" size={38} color={colors.onPrimary} />
+              </View>
+              <Text style={styles.likeWord}>LIKE</Text>
             </Animated.View>
             {canSecondLook ? (
               <Animated.View style={[styles.stampBack, { opacity: secondLookOpacity }]} pointerEvents="none">
@@ -343,16 +344,6 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
   );
 }
 
-function PhotoChip({ label }: { label: string }) {
-  return (
-    <View style={styles.photoChip}>
-      <Text style={styles.photoChipText} numberOfLines={1}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 function DeckCard({
   profile,
   front,
@@ -373,10 +364,8 @@ function DeckCard({
   const detail = usePublicProfile(front || preload ? profile.id : undefined).data;
   const release = detail?.releaseDate ? formatRelease(detail.releaseDate) : null;
   const bioText = detail?.bio || profile.bioExcerpt || null;
-  const chips = [
-    ...(detail?.interests?.filter(Boolean).slice(0, 3) ?? []),
-    ...(release ? [`Home ${release}`] : []),
-  ];
+  const interests = detail?.interests?.filter(Boolean).slice(0, 3).join(', ') || null;
+  const acceptsMail = detail?.acceptsMail ?? false;
 
   return (
     <View style={styles.card}>
@@ -393,16 +382,9 @@ function DeckCard({
         />
         </View>
 
-        {/* Midnight tint + bottom scrim: unifies the photo set and carries the
-            identity block, so the person and their story read as one surface. */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <View style={styles.photoTint} />
-          <LinearGradient
-            colors={['rgba(22, 5, 31, 0)', 'rgba(22, 5, 31, 0.34)', colors.scrimStrong]}
-            locations={[0, 0.45, 1]}
-            style={styles.scrim}
-          />
-        </View>
+        {/* Midnight tint, so the photo set reads as one. The bottom scrim went
+            with the overlay it used to carry. */}
+        <View style={styles.photoTint} pointerEvents="none" />
 
         {/* Was shown on whichever card happened to be on top, regardless of
             whether an identity check had ever been done. */}
@@ -424,37 +406,40 @@ function DeckCard({
               pressed ? { transform: [{ scale: 0.88 }] } : null,
             ]}
           >
-            <Feather name="heart" size={20} color={saved ? colors.primary : colors.textSecondary} />
+            <Feather name="heart" size={20} color={saved ? colors.primary : colors.gold} />
           </Pressable>
         ) : null}
 
-        <View style={styles.identity} pointerEvents={onOpenProfile ? 'box-none' : 'none'}>
+      </View>
+
+      {/* Detail card: the words get their own paper rather than sitting over
+          the face behind a scrim (client screen 2). */}
+      <View style={styles.body} pointerEvents={onOpenProfile ? 'box-none' : 'none'}>
           <View style={styles.nameRow} pointerEvents="none">
             <Text style={styles.name} numberOfLines={1}>
               {profile.displayName}
             </Text>
             {profile.age != null ? <Text style={styles.age}>{profile.age}</Text> : null}
             {profile.isVerified ? (
-              <Feather name="shield" size={16} color={colors.goldBright} style={styles.verified} />
+              <Feather name="shield" size={15} color={colors.gold} style={styles.verified} />
             ) : null}
           </View>
 
           <View style={styles.locationRow}>
-            <Feather name="home" size={13} color="rgba(255,255,255,0.75)" />
+            <Feather name="home" size={13} color={colors.textMuted} />
             <Text style={styles.state}>{stateName(profile.facility.state)}</Text>
           </View>
 
-          {bioText ? (
-            <Text style={styles.bioText} numberOfLines={2}>
-              {bioText}
-            </Text>
-          ) : null}
+          {interests ? <FactRow icon="heart" label="Interests" value={interests} /> : null}
+          {release ? <FactRow icon="calendar" label="Release Date" value={release} /> : null}
+          {acceptsMail ? <FactRow icon="mail" label="Accepts Mail" value="Yes" /> : null}
 
-          {chips.length > 0 ? (
-            <View style={styles.chipRow} pointerEvents="none">
-              {chips.map((c) => (
-                <PhotoChip key={c} label={c} />
-              ))}
+          {bioText ? (
+            <View style={styles.quoteRow} pointerEvents="none">
+              <Text style={styles.quoteMark}>“</Text>
+              <Text style={styles.quoteText} numberOfLines={3}>
+                {bioText}
+              </Text>
             </View>
           ) : null}
 
@@ -468,11 +453,34 @@ function DeckCard({
               ]}
             >
               <Text style={styles.viewProfileText}>View full profile</Text>
-              <Feather name="arrow-right" size={13} color="#FFFFFF" />
+              <Feather name="arrow-right" size={13} color={colors.primary} />
             </Pressable>
           ) : null}
-        </View>
       </View>
+    </View>
+  );
+}
+
+/**
+ * One labelled fact on the detail card ("Interests: Fitness, Reading"), as the
+ * client screens set them: icon, bold label, then the value.
+ */
+function FactRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.factRow} pointerEvents="none">
+      <Feather name={icon} size={14} color={colors.textMuted} style={styles.factIcon} />
+      <Text style={styles.factText} numberOfLines={2}>
+        <Text style={styles.factLabel}>{label}: </Text>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -573,46 +581,39 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     position: 'absolute',
     left: spacing.md,
-    top: spacing.md,
+    bottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(22, 5, 31, 0.55)',
-    borderWidth: 1,
-    borderColor: colors.gold,
+    backgroundColor: 'rgba(255,255,255,0.94)',
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 5,
-    boxShadow: '0 2px 8px rgba(22, 5, 31, 0.30)',
+    boxShadow: '0 2px 8px rgba(22, 5, 31, 0.20)',
   },
-  verifiedBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.gold },
+  verifiedBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.textPrimary },
   photoTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.photoTint },
-  scrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '60%' },
-  identity: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: spacing.lg,
-    gap: spacing.xs,
+  body: { padding: spacing.lg, gap: 7, backgroundColor: colors.bgCard },
+  factRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  // Nudged onto the first line rather than centred on a wrapped block.
+  factIcon: { marginTop: 2 },
+  factText: { fontFamily: fonts.body, fontSize: 13.5, lineHeight: 19, color: colors.textSecondary, flex: 1 },
+  factLabel: { fontFamily: fonts.bodySemibold, color: colors.textPrimary },
+  quoteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 2 },
+  quoteMark: { fontFamily: 'BreeSerif_400Regular', fontSize: 22, lineHeight: 24, color: colors.primary },
+  quoteText: {
+    fontFamily: fonts.body,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: colors.textSecondary,
+    flex: 1,
   },
   bioText: {
     fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(255,255,255,0.82)',
-    fontStyle: 'italic',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textSecondary,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.xs },
-  photoChip: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.30)',
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-  },
-  photoChipText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: '#FFFFFF' },
   saveBtn: {
     position: 'absolute',
     top: spacing.md,
@@ -627,11 +628,11 @@ const styles = StyleSheet.create({
   },
   saveBtnHover: { backgroundColor: '#FFFFFF', transform: [{ scale: 1.08 }] },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { fontFamily: 'BreeSerif_400Regular', fontSize: 26, color: '#FFFFFF', flexShrink: 1 },
-  age: { fontFamily: fonts.bodyMedium, color: 'rgba(255,255,255,0.88)', fontSize: 19 },
+  name: { fontFamily: 'BreeSerif_400Regular', fontSize: 24, color: colors.textPrimary, flexShrink: 1 },
+  age: { fontFamily: fonts.bodyMedium, color: colors.textSecondary, fontSize: 18 },
   verified: { marginLeft: -2 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  state: { ...type.label, color: 'rgba(255,255,255,0.75)' },
+  state: { ...type.label, color: colors.textMuted, flexShrink: 1 },
   emptyWrap: { flex: 1, width: '100%', maxWidth: CARD_MAX_WIDTH, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
   emptyIcon: {
     width: 64,
@@ -667,8 +668,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  stampLike: { right: spacing.xl, borderColor: colors.primary, backgroundColor: colors.primary, transform: [{ rotate: '12deg' }] },
-  stampPass: { left: spacing.xl, borderColor: colors.textMuted, transform: [{ rotate: '-12deg' }] },
+  // Client screen 4 draws Like as a pink disc with the word beneath it, sitting
+  // over the middle of the card rather than as a corner badge.
+  stampLike: {
+    position: 'absolute',
+    right: spacing.xl,
+    top: '34%',
+    zIndex: 5,
+    alignItems: 'center',
+    gap: spacing.sm,
+    transform: [{ rotate: '12deg' }],
+  },
+  likeDisc: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 8px 24px rgba(219,2,82,0.45)',
+  },
+  likeWord: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 30,
+    letterSpacing: 3,
+    color: colors.onPrimary,
+    textShadowColor: 'rgba(22,5,31,0.45)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
+  },
+  // Pass keeps the stamped-letter treatment, scaled to read across the card.
+  stampPass: {
+    left: spacing.xl,
+    borderColor: '#FFFFFF',
+    borderWidth: 4,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    transform: [{ rotate: '-12deg' }],
+  },
   // Centred rather than tilted into a corner: the pull-back is a vertical
   // gesture, so a rotated corner stamp would read as a sideways swipe.
   stampBack: {
@@ -688,8 +725,7 @@ const styles = StyleSheet.create({
   },
   stampBackText: { fontFamily: 'Inter_700Bold', fontSize: 13, letterSpacing: 1.5, color: colors.goldBright },
   stampText: { fontFamily: 'Inter_700Bold', fontSize: 26, letterSpacing: 2 },
-  stampTextLike: { color: colors.onPrimary },
-  stampTextPass: { color: colors.textMuted },
+  stampTextPass: { color: '#FFFFFF', fontSize: 34 },
   actions: { flexDirection: 'row', gap: spacing.xxl, alignItems: 'flex-start', justifyContent: 'center' },
   actionWrap: { alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.sm },
   actionCircle: {
@@ -706,9 +742,9 @@ const styles = StyleSheet.create({
   actionCircleLike: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
-    boxShadow: '0 10px 24px rgba(233,30,115,0.45)',
+    boxShadow: '0 10px 24px rgba(219, 2, 82,0.45)',
     ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(135deg, #FF4F92, #E91E73 55%, #C81860)' } as object,
+      web: { backgroundImage: 'linear-gradient(135deg, #F02168, #DB0252 55%, #B80143)' } as object,
     }),
   },
   actionCircleActive: { transform: [{ translateY: -3 }, { scale: 1.05 }] },
@@ -728,7 +764,7 @@ const styles = StyleSheet.create({
       } as object,
     }),
   },
-  actionCircleSecondActive: { borderColor: colors.primary, borderWidth: 2, boxShadow: '0 0 0 6px rgba(233, 30, 115, 0.18)' },
+  actionCircleSecondActive: { borderColor: colors.primary, borderWidth: 2, boxShadow: '0 0 0 6px rgba(219, 2, 82, 0.18)' },
   actionCirclePressed: { transform: [{ scale: 0.94 }] },
   actionDisabled: { opacity: 0.4 },
   actionLabel: { ...type.caption },
@@ -738,12 +774,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: colors.primaryFaint,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: colors.primary,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
   },
-  viewProfileText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: '#FFFFFF' },
+  viewProfileText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: colors.primary },
 });

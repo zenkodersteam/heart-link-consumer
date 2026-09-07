@@ -90,6 +90,43 @@ async function post<T>(baseUrl: string, path: string, body: unknown): Promise<T>
   return payload as T;
 }
 
+/** `post`, with a bearer token. Only set-password needs one. */
+async function postAuthed<T>(
+  baseUrl: string,
+  path: string,
+  accessToken: string,
+  body: unknown,
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${normaliseBaseUrl(baseUrl)}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+  } catch (err) {
+    throw new AuthError(
+      0,
+      `We could not reach HeartLink. Check your connection and try again. (${
+        err instanceof Error ? err.message : String(err)
+      })`,
+    );
+  }
+
+  const payload: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message =
+      (payload as { message?: string } | null)?.message ??
+      'Something went wrong. Please try again.';
+    throw new AuthError(res.status, message);
+  }
+  return payload as T;
+}
+
 /**
  * Ask for a code.
  *
@@ -110,6 +147,36 @@ export function verifySignInCode(
   input: { email: string; code: string },
 ): Promise<SignInResult> {
   return post<SignInResult>(baseUrl, '/auth/otp/verify', input);
+}
+
+/**
+ * Sign in with an email address and a password.
+ *
+ * Unlike the code path this never creates an account — a password proves
+ * nothing until someone has set one. The server answers identically for a wrong
+ * password, an unknown address and an account with no password yet, so the
+ * message here is passed through unchanged rather than guessed at.
+ */
+export function signInWithPassword(
+  baseUrl: string,
+  input: { email: string; password: string },
+): Promise<SignInResult> {
+  return post<SignInResult>(baseUrl, '/auth/password/sign-in', input);
+}
+
+/**
+ * Choose or change the password on the signed-in account.
+ *
+ * Needs a live session, which is why the access token is passed explicitly:
+ * members who predate passwords reach this straight after signing in with a
+ * code.
+ */
+export async function setAccountPassword(
+  baseUrl: string,
+  accessToken: string,
+  input: { password: string },
+): Promise<{ passwordSet: true }> {
+  return postAuthed<{ passwordSet: true }>(baseUrl, '/auth/password/set', accessToken, input);
 }
 
 export function refreshSession(baseUrl: string, refreshToken: string): Promise<SessionTokens> {

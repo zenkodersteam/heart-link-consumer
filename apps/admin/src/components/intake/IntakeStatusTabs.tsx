@@ -68,7 +68,7 @@ export function IntakeStatusTabs({
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
               active
-                ? 'border-transparent bg-gradient-to-r from-primary-hover to-primary text-primary-foreground shadow-[0_5px_14px_rgba(233,30,115,0.3)]'
+                ? 'border-transparent bg-gradient-to-r from-primary-hover to-primary text-primary-foreground shadow-[0_5px_14px_rgba(219, 2, 82,0.3)]'
                 : 'border-border bg-background text-text-muted hover:border-accent-gold/50 hover:text-text hover:shadow-soft',
             )}
           >

@@ -858,7 +858,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary,
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(233, 30, 115, 0.28)' } as object,
+      web: { boxShadow: '0 4px 12px rgba(219, 2, 82, 0.28)' } as object,
       default: {
         shadowColor: colors.primary,
         shadowOpacity: 0.3,

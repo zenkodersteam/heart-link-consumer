@@ -1,6 +1,5 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
@@ -14,7 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { art } from '../art';
+import {
+  BRAND_PROMISES,
+  BRAND_SUBTITLE,
+  BRAND_TAGLINE,
+  type BrandPromiseIcon,
+} from '@heartlink/consumer-content';
+
+import { BrandDecor } from './BrandDecor';
 import { auth, colors, fonts, radii, spacing, type } from '../theme';
 
 const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
@@ -83,52 +89,70 @@ function Brand({ size }: { size: number }) {
 }
 
 /** Serif statement over the bridge art: tagline line renders in gold. */
-function Statement({ size }: { size: number }) {
-  return (
-    <Text style={[styles.statement, { fontSize: size, lineHeight: size * 1.28 }]}>
-      Every letter is a bridge.{'\n'}
-      <Text style={styles.statementGold}>Love knows no bounds.</Text>
-    </Text>
-  );
-}
 
 /** Midnight art panel: bridge artwork, veil, brand, statement, trust proofs. */
+/**
+ * Brand panel, following screen 10 of the client designs: emblem, wordmark,
+ * tagline and the four promises on warm blush.
+ *
+ * This used to be the midnight bridge photograph. It read well alone, but it
+ * made signing in the one dark surface in a product that is otherwise blush
+ * throughout, and the delivered designs put the brand here instead. The website
+ * draws the same panel.
+ */
 function ArtPanel({ mobile, height }: { mobile?: boolean; height?: number }) {
   return (
     <View style={mobile ? [styles.artMobile, height ? { height } : null] : styles.artDesktop}>
-      <LinearGradient
-        colors={[...auth.panelGradient]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <Image
-        source={art.signinBridge}
-        style={[StyleSheet.absoluteFill, { opacity: auth.artOpacity }]}
-        contentFit="cover"
-      />
-      <LinearGradient
-        colors={mobile ? [...auth.veilMobile] : [...auth.veilDesktop]}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={[styles.artBrand, mobile ? styles.artBrandMobile : null]}>
-        <Brand size={mobile ? 18 : 21} />
-      </View>
-      <View style={[styles.artBottom, mobile ? styles.artBottomMobile : null]}>
-        <Statement size={mobile ? 20 : 34} />
+      <BrandDecor />
+      <View style={[styles.artInner, mobile ? styles.artInnerMobile : null]}>
+        <Image
+          source={require('../../assets/logo/heartlink-emblem.png')}
+          style={mobile ? styles.artEmblemMobile : styles.artEmblem}
+          contentFit="contain"
+        />
+        <Text style={[styles.artWordmark, mobile ? styles.artWordmarkMobile : null]}>
+          <Text style={{ color: colors.textPrimary }}>Heart</Text>
+          <Text style={{ color: colors.primary }}>Link</Text>
+        </Text>
+
         {!mobile ? (
-          <View style={styles.proofRow}>
-            <View style={styles.proof}>
-              <Feather name="shield" size={15} color={colors.goldBright} />
-              <Text style={styles.proofText}>Profiles reviewed before they appear</Text>
+          <>
+            <GoldRule />
+            <Text style={styles.artTagline}>{BRAND_TAGLINE}</Text>
+            <Text style={styles.artSub}>{BRAND_SUBTITLE}</Text>
+
+            <View style={styles.artPromises}>
+              {BRAND_PROMISES.map((promise) => (
+                <View key={promise.key} style={styles.artPromise}>
+                  <Feather name={PROMISE_ICONS[promise.icon]} size={19} color={colors.primary} />
+                  <Text style={styles.artPromiseText}>{promise.title}</Text>
+                </View>
+              ))}
             </View>
-            <View style={styles.proof}>
-              <Feather name="mail" size={15} color={colors.goldBright} />
-              <Text style={styles.proofText}>Private, secure mail</Text>
-            </View>
-          </View>
-        ) : null}
+          </>
+        ) : (
+          <Text style={styles.artTaglineMobile}>{BRAND_TAGLINE}</Text>
+        )}
       </View>
+    </View>
+  );
+}
+
+/** The shared promise vocabulary, drawn with this app's icon set. */
+const PROMISE_ICONS: Record<BrandPromiseIcon, keyof typeof Feather.glyphMap> = {
+  heart: 'heart',
+  mail: 'mail',
+  book: 'book-open',
+  support: 'headphones',
+};
+
+/** Hairline with a gold heart at its centre, the divider used across the designs. */
+function GoldRule() {
+  return (
+    <View style={styles.rule}>
+      <View style={styles.ruleLine} />
+      <Feather name="heart" size={11} color={colors.gold} />
+      <View style={styles.ruleLine} />
     </View>
   );
 }
@@ -246,22 +270,43 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+
+  // Brand panel (client screen 10)
+  artInner: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xxl },
+  artInnerMobile: { justifyContent: 'flex-end', paddingBottom: spacing.lg, gap: spacing.sm },
+  artEmblem: { width: 76, height: 66 },
+  artEmblemMobile: { width: 46, height: 40 },
+  artWordmark: { fontFamily: 'BreeSerif_400Regular', fontSize: 38, lineHeight: 46 },
+  artWordmarkMobile: { fontSize: 26, lineHeight: 32 },
+  artTagline: { fontFamily: 'BreeSerif_400Regular', fontSize: 18, color: colors.textPrimary, textAlign: 'center' },
+  artTaglineMobile: { fontFamily: 'BreeSerif_400Regular', fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
+  artSub: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 20, color: colors.textSecondary, textAlign: 'center' },
+  artPromises: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginTop: spacing.lg,
+    maxWidth: 360,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+    padding: spacing.lg,
+  },
+  artPromise: { alignItems: 'center', gap: 6, width: 132 },
+  artPromiseText: { fontFamily: 'Inter_400Regular', fontSize: 11.5, lineHeight: 15, color: colors.textSecondary, textAlign: 'center' },
+  rule: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, alignSelf: 'stretch', maxWidth: 320 },
+  ruleLine: { flex: 1, height: 1, backgroundColor: colors.goldFaint },
+
   rootDesktop: { flex: 1, backgroundColor: colors.bgDeep },
-  rootMobile: { flex: 1, backgroundColor: auth.panelGradient[0] },
+  rootMobile: { flex: 1, backgroundColor: colors.bgDeep },
   split: { flex: 1, flexDirection: 'row' },
   artCol: { flex: 1.15, minWidth: 0 },
   artDesktop: { flex: 1, overflow: 'hidden' },
   slimBar: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
   artMobile: { height: auth.mobileArtHeight, overflow: 'hidden' },
-  artBrand: { position: 'absolute', top: 44, left: 48, zIndex: 2 },
-  artBrandMobile: { top: 18, left: 18 },
-  artBottom: { flex: 1, justifyContent: 'flex-end', padding: 48 },
-  artBottomMobile: { padding: 18 },
-  statement: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText, maxWidth: 400 },
   statementGold: { color: colors.goldBright },
-  proofRow: { flexDirection: 'row', gap: 22, marginTop: 26, flexWrap: 'wrap' },
-  proof: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  proofText: { fontFamily: fonts.body, fontSize: 12.5, color: colors.sidebarTextMuted },
   formCol: { flex: 1, backgroundColor: colors.bgElevated },
   scrollDesktop: { flexGrow: 1, padding: 48, justifyContent: 'center', alignItems: 'center' },
   contentClamp: { width: '100%', maxWidth: 420 },

@@ -162,10 +162,10 @@ export default function LikedScreen() {
       <View style={!isList ? styles.headerBar : undefined}>
         <View style={!isList ? styles.titleBlockLeft : undefined}>
           <View style={[styles.headerRow, !isList ? styles.headerRowLeft : null]}>
-            <Text style={styles.headingInline}>Liked</Text>
+            <Text style={styles.headingInline}>Liked or Saved Profiles</Text>
             <Feather name="heart" size={20} color={colors.primary} />
           </View>
-          <Text style={[styles.sub, !isList ? styles.subLeft : null]}>Profiles you've liked and want to revisit.</Text>
+          <Text style={[styles.sub, !isList ? styles.subLeft : null]}>Profiles you've liked or saved for later.</Text>
         </View>
 
       {!loading && !error && sorted.length > 0 ? (
@@ -421,6 +421,7 @@ function ListRow({
         <NameRow profile={profile} />
         <Text style={styles.facility} numberOfLines={1}>{profile.facility.state ?? ''}</Text>
       </View>
+      <Feather name="heart" size={18} color={colors.gold} style={styles.rowHeart} />
       <Feather name="chevron-right" size={20} color={colors.textMuted} />
     </Pressable>
   );
@@ -435,7 +436,10 @@ const styles = StyleSheet.create({
   // while a full grid still measures at its natural height instead of clipping.
   results: { flexGrow: 1 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  headingInline: { ...type.h1, textAlign: 'center' },
+  // flexShrink so the longer title wraps rather than clipping at the screen
+  // edge, and sized to sit on one line at phone widths as the client sets it.
+  headingInline: { ...type.h1, fontSize: 22, lineHeight: 28, textAlign: 'center', flexShrink: 1 },
+  rowHeart: { marginRight: 2 },
   sub: { ...type.bodyMuted, textAlign: 'center', marginBottom: spacing.lg },
   headerBar: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.lg, marginBottom: spacing.lg, zIndex: 20 },
   titleBlockLeft: { flexShrink: 1 },
@@ -569,7 +573,7 @@ const styles = StyleSheet.create({
   }) as object,
   imageWrap: {
     position: 'relative',
-    // 4:5 matches ProfileCard and the landing tiles — the grid was the odd one
+    // 4:5 matches the browse deck's photo framing — the grid was the odd one
     // out at 1:1. The cap stops a wide column from turning that into a 500px
     // slab; the photo just crops tighter instead.
     aspectRatio: 4 / 5,

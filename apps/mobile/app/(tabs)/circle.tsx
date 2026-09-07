@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         backgroundImage:
-          'radial-gradient(420px 240px at 88% 0%, rgba(233,30,115,0.34), transparent 62%), linear-gradient(160deg, #1B0826, #2E1240 55%, #3A1550)',
+          'radial-gradient(420px 240px at 88% 0%, rgba(219, 2, 82,0.34), transparent 62%), linear-gradient(160deg, #1B0826, #2E1240 55%, #3A1550)',
       } as object,
     }),
   },
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 18, paddingHorizontal: 20, minWidth: 0 },
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
-  rowHover: { backgroundColor: 'rgba(233,30,115,0.035)' },
+  rowHover: { backgroundColor: 'rgba(219, 2, 82,0.035)' },
   rowDisc: {
     width: 38,
     height: 38,

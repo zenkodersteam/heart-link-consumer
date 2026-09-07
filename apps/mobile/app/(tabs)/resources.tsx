@@ -272,7 +272,10 @@ export default function ResourcesScreen() {
             Our support team is here to help you find the right resources for your unique situation.
           </Text>
         </View>
-        <Button label="Contact Support" onPress={() => router.push('/support')} />
+        <View style={styles.supportAction}>
+          <Button label="Contact Support" onPress={() => router.push('/support')} />
+          <Text style={styles.supportNote}>We typically respond within 24 hours</Text>
+        </View>
       </View>
     </ScrollView>
   );
@@ -431,7 +434,7 @@ const styles = StyleSheet.create({
 
   hero: { alignItems: 'center', paddingTop: 10, paddingBottom: 4 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  heading: { ...type.h1, fontSize: 30, textAlign: 'center' },
+  heading: { ...type.h1, fontSize: 24, lineHeight: 30, textAlign: 'center', flexShrink: 1 },
   sub: { ...type.bodyMuted, textAlign: 'center', marginTop: 6, marginBottom: spacing.lg },
 
   searchPill: {
@@ -471,9 +474,9 @@ const styles = StyleSheet.create({
   rchipActive: {
     backgroundColor: colors.primary,
     borderColor: 'transparent',
-    boxShadow: '0 8px 20px rgba(233,30,115,0.35)',
+    boxShadow: '0 8px 20px rgba(219, 2, 82,0.35)',
     ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(135deg, #FF4F92, #E91E73)' } as object,
+      web: { backgroundImage: 'linear-gradient(135deg, #F02168, #DB0252)' } as object,
     }),
   },
   rchipText: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.textSecondary },
@@ -533,11 +536,13 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         backgroundImage:
-          'radial-gradient(300px 160px at 92% 10%, rgba(233,30,115,0.35), transparent 60%), linear-gradient(150deg, #1B0826, #2E1240 60%, #3A1550)',
+          'radial-gradient(300px 160px at 92% 10%, rgba(219, 2, 82,0.35), transparent 60%), linear-gradient(150deg, #1B0826, #2E1240 60%, #3A1550)',
       } as object,
     }),
   },
   supportCopy: { flex: 1, minWidth: 220, gap: 3 },
+  supportAction: { alignItems: 'center', gap: 6 },
+  supportNote: { ...type.caption, fontSize: 12, textAlign: 'center' },
   supportTitle: { fontFamily: fonts.heading, fontSize: 18, color: colors.sidebarText },
   supportBody: { fontFamily: fonts.body, fontSize: 13.5, color: colors.sidebarTextMuted },
 

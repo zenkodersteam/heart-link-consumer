@@ -20,6 +20,9 @@ import type {
   OutsideUserProfile,
   PublicProfileDetail,
   ReportReason,
+  UpdateOutsideProfileInput,
+  BlockedProfile,
+  ListResourcesQuery,
 } from '@heartlink/consumer-api';
 
 import { useApiFactory } from '@/lib/api';
@@ -42,6 +45,8 @@ export const qk = {
   letterLimit: (profileId: string) => ['letter-limit', profileId] as const,
   subscription: () => ['subscription'] as const,
   plans: () => ['plans'] as const,
+  blocks: () => ['blocks'] as const,
+  resources: (query: ListResourcesQuery) => ['resources', query] as const,
 };
 
 export function usePublicProfiles(
@@ -70,6 +75,46 @@ export function useMyProfile() {
   return useQuery({
     queryKey: qk.myProfile(),
     queryFn: async () => (await factory()).getMyProfile() as Promise<OutsideUserProfile>,
+  });
+}
+
+/**
+ * Onboarding writes.
+ *
+ * Every one of these returns the whole updated profile, so they seed the
+ * `myProfile` cache with the response rather than invalidating and refetching —
+ * onboarding saves a draft on each of nine steps, and a refetch per step is a
+ * visible stall between questions.
+ */
+export function useUpdateMyProfile() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateOutsideProfileInput) =>
+      (await factory()).updateMyProfile(input),
+    onSuccess: (profile) => queryClient.setQueryData(qk.myProfile(), profile),
+  });
+}
+
+export function useSubmitMyProfile() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => (await factory()).submitMyProfile(),
+    onSuccess: (profile) => queryClient.setQueryData(qk.myProfile(), profile),
+  });
+}
+
+export function useUploadMyProfilePhoto() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (file: File) =>
+      (await factory()).uploadMyProfilePhoto(file, file.name),
+    onSuccess: (profile) => queryClient.setQueryData(qk.myProfile(), profile),
   });
 }
 
@@ -265,6 +310,62 @@ export function useBlockProfile() {
       void queryClient.invalidateQueries({ queryKey: qk.saved() });
       void queryClient.invalidateQueries({ queryKey: qk.threads() });
     },
+  });
+}
+
+export function useBlocks() {
+  const factory = useApiFactory();
+  return useQuery({
+    queryKey: qk.blocks(),
+    queryFn: async () => (await factory()).listBlocks(),
+  });
+}
+
+/**
+ * Undo a block.
+ *
+ * The row is dropped from the cached list on success rather than by refetching:
+ * unblocking is a correction of a mistake, and watching the name sit there for
+ * another round trip reads as though it did not work.
+ */
+export function useUnblockProfile() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (profileId: string) => (await factory()).unblockProfile(profileId),
+    onSuccess: (_result, profileId) => {
+      queryClient.setQueryData(
+        qk.blocks(),
+        (old: { items: BlockedProfile[]; total: number } | undefined) =>
+          old
+            ? {
+                ...old,
+                items: old.items.filter((b) => b.profileId !== profileId),
+                total: Math.max(0, old.total - 1),
+              }
+            : old,
+      );
+      // The profile becomes visible again everywhere it was hidden.
+      void queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+  });
+}
+
+/**
+ * The resources directory.
+ *
+ * Categories come back with every response, so the filter chips and the list
+ * are one request rather than two that can disagree about which categories
+ * exist.
+ */
+export function useResources(query: ListResourcesQuery = {}) {
+  const factory = useApiFactory();
+  return useQuery({
+    queryKey: qk.resources(query),
+    queryFn: async () => (await factory()).listResources(query),
+    // The directory is editorial content that changes rarely; refetching it on
+    // every chip press would flash the list for nothing.
+    staleTime: 5 * 60 * 1000,
   });
 }
 

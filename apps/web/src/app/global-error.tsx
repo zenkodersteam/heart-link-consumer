@@ -1,5 +1,7 @@
 'use client';
 
+import { colors } from '@heartlink/design-tokens';
+
 /**
  * Last resort: only fires when the root layout itself throws, which is why it
  * has to ship its own <html>/<body> and cannot use the app's fonts or styles.
@@ -38,7 +40,7 @@ export default function GlobalError({
             padding: '0 24px',
             borderRadius: 999,
             border: 'none',
-            background: '#e91e73',
+            background: colors.primary,
             color: '#fff',
             fontWeight: 600,
             cursor: 'pointer',

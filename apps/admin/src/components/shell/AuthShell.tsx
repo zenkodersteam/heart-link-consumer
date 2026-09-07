@@ -19,20 +19,21 @@ export function AuthShell({
     <main className="hl-auth">
       <section className="hl-auth__art" aria-label="HeartLink brand panel">
         <div className="hl-auth__art-image" />
-        <div className="hl-auth__art-veil" />
         <Link href="/" className="hl-auth__brand hl-auth__brand--on-art" aria-label="HeartLink admin home">
-          <Image src="/heartlink-emblem.png" alt="" width={58} height={49} className="hl-auth__logo" priority />
+          <Image src="/heartlink-emblem.png" alt="" width={72} height={62} className="hl-auth__logo" priority />
           <span className="hl-auth__wordmark">
             <span>Heart</span>
             <span>Link</span>
           </span>
         </Link>
+        <span className="hl-auth__rule" aria-hidden />
         <div className="hl-auth__statement">
-          <p>
-            Every letter is a bridge.
-            <br />
-            <span>Love knows no bounds.</span>
-          </p>
+          {/* Kept in step with BRAND_TAGLINE / BRAND_SUBTITLE in
+              @heartlink/consumer-content, which the website and phone app read.
+              Inlined rather than imported: admin is a staff tool and has no
+              other reason to depend on consumer copy. */}
+          <p>~ Love Knows No Bounds ~</p>
+          <p className="hl-auth__statement-sub">Meaningful connections beyond boundaries.</p>
         </div>
       </section>
 

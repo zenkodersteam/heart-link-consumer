@@ -44,7 +44,14 @@ import { ErrorState } from '../../src/components/ErrorState';
  * Outbound = a typed letter we print + mail to the inmate's facility (addressed
  * server-side); inbound = the inmate's reply, scanned in by our team. NOT
  * real-time chat. Sending draws from a monthly letter allowance + purchased
- * credits. Honest framing: "private & secure", no end-to-end-encryption claim.
+ * credits.
+ *
+ * Framing is deliberately "secure & private" and NOT "end-to-end encrypted",
+ * which is what the client screens print. These are physical letters: we print
+ * and post them, our team scans the replies, and facility staff may read mail
+ * under their own rules. Claiming end-to-end encryption here would be false,
+ * and false in the direction that gets people hurt — see docs and the Privacy
+ * & Safety screen, which say the same thing.
  */
 
 const webTransition =
@@ -610,7 +617,7 @@ export default function MailboxScreen() {
   const PrivacyNote = (
     <View style={styles.encNote}>
       <Feather name="lock" size={14} color={colors.gold} />
-      <Text style={styles.encNoteText}>Private &amp; secure. Letters are printed and mailed; replies are scanned in by our team.</Text>
+      <Text style={styles.encNoteText}>Secure &amp; private. Letters are printed and mailed; replies are scanned in by our team.</Text>
     </View>
   );
 
@@ -738,7 +745,7 @@ export default function MailboxScreen() {
           <Text style={type.h1}>Mailbox</Text>
           <View style={styles.encLine}>
             <Feather name="lock" size={12} color={colors.textMuted} />
-            <Text style={styles.readTo}>Private &amp; secure{totalUnread > 0 ? ` · ${totalUnread} new` : ''}</Text>
+            <Text style={styles.readTo}>Secure &amp; private{totalUnread > 0 ? ` · ${totalUnread} new` : ''}</Text>
           </View>
         </View>
         <Pressable
@@ -1131,7 +1138,7 @@ const styles = StyleSheet.create({
   mobRoot: { flex: 1, padding: spacing.lg, gap: spacing.md },
   mobHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mobLettersRow: { },
-  composeFab: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(233,30,115,0.35)' },
+  composeFab: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(219, 2, 82,0.35)' },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   backText: { ...type.button, color: colors.primary, fontSize: 15 },
 

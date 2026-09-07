@@ -116,7 +116,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
   }
 
   return (
-    <div className="flex h-full min-w-0 flex-1 overflow-hidden border-r border-border bg-[radial-gradient(circle_at_12%_8%,rgba(233,30,115,0.10),transparent_28%),linear-gradient(135deg,#fbf1eb_0%,#f5ebe5_48%,#efe3dd_100%)]">
+    <div className="flex h-full min-w-0 flex-1 overflow-hidden border-r border-border bg-[radial-gradient(circle_at_12%_8%,rgba(219, 2, 82,0.10),transparent_28%),linear-gradient(135deg,#fbf1eb_0%,#f5ebe5_48%,#efe3dd_100%)]">
       <aside className="hidden w-[184px] shrink-0 flex-col border-r border-border/80 bg-[#fffaf7]/88 p-3 shadow-[inset_-1px_0_0_rgba(255,255,255,0.7)] xl:flex">
         <div className="mb-3 rounded-2xl border border-border bg-background p-3 shadow-soft">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">

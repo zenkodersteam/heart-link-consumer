@@ -139,7 +139,7 @@ function PlanCard({
       className={cn(
         'flex flex-col overflow-hidden rounded-[--radius-card] border bg-surface-elevated',
         featured
-          ? 'border-primary shadow-[0_18px_40px_rgba(233,30,115,0.18)] lg:-translate-y-2'
+          ? 'border-primary shadow-cta-hover lg:-translate-y-2'
           : 'border-line shadow-[0_2px_12px_rgba(22,5,31,0.06)]',
       )}
     >

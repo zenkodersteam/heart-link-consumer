@@ -38,6 +38,12 @@ export const BUILT_ROUTES = new Set<string>([
   '/support',
   '/privacy-safety',
   '/policy',
+  '/onboarding',
+  '/resources',
+  '/blocked',
+  '/sponsor',
+  '/edit-profile',
+  '/circle',
 ]);
 
 export function isBuilt(href: string): boolean {

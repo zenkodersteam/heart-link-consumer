@@ -179,7 +179,7 @@ function TopicPage({ topic, onBack }: { topic: SupportTopic; onBack: () => void 
               onPress={() => setOpen(isOpen ? -1 : i)}
               style={({ hovered }: { hovered?: boolean }) => [
                 styles.accRow,
-                hovered ? { backgroundColor: 'rgba(233,30,115,0.03)' } : null,
+                hovered ? { backgroundColor: 'rgba(219, 2, 82,0.03)' } : null,
               ]}
             >
               <Text style={[styles.accQ, isOpen ? { color: colors.primary } : null]}>{f.q}</Text>
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         backgroundImage:
-          'radial-gradient(420px 240px at 85% 0%, rgba(233,30,115,0.4), transparent 60%), linear-gradient(160deg, #1B0826, #2E1240 55%, #451A5E)',
+          'radial-gradient(420px 240px at 85% 0%, rgba(219, 2, 82,0.4), transparent 60%), linear-gradient(160deg, #1B0826, #2E1240 55%, #451A5E)',
       } as object,
     }),
   },
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.primary,
     ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(135deg, #FF4F92, #E91E73)' } as object,
+      web: { backgroundImage: 'linear-gradient(135deg, #F02168, #DB0252)' } as object,
     }),
   },
 
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         backgroundImage:
-          'radial-gradient(300px 160px at 92% 10%, rgba(233,30,115,0.35), transparent 60%), linear-gradient(150deg, #1B0826, #2E1240 60%, #3A1550)',
+          'radial-gradient(300px 160px at 92% 10%, rgba(219, 2, 82,0.35), transparent 60%), linear-gradient(150deg, #1B0826, #2E1240 60%, #3A1550)',
       } as object,
     }),
   },

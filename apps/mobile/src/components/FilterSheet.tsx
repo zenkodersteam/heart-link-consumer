@@ -43,7 +43,7 @@ const TIERS: { label: string; value: PlanTier | undefined }[] = [
 ];
 
 const GENDERS: { label: string; value: ProfileGender | undefined }[] = [
-  { label: 'Everyone', value: undefined },
+  { label: 'Both', value: undefined },
   { label: 'Men', value: 'male' },
   { label: 'Women', value: 'female' },
 ];

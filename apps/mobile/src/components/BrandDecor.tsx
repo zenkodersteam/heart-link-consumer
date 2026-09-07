@@ -97,7 +97,7 @@ export function BrandDecor() {
             ];
         return (
           <Animated.View key={`h${i}`} style={[styles.decor, h.pos, transform ? { transform } : null]}>
-            <Ionicons name="heart" size={h.size} color={`rgba(233,30,115,${h.op})`} />
+            <Ionicons name="heart" size={h.size} color={`rgba(219, 2, 82,${h.op})`} />
           </Animated.View>
         );
       })}

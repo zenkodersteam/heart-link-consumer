@@ -11,3 +11,4 @@
  */
 export * from './intake-form';
 export { canTransitionApplication } from './state-machines/application';
+export * from './password-policy';

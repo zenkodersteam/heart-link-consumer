@@ -4,7 +4,7 @@
  * HeartLink design tokens - base layout/spacing from Figma file
  * WKYudbUsgWhI73tJFWDAvo (pulled 2026-04-21). Brand accent colors aligned
  * 2026-05-19 to the official HeartLink Branding Book (received 2026-05-18):
- * primary = Hot Heart Pink #E91E73, gold accent = Metallic Gold #D6A84F.
+ * primary = Hot Heart Pink #db0252, gold accent = Metallic Gold #D6A84F.
  * Admin keeps the light, high-legibility ops theme by decision; the full
  * deep-purple brand theme applies to the consumer surface in M4.
  */
@@ -19,16 +19,19 @@
    */
 
   /* Brand + semantic colors */
-  --color-primary: #e91e73; /* Hot Heart Pink - official brand accent */
+  /* Measured from the client-delivered screens rather than the brand book,
+     which lists #E91E73. The consumer apps use the same value — see
+     packages/design-tokens/src/colors.ts. */
+  --color-primary: #db0252;
   --color-primary-foreground: #ffffff;
-  --color-primary-hover: #c81860;
-  --color-primary-tint: rgba(233, 30, 115, 0.10);
+  --color-primary-hover: #b80143;
+  --color-primary-tint: rgba(219, 2, 82, 0.10);
 
   /* Metallic Gold - consumer value #C9912E (richer than brand-book #D6A84F) */
   --color-accent-gold: #c9912e;
   --color-accent-gold-tint: rgba(201, 145, 46, 0.16);
 
-  --color-canvas: #fbf1eb;        /* warm blush page background */
+  --color-canvas: #fdf9f6;        /* warm blush page background (measured from the client screens) */
   --color-surface: #f3e7e0;       /* warm panel (table header strips) */
   --color-surface-muted: #f8f0ea; /* subtle warm zebra rows */
   --color-surface-doc: #efe7e1;   /* review workspace doc panel */
@@ -106,7 +109,7 @@ body {
 }
 
 ::selection {
-  background: rgba(233, 30, 115, 0.18);
+  background: rgba(219, 2, 82, 0.18);
   color: var(--color-text);
 }
 
@@ -327,10 +330,10 @@ body {
 .hl-control:focus-visible,
 .hl-control-focus:focus-within {
   outline: none;
-  border-color: rgba(233, 30, 115, 0.35);
+  border-color: rgba(219, 2, 82, 0.35);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 0 0 3px rgba(233, 30, 115, 0.12);
+    0 0 0 3px rgba(219, 2, 82, 0.12);
 }
 
 .hl-control-sm {
@@ -392,9 +395,9 @@ body {
   --auth-ground: #16051f;
   --auth-purple: #2e1240;
   --auth-purple-soft: #451a5e;
-  --auth-pink: #e91e73;
-  --auth-pink-bright: #ff4f92;
-  --auth-pink-hover: #c81860;
+  --auth-pink: #db0252;
+  --auth-pink-bright: #f02168;
+  --auth-pink-hover: #b80143;
   --auth-gold: #c9912e;
   --auth-gold-bright: #d6a84f;
   --auth-ink: rgba(255, 255, 255, 0.96);
@@ -413,26 +416,29 @@ body {
 
 .hl-auth__art {
   position: relative;
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
   overflow: hidden;
-  background: linear-gradient(160deg, #1b0826, var(--auth-purple), var(--auth-purple-soft));
+  padding: 3rem;
+  background: var(--color-canvas);
 }
 
+/* Barely-there wash. The panel is close to flat warm cream in the designs;
+   anything stronger reads as a stain rather than paper. */
 .hl-auth__art-image {
   position: absolute;
   inset: 0;
-  background-image: url('/signin-bridge.png');
-  background-size: cover;
-  background-position: center 42%;
-  opacity: 0.88;
+  background:
+    radial-gradient(900px 620px at 15% 0%, rgba(219, 2, 82, 0.05), transparent 70%),
+    radial-gradient(760px 540px at 90% 100%, rgba(201, 145, 46, 0.07), transparent 70%);
 }
 
 .hl-auth__art-veil {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, rgba(22, 5, 31, 0.10), rgba(22, 5, 31, 0.82)),
-    radial-gradient(720px 420px at 70% 18%, rgba(233, 30, 115, 0.18), transparent 68%);
+  display: none;
 }
 
 .hl-auth__form {
@@ -442,7 +448,7 @@ body {
   justify-content: center;
   padding: clamp(2rem, 6vw, 4rem);
   background:
-    radial-gradient(600px 320px at 100% -80px, rgba(233, 30, 115, 0.07), transparent 65%),
+    radial-gradient(600px 320px at 100% -80px, rgba(219, 2, 82, 0.07), transparent 65%),
     radial-gradient(440px 260px at 0% 105%, rgba(201, 145, 46, 0.10), transparent 60%),
     var(--color-background);
 }
@@ -471,11 +477,25 @@ body {
 }
 
 .hl-auth__brand--on-art {
-  position: absolute;
-  top: 2.75rem;
-  left: 3rem;
+  position: relative;
   z-index: 2;
-  color: var(--auth-ink);
+  flex-direction: column;
+  gap: 0.75rem;
+  color: var(--color-text);
+}
+
+.hl-auth__brand--on-art .hl-auth__wordmark {
+  font-size: 2.4rem;
+}
+
+/* Gold hairline with a heart at its centre, as the client screens set it. */
+.hl-auth__rule {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: min(20rem, 70%);
+  height: 1px;
+  background: rgba(201, 145, 46, 0.35);
 }
 
 .hl-auth__brand--mobile {
@@ -489,7 +509,6 @@ body {
   width: 3.25rem;
   height: 2.75rem;
   object-fit: contain;
-  filter: drop-shadow(0 12px 22px rgba(233, 30, 115, 0.32));
 }
 
 .hl-auth__wordmark {
@@ -508,27 +527,47 @@ body {
   color: var(--color-text);
 }
 
+.hl-auth__alt {
+  display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
+.hl-auth__alt:hover {
+  text-decoration: underline;
+}
+
 .hl-auth__statement {
-  position: absolute;
-  left: 3rem;
-  right: 3rem;
-  bottom: 3rem;
+  position: relative;
   z-index: 2;
+  text-align: center;
 }
 
 .hl-auth__statement p {
-  max-width: 28rem;
+  max-width: 24rem;
   margin: 0;
-  color: var(--auth-ink);
+  color: var(--color-text);
   font-family: var(--font-serif);
-  font-size: clamp(2.25rem, 4.5vw, 3.7rem);
-  letter-spacing: -0.045em;
-  line-height: 1.02;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
 }
 
-.hl-auth__statement p span {
-  color: var(--auth-gold-bright);
+.hl-auth__statement-sub {
+  margin-top: 0.4rem !important;
+  color: var(--color-text-muted) !important;
+  font-family: var(--font-sans, inherit) !important;
+  font-size: 0.9rem !important;
 }
+
 
 .hl-auth__proofs {
   display: flex;
@@ -599,19 +638,19 @@ body {
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.005em;
-  box-shadow: 0 14px 30px rgba(233, 30, 115, 0.22);
+  box-shadow: 0 14px 30px rgba(219, 2, 82, 0.22);
   transition: transform 80ms ease, background 80ms ease, box-shadow 80ms ease;
 }
 
 .hl-auth__primary:hover {
   transform: translateY(-1px);
   background: linear-gradient(135deg, #f13a87, var(--auth-pink-hover));
-  box-shadow: 0 16px 34px rgba(233, 30, 115, 0.28);
+  box-shadow: 0 16px 34px rgba(219, 2, 82, 0.28);
 }
 
 .hl-auth__primary:active {
   transform: translateY(0);
-  box-shadow: 0 8px 18px rgba(233, 30, 115, 0.2);
+  box-shadow: 0 8px 18px rgba(219, 2, 82, 0.2);
 }
 
 .hl-auth__note {
@@ -663,7 +702,7 @@ body {
 
 .hl-auth__input:focus {
   outline: none;
-  border-color: #e91e73;
+  border-color: #db0252;
 }
 
 /* Six boxes drawn from one real input, so paste and autofill still work. */
@@ -693,8 +732,8 @@ body {
 
 .hl-otp__box--active {
   z-index: 1;
-  border-color: #e91e73;
-  box-shadow: 0 0 0 3px rgba(233, 30, 115, 0.18);
+  border-color: #db0252;
+  box-shadow: 0 0 0 3px rgba(219, 2, 82, 0.18);
 }
 
 .hl-otp__box--invalid {
@@ -727,16 +766,16 @@ body {
   padding: 0.85rem 1rem;
   border: 0;
   border-radius: 0.75rem;
-  background: #e91e73;
+  background: #db0252;
   color: #ffffff;
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 26px rgba(233, 30, 115, 0.24);
+  box-shadow: 0 12px 26px rgba(219, 2, 82, 0.24);
 }
 
 .hl-auth__submit:hover:not(:disabled) {
-  background: #c81860;
+  background: #b80143;
 }
 
 .hl-auth__submit:disabled {
@@ -751,7 +790,7 @@ body {
   padding: 0;
   border: 0;
   background: none;
-  color: #e91e73;
+  color: #db0252;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -821,8 +860,8 @@ body {
 }
 
 .hl-userchip__out:hover:not(:disabled) {
-  border-color: #e91e73;
-  color: #e91e73;
+  border-color: #db0252;
+  color: #db0252;
 }
 
 .hl-auth :focus-visible {
@@ -846,29 +885,12 @@ body {
     flex: 0 0 auto;
   }
 
-  .hl-auth__art-image {
-    background-position: center 34%;
-  }
-
-  .hl-auth__art-veil {
-    background:
-      linear-gradient(180deg, rgba(22, 5, 31, 0.06), rgba(22, 5, 31, 0.66)),
-      radial-gradient(520px 320px at 68% 12%, rgba(233, 30, 115, 0.18), transparent 70%);
-  }
-
-  .hl-auth__brand--on-art {
-    top: 1.15rem;
-    left: 1.15rem;
-  }
-
-  .hl-auth__statement {
-    left: 1.25rem;
-    right: 1.25rem;
-    bottom: 1.25rem;
+  .hl-auth__brand--on-art .hl-auth__wordmark {
+    font-size: 1.9rem;
   }
 
   .hl-auth__statement p {
-    font-size: clamp(1.65rem, 8vw, 2.25rem);
+    font-size: 1.02rem;
   }
 
   .hl-auth__proofs {

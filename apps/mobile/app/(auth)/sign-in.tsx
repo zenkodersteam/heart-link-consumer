@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { passwordProblem } from '@heartlink/domain';
+
 import { AuthShell } from '../../src/components/AuthShell';
 import { OtpBoxes } from '../../src/components/OtpBoxes';
 import { Button, Field } from '../../src/components/primitives';
@@ -23,10 +25,19 @@ import { colors, spacing, type } from '../../src/theme';
  */
 export default function SignInScreen() {
   const router = useRouter();
-  const { requestCode, signIn } = useSession();
+  const { requestCode, signIn, signInWithPassword } = useSession();
 
   const [stage, setStage] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  /**
+   * Signing in with a code instead of a password.
+   *
+   * Members who joined before passwords have none, and anyone can forget one,
+   * so the code path stays reachable — it is also how someone gets back in to
+   * set a new password.
+   */
+  const [useCode, setUseCode] = useState(false);
   const [code, setCode] = useState('');
   const [expiresInMinutes, setExpiresInMinutes] = useState(10);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,6 +66,31 @@ export default function SignInScreen() {
       if (resend) setNotice('Sent again — it can take a moment to arrive.');
     } catch (e) {
       setError(messageFrom(e, 'Could not send a code. Check your email address and try again.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onPasswordSignIn() {
+    const address = email.trim();
+    if (!address) {
+      setError('Enter your email address.');
+      return;
+    }
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await signInWithPassword(address, password);
+      const pending = takePendingRoute();
+      router.replace((pending ?? '/(tabs)') as never);
+    } catch (e) {
+      setError(messageFrom(e, 'That email or password is not right.'));
     } finally {
       setSubmitting(false);
     }
@@ -137,7 +173,11 @@ export default function SignInScreen() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Enter your email and we will send you a code. No password to remember."
+      subtitle={
+        useCode
+          ? 'Enter your email and we will send you a code to sign in.'
+          : 'Enter your email and password.'
+      }
     >
       <Field
         label="Email"
@@ -147,11 +187,43 @@ export default function SignInScreen() {
         autoComplete="email"
         keyboardType="email-address"
         placeholder="you@example.com"
-        onSubmitEditing={() => void onSendCode()}
-        returnKeyType="go"
+        onSubmitEditing={() => (useCode ? void onSendCode() : undefined)}
+        returnKeyType={useCode ? 'go' : 'next'}
       />
+      {!useCode ? (
+        <Field
+          label="Password"
+          value={password}
+          onChangeText={(t) => {
+            setPassword(t);
+            setError(null);
+          }}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="current-password"
+          placeholder="Your password"
+          onSubmitEditing={() => void onPasswordSignIn()}
+          returnKeyType="go"
+        />
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button label="Send me a code" onPress={() => void onSendCode()} loading={submitting} />
+      <Button
+        label={useCode ? 'Send me a code' : 'Sign in'}
+        onPress={() => (useCode ? void onSendCode() : void onPasswordSignIn())}
+        loading={submitting}
+      />
+      {/* Kept reachable on purpose: members who joined before passwords have
+          none, and it is how someone who has forgotten theirs gets back in. */}
+      <Pressable
+        onPress={() => {
+          setUseCode((v) => !v);
+          setError(null);
+        }}
+      >
+        <Text style={styles.altLink}>
+          {useCode ? 'Use a password instead' : 'Sign in with a code instead'}
+        </Text>
+      </Pressable>
     </AuthShell>
   );
 }
@@ -160,6 +232,7 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   link: { ...type.button, color: colors.primary, fontSize: 14 },
   error: { ...type.caption, color: colors.danger, marginBottom: spacing.sm },
+  altLink: { ...type.button, color: colors.primary, fontSize: 14, textAlign: 'center', marginTop: spacing.md },
   notice: { ...type.caption, color: colors.textSecondary, marginBottom: spacing.sm },
   codeLabel: {
     ...type.caption,

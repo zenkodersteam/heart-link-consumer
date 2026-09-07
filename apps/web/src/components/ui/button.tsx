@@ -14,7 +14,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-primary text-on-primary shadow-[0_10px_24px_rgba(233,30,115,0.24)] hover:bg-primary-hover hover:-translate-y-px active:translate-y-0',
+          'bg-primary text-on-primary shadow-cta hover:bg-primary-hover hover:-translate-y-px active:translate-y-0',
         secondary:
           'border border-line-strong bg-surface-elevated text-ink hover:bg-surface-muted',
         ghost: 'text-ink-soft hover:bg-surface-muted',

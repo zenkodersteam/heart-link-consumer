@@ -61,7 +61,9 @@ export default function TabLayout() {
     if (pathname !== '/' && pathname !== '/(tabs)') {
       savePendingRoute(pathname + queryString(params));
     }
-    return <Redirect href="/" />;
+    // The splash, not "/" — that route is the home tab itself now that the
+    // marketing page is gone, so sending them there bounced straight back here.
+    return <Redirect href="/(auth)/welcome" />;
   }
   // Members introduce themselves before entering the app. If the profile can't
   // be loaded (API down), fail open so an outage never locks anyone out.

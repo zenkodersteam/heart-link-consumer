@@ -3,6 +3,8 @@ import {
   endSession,
   refreshSession,
   requestSignInCode,
+  setAccountPassword,
+  signInWithPassword as passwordSignIn,
   verifySignInCode,
 } from '@heartlink/consumer-api';
 import * as SecureStore from 'expo-secure-store';
@@ -39,6 +41,8 @@ interface SessionValue {
   isLoaded: boolean;
   requestCode: (email: string) => Promise<number>;
   signIn: (email: string, code: string) => Promise<{ created: boolean }>;
+  signInWithPassword: (email: string, password: string) => Promise<void>;
+  setPassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -148,6 +152,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [store],
   );
 
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      const result = await passwordSignIn(API_BASE_URL, { email, password });
+      await store(result);
+      setUser(result.user);
+    },
+    [store],
+  );
+
+  /**
+   * Choose or change the password on the signed-in account.
+   *
+   * Takes the access token from the same place every other authed call does, so
+   * it cannot be reached without a live session.
+   */
+  const setPassword = useCallback(
+    async (password: string) => {
+      const token = await getToken();
+      if (!token) throw new Error('You need to be signed in to set a password.');
+      await setAccountPassword(API_BASE_URL, token, { password });
+    },
+    [getToken],
+  );
+
   const signOut = useCallback(async () => {
     const current = refreshToken.current;
     await clear();
@@ -156,8 +184,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [clear]);
 
   const value = useMemo<SessionValue>(
-    () => ({ getToken, user, isSignedIn, isLoaded, requestCode, signIn, signOut }),
-    [getToken, user, isSignedIn, isLoaded, requestCode, signIn, signOut],
+    () => ({
+      getToken,
+      user,
+      isSignedIn,
+      isLoaded,
+      requestCode,
+      signIn,
+      signInWithPassword,
+      setPassword,
+      signOut,
+    }),
+    [getToken, user, isSignedIn, isLoaded, requestCode, signIn, signInWithPassword, setPassword, signOut],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

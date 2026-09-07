@@ -1,4 +1,12 @@
-import { Mail, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Mail, MapPin, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import Image from 'next/image';
+
+/**
+ * The one face on the marketing page. Served from `public/` rather than the CDN
+ * the phone app points at, so the hero does not depend on a third party being
+ * up, and Next can size and re-encode it per viewport.
+ */
+const SHOWCASE_PHOTO = '/art/showcase-profile.jpg';
 
 /**
  * Product shot: a browser window with a phone overlapping it, showing the
@@ -31,7 +39,16 @@ export function HeroMockup() {
           </div>
 
           <div className="relative overflow-hidden rounded-xl bg-midnight">
-            <div className="aspect-[4/3] bg-gradient-to-br from-[#2e1240] via-[#451a5e] to-[#5a2178]" />
+            <div className="relative aspect-square">
+              <Image
+                src={SHOWCASE_PHOTO}
+                alt=""
+                fill
+                priority
+                sizes="(max-width: 1024px) 60vw, 420px"
+                className="object-cover object-top"
+              />
+            </div>
             <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-semibold text-primary">
               <ShieldCheck className="size-3" /> Verified
             </span>
@@ -39,7 +56,9 @@ export function HeroMockup() {
               <p className="font-[family-name:var(--font-bree)] text-sm text-sidebar-text">
                 Darnell, 34
               </p>
-              <p className="text-[10px] text-sidebar-text/70">Texas · Guitar, writing, faith</p>
+              <p className="inline-flex items-center gap-1 text-[10px] text-sidebar-text/70">
+                <MapPin className="size-2.5" /> Texas · Guitar, writing, faith
+              </p>
             </div>
           </div>
 
@@ -56,8 +75,16 @@ export function HeroMockup() {
         </div>
         <div className="p-2.5">
           <p className="mb-2 font-[family-name:var(--font-bree)] text-xs text-ink">Profiles</p>
-          <div className="relative overflow-hidden rounded-lg">
-            <div className="aspect-[3/4] bg-gradient-to-br from-[#2e1240] via-[#451a5e] to-[#5a2178]" />
+          <div className="relative overflow-hidden rounded-lg bg-midnight">
+            <div className="relative aspect-[3/4]">
+              <Image
+                src={SHOWCASE_PHOTO}
+                alt=""
+                fill
+                sizes="180px"
+                className="object-cover object-top"
+              />
+            </div>
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-midnight to-transparent p-2">
               <p className="font-[family-name:var(--font-bree)] text-[11px] text-sidebar-text">
                 Darnell, 34
@@ -71,7 +98,7 @@ export function HeroMockup() {
       </div>
 
       {/* Floating reply, the emotional payoff of the whole product */}
-      <div className="absolute -bottom-6 right-0 w-[62%] rounded-xl border border-line bg-surface-elevated p-3 shadow-[0_18px_36px_rgba(22,5,31,0.16)] sm:w-[54%]">
+      <div className="absolute -bottom-16 right-0 w-[62%] rounded-xl border border-line bg-surface-elevated p-3 shadow-[0_18px_36px_rgba(22,5,31,0.16)] sm:w-[54%]">
         <div className="flex gap-2.5">
           <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-faint text-[11px] font-bold text-primary">
             M

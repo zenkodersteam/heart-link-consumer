@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         backgroundImage:
-          'radial-gradient(58% 58% at 66% 26%, rgba(233,30,115,0.38), transparent 72%), ' +
+          'radial-gradient(58% 58% at 66% 26%, rgba(219, 2, 82,0.38), transparent 72%), ' +
           'radial-gradient(78% 78% at 50% 52%, #241031 0%, #13051D 74%)',
       } as object,
     }),

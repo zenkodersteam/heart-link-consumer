@@ -18,12 +18,13 @@ export interface AnchorRect {
   height: number;
 }
 
-// undefined = "Everyone" (no gender filter - show all profiles). Label mirrors
-// FilterSheet so the two filter surfaces stay consistent (deviance decision #3).
+// undefined = no gender filter, shown as "Both" — the wording the client screens
+// use and the one ADR-006 records ("Men / Women / Both per the client screens").
+// FilterSheet uses the same three labels so the two filter surfaces agree.
 const OPTIONS: { label: string; value: ProfileGender | undefined; icon: keyof typeof Feather.glyphMap }[] = [
   { label: 'Men', value: 'male', icon: 'user' },
   { label: 'Women', value: 'female', icon: 'user' },
-  { label: 'Everyone', value: undefined, icon: 'users' },
+  { label: 'Both', value: undefined, icon: 'users' },
 ];
 
 interface GenderMenuProps {
@@ -90,7 +91,7 @@ export function GenderMenu({ open, value, anchor, desktop, onClose, onSelect }: 
           >
             <Pressable onPress={() => undefined}>
               <Text style={styles.title}>Gender</Text>
-              <Text style={styles.subtitle}>Select who you'd like to discover. Everyone shows the full deck.</Text>
+              <Text style={styles.subtitle}>Select who you'd like to connect with</Text>
               <View style={styles.optionList}>{Options}</View>
             </Pressable>
           </Animated.View>
@@ -112,7 +113,7 @@ export function GenderMenu({ open, value, anchor, desktop, onClose, onSelect }: 
           <Pressable onPress={() => undefined}>
             <View style={styles.handle} />
             <Text style={styles.title}>Filter by Gender</Text>
-            <Text style={styles.subtitle}>Select who you'd like to discover. Everyone shows the full deck.</Text>
+            <Text style={styles.subtitle}>Select who you'd like to connect with</Text>
             <View style={styles.optionList}>{Options}</View>
           </Pressable>
         </Animated.View>

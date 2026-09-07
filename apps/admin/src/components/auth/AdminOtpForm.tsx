@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
+import { PASSWORD_MIN_LENGTH, passwordProblem } from '@heartlink/domain';
+
 import { AdminOtpBoxes } from './AdminOtpBoxes';
 
 /**
@@ -31,6 +33,14 @@ export function AdminOtpForm() {
 
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  /**
+   * Signing in with a code instead of a password.
+   *
+   * Staff accounts that predate passwords have none, so this stays reachable —
+   * it is also how someone who has forgotten theirs gets back in.
+   */
+  const [useCode, setUseCode] = useState(false);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -55,6 +65,34 @@ export function AdminOtpForm() {
         return;
       }
       setStep('code');
+    } catch {
+      setError('We could not reach the API. Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signInWithPassword() {
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/auth/password/sign-in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        setError(data.message ?? 'That email or password is not right.');
+        return;
+      }
+      router.push(redirectTo);
+      router.refresh();
     } catch {
       setError('We could not reach the API. Check your connection and try again.');
     } finally {
@@ -102,7 +140,8 @@ export function AdminOtpForm() {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            void sendCode();
+            if (useCode) void sendCode();
+            else void signInWithPassword();
           }}
         >
           <label htmlFor="email" className="hl-auth__label">
@@ -118,9 +157,46 @@ export function AdminOtpForm() {
             placeholder="you@heartlink.app"
             className="hl-auth__input"
           />
+          {!useCode ? (
+            <>
+              <label htmlFor="password" className="hl-auth__label">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError(null);
+                }}
+                autoComplete="current-password"
+                minLength={PASSWORD_MIN_LENGTH}
+                placeholder="Your password"
+                className="hl-auth__input"
+              />
+            </>
+          ) : null}
           {error ? <p className="hl-auth__error">{error}</p> : null}
-          <button type="submit" disabled={busy || !email.trim()} className="hl-auth__submit">
-            {busy ? 'Sending…' : 'Send me a code'}
+          <button
+            type="submit"
+            disabled={busy || !email.trim() || (!useCode && !password)}
+            className="hl-auth__submit"
+          >
+            {busy ? (useCode ? 'Sending…' : 'Checking…') : useCode ? 'Send me a code' : 'Sign in'}
+          </button>
+          {/* Staff accounts predating passwords have none, and this is also the
+              way back in for someone who has forgotten theirs. */}
+          <button
+            type="button"
+            onClick={() => {
+              setUseCode((v) => !v);
+              setError(null);
+            }}
+            className="hl-auth__alt"
+          >
+            {useCode ? 'Use a password instead' : 'Sign in with a code instead'}
           </button>
         </form>
       ) : (

@@ -1,0 +1,48 @@
+/**
+ * GENERATED FILE — DO NOT EDIT.
+ *
+ * Source: packages/design-tokens/src/{colors,scale}.ts
+ * Regenerate: npm run tokens:build --workspace @heartlink/design-tokens
+ */
+
+@theme {
+  --color-surface: #fdf9f6;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #f7ede6;
+  --color-surface-canvas: #fef6f4;
+  --color-ink: #2e1240;
+  --color-ink-soft: #6e5c80;
+  --color-ink-faint: #9c8cae;
+  --color-primary: #db0252;
+  --color-primary-hover: #b80143;
+  --color-primary-faint: rgba(219, 2, 82, 0.10);
+  --color-on-primary: #ffffff;
+  --color-gold: #c9912e;
+  --color-gold-bright: #d6a84f;
+  --color-gold-faint: rgba(201, 145, 46, 0.16);
+  --color-midnight: #16051f;
+  --color-sidebar: #2e1240;
+  --color-sidebar-elevated: #2e1a47;
+  --color-sidebar-text: #fbf5e8;
+  --color-sidebar-text-muted: #b9a8d8;
+  --color-success: #3e9b6e;
+  --color-danger: #d64550;
+  --color-line: rgba(46, 18, 64, 0.10);
+  --color-line-strong: rgba(46, 18, 64, 0.18);
+  --color-overlay: rgba(26, 8, 51, 0.45);
+
+  --font-heading: "Bree Serif", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --radius-card: 18px;
+  --radius-pill: 999px;
+
+  /* Pink-derived shadows. Declared here so a change to the primary colour
+     carries into every glow, rather than leaving hardcoded rgb() triples
+     behind in component classes. */
+  --shadow-cta: 0 10px 24px rgba(219,2,82,0.40);
+  --shadow-cta-hover: 0 14px 30px rgba(219,2,82,0.50);
+  --shadow-card: 0 1px 2px rgba(46,18,64,0.04), 0 8px 24px rgba(46,18,64,0.06);
+  --shadow-card-hover: 0 2px 4px rgba(46,18,64,0.05), 0 12px 32px rgba(46,18,64,0.09);
+  --shadow-deck: 0 4px 12px rgba(46,18,64,0.08), 0 20px 48px rgba(46,18,64,0.12);
+}
