@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "expo start",
     "dev:clear": "expo start --clear",
-    "web": "expo start --web",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:only": "expo run:ios --no-bundler",
@@ -14,15 +13,13 @@
     "prebuild:clean": "LANG=en_US.UTF-8 expo prebuild --platform ios --clean",
     "pods": "cd ios && LANG=en_US.UTF-8 pod install",
     "typecheck": "tsc --noEmit",
-    "deps:check": "expo install --check",
-    "build:web": "expo export --platform web --output-dir dist"
+    "deps:check": "expo install --check"
   },
   "dependencies": {
     "@babel/runtime": "^7.24.0",
     "@clerk/clerk-expo": "^2.4.0",
     "@expo-google-fonts/bree-serif": "^0.2.3",
     "@expo-google-fonts/inter": "^0.2.3",
-    "@expo/metro-runtime": "~4.0.0",
     "@expo/vector-icons": "^14.0.0",
     "expo": "~52.0.0",
     "expo-application": "~6.0.0",
@@ -45,13 +42,11 @@
     "expo-status-bar": "~2.0.0",
     "expo-web-browser": "~14.0.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
     "react-native": "0.76.0",
     "react-native-gesture-handler": "~2.20.0",
     "react-native-reanimated": "~3.16.0",
     "react-native-safe-area-context": "^4.8.0",
-    "react-native-screens": "~4.0.0",
-    "react-native-web": "~0.19.0"
+    "react-native-screens": "~4.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

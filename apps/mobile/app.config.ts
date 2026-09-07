@@ -36,11 +36,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'com.heartlink.app',
   },
 
-  web: {
-    bundler: 'metro',
-    output: 'single',
-    favicon: './assets/favicon.png',
-  },
 
   // EAS project link. Written by hand because `eas init` cannot edit a dynamic
   // (.ts) config; spread `config.extra` first so expo-router's own `extra`
