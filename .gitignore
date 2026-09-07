@@ -1,69 +1,12 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Diagnostic reports
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage
-coverage
-*.lcov
-.nyc_output
-
-# Dependencies
 node_modules/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# npm cache
-.npm
-
-# eslint cache
-.eslintcache
-
-# Output of 'npm pack'
-*.tgz
-
-# dotenv files
-.env
-.env.*
-!.env.example
-
-# Build output
-dist
-.next
-out
-
-# Expo
-.expo/
-.expo-shared/
-web-build/
-
-# Vercel
-.vercel/
-
-# Metro
-.metro-health-check*
-
-# IDE
-.vscode-test
-.vscode/
-.idea
-*.swp
 .DS_Store
+.env
+.env.local
+.expo/
+dist/
+.next/
+out/
+*.log
 
-.vercel
-/.specstory/
-/.claude/
-/.hermes
+# TypeScript incremental build state — churns on every build
+*.tsbuildinfo

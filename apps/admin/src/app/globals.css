@@ -1,0 +1,920 @@
+@import "tailwindcss";
+
+/*
+ * HeartLink design tokens - base layout/spacing from Figma file
+ * WKYudbUsgWhI73tJFWDAvo (pulled 2026-04-21). Brand accent colors aligned
+ * 2026-05-19 to the official HeartLink Branding Book (received 2026-05-18):
+ * primary = Hot Heart Pink #E91E73, gold accent = Metallic Gold #D6A84F.
+ * Admin keeps the light, high-legibility ops theme by decision; the full
+ * deep-purple brand theme applies to the consumer surface in M4.
+ */
+
+@theme {
+  /*
+   * Aligned 2026-06-21 to the canonical consumer brand language
+   * (heart-link-consumer/src/theme.ts) so admin + consumer read as one product:
+   * warm purple-tinted text, consumer gold #C9912E, soft purple borders +
+   * shadows, rounder radii (fully-round pills, 16px cards). Blue/orange dropped
+   * from the brand; info/warning remap to gold.
+   */
+
+  /* Brand + semantic colors */
+  --color-primary: #e91e73; /* Hot Heart Pink - official brand accent */
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #c81860;
+  --color-primary-tint: rgba(233, 30, 115, 0.10);
+
+  /* Metallic Gold - consumer value #C9912E (richer than brand-book #D6A84F) */
+  --color-accent-gold: #c9912e;
+  --color-accent-gold-tint: rgba(201, 145, 46, 0.16);
+
+  --color-canvas: #fbf1eb;        /* warm blush page background */
+  --color-surface: #f3e7e0;       /* warm panel (table header strips) */
+  --color-surface-muted: #f8f0ea; /* subtle warm zebra rows */
+  --color-surface-doc: #efe7e1;   /* review workspace doc panel */
+  --color-background: #ffffff;    /* elevated cards stay white to pop on the blush canvas */
+  --color-border: rgba(46, 18, 64, 0.10);        /* purple-tinted, matches consumer */
+  --color-border-strong: rgba(46, 18, 64, 0.18);
+  --color-overlay: rgba(26, 8, 51, 0.45);        /* dialog scrim */
+
+  /* Deep-purple navigation rail - matches the consumer brand surface */
+  --color-sidebar: #2a0f4d;
+  --color-sidebar-elevated: #3a1a63;
+  --color-sidebar-text: #fbf5e8;
+  --color-sidebar-muted: #b9a8d8;
+
+  /* Warm purple-tinted text tiers (consumer textPrimary/secondary/muted) */
+  --color-text: #2e1240;
+  --color-text-muted: #6e5c80;
+  --color-text-subtle: #9c8cae;
+  --color-text-on-dark: #ffffff;
+
+  --color-success: #3e9b6e;
+  --color-success-tint: rgba(62, 155, 110, 0.14);
+  --color-warning: #c9912e;       /* remapped to gold (no orange in the brand) */
+  --color-warning-tint: rgba(201, 145, 46, 0.16);
+  --color-info: #c9912e;          /* remapped to gold (no blue in the brand) */
+  --color-info-tint: rgba(201, 145, 46, 0.16);
+  --color-danger: #d64550;
+  --color-danger-tint: rgba(214, 69, 80, 0.14);
+  --color-neutral: #9c8cae;
+  --color-neutral-tint: rgba(110, 92, 128, 0.12);
+
+  /* Confidence bucket borders */
+  --color-confidence-high: #3e9b6e;
+  --color-confidence-mid: #c9912e;
+  --color-confidence-low: #d64550;
+  --color-confidence-missing: #9c8cae;
+
+  /* Radii - consumer scale (round pills, 16px cards) */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+  --radius-pill-lg: 999px;
+
+  /* Soft purple-tinted elevation */
+  --shadow-soft: 0 6px 16px rgba(46, 18, 64, 0.12);
+  --shadow-card: 0 20px 44px rgba(46, 18, 64, 0.18);
+
+  /* Typography */
+  --font-sans: var(--font-inter), 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-bree), ui-serif, Georgia, 'Times New Roman', serif;
+}
+
+/* Base resets + typography */
+html,
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Layered so Tailwind text-* utilities on <a> elements can override it. */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+::selection {
+  background: rgba(233, 30, 115, 0.18);
+  color: var(--color-text);
+}
+
+/* Scrollbar polish (admin-only, dense screens) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-neutral);
+}
+
+/* Microinteraction keyframes - page-load reveals + badge pop */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes badgePop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-fade-up {
+  animation: fadeUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-badge-pop {
+  animation: badgePop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Metrics bars grow from zero to their inline width on load. */
+@keyframes barGrow {
+  from {
+    max-width: 0;
+  }
+  to {
+    max-width: 100%;
+  }
+}
+.animate-bar-grow {
+  animation: barGrow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Donut segments sweep in via dashoffset. */
+@keyframes donutSweep {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+.animate-donut-sweep {
+  animation: donutSweep 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Mobile nav drawer: rail slides in from the left over a soft scrim. */
+@keyframes drawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-drawer-in {
+  animation: drawerIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-scrim-in {
+  animation: scrimIn 0.2s ease both;
+}
+/* Radix popovers (Select list, and any menu built on the same primitives).
+ * Radix keeps the element mounted through the closing animation and flips
+ * data-state, so both halves are real transitions rather than a pop-out. */
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes popOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.hl-popover[data-state='open'] {
+  animation: popIn 0.14s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: var(--radix-select-content-transform-origin, center top);
+}
+.hl-popover[data-state='closed'] {
+  animation: popOut 0.1s ease both;
+  transform-origin: var(--radix-select-content-transform-origin, center top);
+  /* A closing popover must never take a click. Radix keeps the node mounted
+   * until the exit animation reports back, and if that report is missed the
+   * element lingers at opacity 0 with pointer events still live - an invisible
+   * sheet over the page that swallows the next click with nothing to see. */
+  pointer-events: none;
+}
+
+/* Dialogs. These previously carried Tailwind `animate-in` / `animate-out`
+ * utilities from tailwindcss-animate, which this app does not install, so the
+ * classes resolved to nothing and every dialog snapped in and out. */
+@keyframes scrimOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Scale only — the centring is not repeated here.
+ *
+ * The dialog is centred by Tailwind's `-translate-x-1/2 -translate-y-1/2`, and
+ * since Tailwind 4 those compile to the standalone `translate` property rather
+ * than into `transform`. `translate` and `transform` are separate properties
+ * that the browser composes, so a keyframe that also said
+ * `transform: translate(-50%, -50%)` applied the offset a second time: the
+ * dialog sat half its own width to the left and half its height too high.
+ * Under Tailwind 3 the utilities compiled into `transform` and the keyframe
+ * simply overrode them, which is why this only appeared after the upgrade.
+ *
+ * `scale` is likewise its own property, so it composes with the translate
+ * instead of replacing it. */
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes dialogOut {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+.hl-dialog-overlay[data-state='open'] {
+  animation: scrimIn 0.16s ease both;
+}
+.hl-dialog-overlay[data-state='closed'] {
+  animation: scrimOut 0.14s ease both;
+}
+.hl-dialog-content[data-state='open'] {
+  animation: dialogIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hl-dialog-content[data-state='closed'] {
+  animation: dialogOut 0.14s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-badge-pop,
+  .animate-bar-grow,
+  .animate-donut-sweep,
+  .animate-drawer-in,
+  .animate-scrim-in,
+  .hl-popover[data-state],
+  .hl-dialog-overlay[data-state],
+  .hl-dialog-content[data-state] {
+    animation: none;
+  }
+}
+
+/* Shared admin premium primitives, second alignment sweep */
+.hl-control {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-background);
+  color: var(--color-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.hl-control::placeholder {
+  color: var(--color-text-muted);
+}
+
+.hl-control:hover {
+  border-color: var(--color-border-strong);
+}
+
+.hl-control:focus,
+.hl-control:focus-visible,
+.hl-control-focus:focus-within {
+  outline: none;
+  border-color: rgba(233, 30, 115, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 0 0 3px rgba(233, 30, 115, 0.12);
+}
+
+.hl-control-sm {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.hl-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--color-text-muted);
+}
+
+.hl-empty-state {
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 240, 234, 0.92));
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-soft);
+}
+
+.hl-table-shell {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-background);
+  box-shadow: var(--shadow-soft);
+}
+
+.hl-table-head {
+  background:
+    linear-gradient(180deg, rgba(243, 231, 224, 0.92), rgba(243, 231, 224, 0.68));
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.hl-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Private admin access screens: `/` and `/sign-in`.
+ * Deliberately mirrors QuasarSeed Pulse's sober one-panel access pattern while
+ * using HeartLink's deep purple, hot pink, warm blush, and gold palette.
+ */
+.hl-auth {
+  --auth-ground: #16051f;
+  --auth-purple: #2e1240;
+  --auth-purple-soft: #451a5e;
+  --auth-pink: #e91e73;
+  --auth-pink-bright: #ff4f92;
+  --auth-pink-hover: #c81860;
+  --auth-gold: #c9912e;
+  --auth-gold-bright: #d6a84f;
+  --auth-ink: rgba(255, 255, 255, 0.96);
+  --auth-muted: rgba(251, 245, 232, 0.72);
+  --auth-faint: rgba(110, 92, 128, 0.72);
+  --auth-hairline: rgba(46, 18, 64, 0.12);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(420px, 0.88fr);
+  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+.hl-auth__art {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1b0826, var(--auth-purple), var(--auth-purple-soft));
+}
+
+.hl-auth__art-image {
+  position: absolute;
+  inset: 0;
+  background-image: url('/signin-bridge.png');
+  background-size: cover;
+  background-position: center 42%;
+  opacity: 0.88;
+}
+
+.hl-auth__art-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(22, 5, 31, 0.10), rgba(22, 5, 31, 0.82)),
+    radial-gradient(720px 420px at 70% 18%, rgba(233, 30, 115, 0.18), transparent 68%);
+}
+
+.hl-auth__form {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 4rem);
+  background:
+    radial-gradient(600px 320px at 100% -80px, rgba(233, 30, 115, 0.07), transparent 65%),
+    radial-gradient(440px 260px at 0% 105%, rgba(201, 145, 46, 0.10), transparent 60%),
+    var(--color-background);
+}
+
+.hl-auth__form-inner {
+  width: 100%;
+  max-width: 26.5rem;
+}
+
+.hl-auth__brand,
+.hl-auth__primary,
+.hl-auth__note a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hl-auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: opacity 90ms ease, transform 90ms ease;
+}
+
+.hl-auth__brand:hover {
+  opacity: 0.84;
+}
+
+.hl-auth__brand--on-art {
+  position: absolute;
+  top: 2.75rem;
+  left: 3rem;
+  z-index: 2;
+  color: var(--auth-ink);
+}
+
+.hl-auth__brand--mobile {
+  display: none;
+  margin-bottom: 2.25rem;
+  color: var(--color-text);
+}
+
+.hl-auth__logo {
+  display: block;
+  width: 3.25rem;
+  height: 2.75rem;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 22px rgba(233, 30, 115, 0.32));
+}
+
+.hl-auth__wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: var(--font-serif);
+  font-size: 1.32rem;
+  letter-spacing: -0.035em;
+}
+
+.hl-auth__wordmark span:last-child {
+  color: var(--auth-pink-bright);
+}
+
+.hl-auth__brand--mobile .hl-auth__wordmark span:first-child {
+  color: var(--color-text);
+}
+
+.hl-auth__statement {
+  position: absolute;
+  left: 3rem;
+  right: 3rem;
+  bottom: 3rem;
+  z-index: 2;
+}
+
+.hl-auth__statement p {
+  max-width: 28rem;
+  margin: 0;
+  color: var(--auth-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(2.25rem, 4.5vw, 3.7rem);
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+.hl-auth__statement p span {
+  color: var(--auth-gold-bright);
+}
+
+.hl-auth__proofs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem 1.35rem;
+  margin-top: 1.55rem;
+  color: var(--sidebar-text-muted, #b9a8d8);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.hl-auth__proofs span {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.hl-auth__proofs span::before {
+  position: absolute;
+  top: 0.48em;
+  left: 0;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--auth-gold-bright);
+  box-shadow: 0 0 16px rgba(214, 168, 79, 0.62);
+  content: '';
+}
+
+.hl-auth__eyebrow {
+  margin: 0 0 0.85rem;
+  color: var(--auth-gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.hl-auth__title {
+  margin: 0;
+  max-width: 12ch;
+  color: var(--color-text);
+  font-family: var(--font-serif);
+  font-size: clamp(2.35rem, 5.6vw, 3.15rem);
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+
+.hl-auth__lede {
+  margin: 0.95rem 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.hl-auth__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.85rem;
+  margin-top: 2rem;
+  padding: 0.85rem 1.55rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--auth-pink), #f05297);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+  box-shadow: 0 14px 30px rgba(233, 30, 115, 0.22);
+  transition: transform 80ms ease, background 80ms ease, box-shadow 80ms ease;
+}
+
+.hl-auth__primary:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #f13a87, var(--auth-pink-hover));
+  box-shadow: 0 16px 34px rgba(233, 30, 115, 0.28);
+}
+
+.hl-auth__primary:active {
+  transform: translateY(0);
+  box-shadow: 0 8px 18px rgba(233, 30, 115, 0.2);
+}
+
+.hl-auth__note {
+  width: 100%;
+  margin: 2.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--auth-hairline);
+  color: var(--auth-faint);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+/**
+ * The staff sign-in form.
+ *
+ * Hand-written now that the form is ours: what used to be here was a long list
+ * of overrides fighting a third-party widget's own stylesheet, including a rule
+ * to stop its code step drawing a full-width input across the six boxes.
+ */
+.hl-auth__form {
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.35rem;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.hl-auth__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8c769a;
+}
+
+.hl-auth__input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e4d5eb;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #2e1240;
+  font-size: 0.95rem;
+}
+
+.hl-auth__input:focus {
+  outline: none;
+  border-color: #e91e73;
+}
+
+/* Six boxes drawn from one real input, so paste and autofill still work. */
+.hl-otp {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.hl-otp__box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 3.4rem;
+  border: 1px solid #e4d5eb;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  font-family: var(--font-bree-serif), Georgia, serif;
+  font-size: 1.5rem;
+  color: #2e1240;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.hl-otp__box--active {
+  z-index: 1;
+  border-color: #e91e73;
+  box-shadow: 0 0 0 3px rgba(233, 30, 115, 0.18);
+}
+
+.hl-otp__box--invalid {
+  border-color: #d64550;
+}
+
+/* The real input is transparent, so the active box needs a caret of its own. */
+.hl-otp__caret {
+  position: absolute;
+  width: 1px;
+  height: 1.7rem;
+  background: #2e1240;
+  animation: hl-caret-blink 1.25s ease-out infinite;
+}
+
+@keyframes hl-caret-blink {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.hl-auth__submit {
+  width: 100%;
+  margin-top: 1.1rem;
+  padding: 0.85rem 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #e91e73;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(233, 30, 115, 0.24);
+}
+
+.hl-auth__submit:hover:not(:disabled) {
+  background: #c81860;
+}
+
+.hl-auth__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hl-auth__link {
+  display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e91e73;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hl-auth__error {
+  margin-top: 0.7rem;
+  color: #d64550;
+  font-size: 0.85rem;
+}
+
+.hl-auth__sent {
+  margin: 0 0 1.1rem;
+  color: #6e5c80;
+  font-size: 0.9rem;
+}
+
+.hl-auth__notice {
+  margin: 0 0 1.1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #c9912e;
+  border-radius: 0.75rem;
+  background: rgba(201, 145, 46, 0.12);
+  color: #6e5c80;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* The signed-in member of staff, in the shell's corner. */
+.hl-userchip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hl-userchip__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hl-userchip__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #2e1240);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hl-userchip__role {
+  font-size: 0.7rem;
+  text-transform: capitalize;
+  color: var(--text-muted, #6e5c80);
+}
+
+.hl-userchip__out {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border, #e4d5eb);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted, #6e5c80);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hl-userchip__out:hover:not(:disabled) {
+  border-color: #e91e73;
+  color: #e91e73;
+}
+
+.hl-auth :focus-visible {
+  outline: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 2px var(--auth-ground), 0 0 0 4px var(--auth-pink);
+}
+
+@media (max-width: 900px) {
+  .hl-auth {
+    display: flex;
+    height: auto;
+    min-height: 100svh;
+    flex-direction: column;
+    overflow: auto;
+    background: var(--color-background);
+  }
+
+  .hl-auth__art {
+    min-height: 18.5rem;
+    flex: 0 0 auto;
+  }
+
+  .hl-auth__art-image {
+    background-position: center 34%;
+  }
+
+  .hl-auth__art-veil {
+    background:
+      linear-gradient(180deg, rgba(22, 5, 31, 0.06), rgba(22, 5, 31, 0.66)),
+      radial-gradient(520px 320px at 68% 12%, rgba(233, 30, 115, 0.18), transparent 70%);
+  }
+
+  .hl-auth__brand--on-art {
+    top: 1.15rem;
+    left: 1.15rem;
+  }
+
+  .hl-auth__statement {
+    left: 1.25rem;
+    right: 1.25rem;
+    bottom: 1.25rem;
+  }
+
+  .hl-auth__statement p {
+    font-size: clamp(1.65rem, 8vw, 2.25rem);
+  }
+
+  .hl-auth__proofs {
+    display: none;
+  }
+
+  .hl-auth__form {
+    flex: 1 0 auto;
+    margin-top: -1rem;
+    padding: 1.5rem 1.25rem 2rem;
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .hl-auth__primary {
+    width: 100%;
+  }
+
+  .hl-auth__form {
+    padding: 1rem;
+  }
+}
+
+@media (max-height: 720px) and (min-width: 901px) {
+  .hl-auth__statement p {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+  }
+
+  .hl-auth__statement {
+    bottom: 2rem;
+  }
+
+  .hl-auth__brand--on-art {
+    top: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-auth__brand,
+  .hl-auth__primary {
+    transition: none;
+  }
+
+  .hl-auth__primary:hover {
+    transform: none;
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "name": "@heartlink/admin",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "node --experimental-strip-types --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@heartlink/api-client": "*",
+    "@heartlink/api-contract": "*",
+    "@heartlink/domain": "*",
+    "@hookform/resolvers": "5.2.2",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.24",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-popover": "^1.1.23",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "input-otp": "^1.5.0",
+    "lucide-react": "^1.8.0",
+    "next": "^16.2.1",
+    "pdfjs-dist": "^5.6.205",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-hook-form": "^7.73.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.1",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^5.4.0"
+  },
+  "//optionalDependencies": "Pinning Tailwind v4's Linux native binaries. Without a committed lockfile (ADR-016), npm intermittently drops these optional platform packages on the Vercel linux-x64-gnu builder (see https://github.com/npm/cli/issues/4828), breaking `next build` with 'Cannot find native binding' or 'Cannot find module ...linux-x64-gnu.node'. Pinning them as optionalDependencies makes the install deterministic on Linux while being silently skipped on Windows/macOS (wrong platform), so local dev is unaffected. Versions track @tailwindcss/postcss; bump both together.",
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.4",
+    "lightningcss-linux-x64-gnu": "1.32.0"
+  }
+}

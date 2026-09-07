@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/**
+ * Brand tokens, carried across from the mobile app's theme.ts so the two
+ * surfaces stay one product. Values are the source of truth for both; change
+ * them here and in apps/mobile/src/theme.ts together.
+ *
+ * Declared with @theme so Tailwind 4 generates the utilities (bg-surface,
+ * text-ink, border-line...) rather than hand-written CSS classes.
+ */
+@theme {
+  --color-surface: #fbf1eb;
+  --color-surface-elevated: #ffffff;
+  --color-surface-muted: #f3e7e0;
+
+  --color-ink: #2e1240;
+  --color-ink-soft: #6e5c80;
+  --color-ink-faint: #9c8cae;
+
+  --color-primary: #e91e73;
+  --color-primary-hover: #c81860;
+  --color-primary-faint: rgba(233, 30, 115, 0.1);
+  --color-on-primary: #ffffff;
+
+  --color-gold: #c9912e;
+  --color-gold-bright: #d6a84f;
+  --color-gold-faint: rgba(201, 145, 46, 0.16);
+
+  --color-midnight: #16051f;
+  --color-sidebar: #2e1240;
+  --color-sidebar-text: #fbf5e8;
+
+  --color-success: #3e9b6e;
+  --color-danger: #d64550;
+
+  --color-line: rgba(46, 18, 64, 0.1);
+  --color-line-strong: rgba(46, 18, 64, 0.18);
+
+  --font-heading: "Bree Serif", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  --radius-card: 18px;
+  --radius-pill: 999px;
+}
+
+html,
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/**
+ * Entrance animations for the Radix overlays.
+ *
+ * Written here rather than pulled in with tailwindcss-animate: Tailwind 4
+ * generates utilities from @theme, and the plugin's `animate-in` family is a
+ * v3 plugin. Two keyframes cover every overlay this app has.
+ */
+@keyframes hl-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes hl-pop-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hl-anim-fade[data-state='open'] {
+    animation: hl-fade-in 140ms ease-out;
+  }
+
+  .hl-anim-pop[data-state='open'] {
+    animation: hl-pop-in 140ms ease-out;
+  }
+}
+
+/** Swipeable rows keep their scrolling but lose the bar, which on a photo
+ *  carousel reads as a stray line across the bottom of the picture. */
+.hl-no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hl-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* The caret in the active one-time-code box. Blinks like a real one. */
+@keyframes caret-blink {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  71%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-caret-blink {
+  animation: caret-blink 1.25s ease-out infinite;
+}
