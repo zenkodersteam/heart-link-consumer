@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ListSkeleton } from '../../src/components/Skeleton';
-import type { BlockedProfile } from '../../src/lib/api';
+import type { BlockedProfile } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { useRefresh } from '../../src/lib/use-refresh';
 import { useApiClientFactory } from '../../src/lib/use-api-client';

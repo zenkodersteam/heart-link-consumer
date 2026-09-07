@@ -13,7 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import type { ListPublicProfilesQuery, PlanTier, ProfileGender } from '../lib/api';
+import type { ListPublicProfilesQuery, PlanTier, ProfileGender } from '@heartlink/consumer-api';
 import { colors, cta, radii, spacing, type, inputReset } from '../theme';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';

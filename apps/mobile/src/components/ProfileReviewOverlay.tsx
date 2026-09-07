@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { OutsideProfileStatus } from '../lib/api';
+import type { OutsideProfileStatus } from '@heartlink/consumer-api';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { Button } from './primitives';
 

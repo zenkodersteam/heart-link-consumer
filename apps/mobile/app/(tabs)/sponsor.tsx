@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '../../src/components/EmptyState';
 import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
-import { type PublicProfileDetail } from '../../src/lib/api';
+import { type PublicProfileDetail } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';

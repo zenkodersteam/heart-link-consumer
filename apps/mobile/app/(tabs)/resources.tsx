@@ -18,7 +18,7 @@ import {
 
 import { art } from '../../src/art';
 import { Button } from '../../src/components/primitives';
-import type { ListResourcesResponse, ResourceItem } from '../../src/lib/api';
+import type { ListResourcesResponse, ResourceItem } from '@heartlink/consumer-api';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, fonts, radii, spacing, type, inputReset } from '../../src/theme';
 import { ErrorState } from '../../src/components/ErrorState';

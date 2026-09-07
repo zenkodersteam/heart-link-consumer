@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { OutsideUserProfile } from './api';
+import type { OutsideUserProfile } from '@heartlink/consumer-api';
 import { useApiClientFactory } from './use-api-client';
 
 /**

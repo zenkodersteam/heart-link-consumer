@@ -10,7 +10,7 @@
  *     the Home screen shows placeholder people.
  */
 
-import type { Plan, PublicProfileDetail, PublicProfileSummary } from './api';
+import type { Plan, PublicProfileDetail, PublicProfileSummary } from '@heartlink/consumer-api';
 
 // Opt-in via env for local design review (renders every screen + sample data
 // without a Clerk session). Defaults to false so a production build can never

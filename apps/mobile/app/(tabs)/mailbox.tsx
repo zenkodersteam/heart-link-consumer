@@ -21,7 +21,7 @@ import type {
   MailboxMessage,
   MailboxThreadDetail,
   MailboxThreadSummary,
-} from '../../src/lib/api';
+} from '@heartlink/consumer-api';
 import { useRefresh } from '../../src/lib/use-refresh';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';

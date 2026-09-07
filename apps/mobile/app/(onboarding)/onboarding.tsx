@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 
 import { AuthShell } from '../../src/components/AuthShell';
 import { Button, Field } from '../../src/components/primitives';
-import { ApiClientError, type UpdateOutsideProfileInput } from '../../src/lib/api';
+import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
 import { takePendingRoute } from '../../src/lib/pending-route';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';

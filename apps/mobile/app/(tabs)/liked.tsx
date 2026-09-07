@@ -18,7 +18,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { LikedListSkeleton } from '../../src/components/Skeleton';
 import { Button } from '../../src/components/primitives';
 import { art } from '../../src/art';
-import type { PublicProfileSummary } from '../../src/lib/api';
+import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PROFILES } from '../../src/lib/preview';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';

@@ -15,7 +15,7 @@ import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader } from '../../src/components/ScreenHeader';
 import { SubscriptionPlans, openOnWeb, webAppUrl } from '../../src/components/SubscriptionPlans';
 import { useToast } from '../../src/components/Toast';
-import { type MySubscription } from '../../src/lib/api';
+import { type MySubscription } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, radii, spacing, type } from '../../src/theme';

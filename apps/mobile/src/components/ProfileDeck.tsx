@@ -16,7 +16,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
-import type { PublicProfileSummary } from '../lib/api';
+import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { ProfilePhoto } from './ProfilePhoto';
 import { stateName } from '../lib/prefs';
 import { useApiClientFactory } from '../lib/use-api-client';

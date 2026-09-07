@@ -2,7 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { ProfileGender } from '../lib/api';
+import type { ProfileGender } from '@heartlink/consumer-api';
 import { colors, radii, spacing, type } from '../theme';
 
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';

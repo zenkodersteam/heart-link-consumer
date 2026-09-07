@@ -13,7 +13,7 @@ import { DeckSkeleton } from '../../src/components/Skeleton';
 import { StoryPanel } from '../../src/components/StoryPanel';
 import { useToast } from '../../src/components/Toast';
 import { Button } from '../../src/components/primitives';
-import type { ListPublicProfilesQuery, ProfileGender, PublicProfileSummary, SwipeAction } from '../../src/lib/api';
+import type { ListPublicProfilesQuery, ProfileGender, PublicProfileSummary, SwipeAction } from '@heartlink/consumer-api';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PROFILES } from '../../src/lib/preview';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { usePublicProfiles } from '../../src/lib/use-public-profiles';

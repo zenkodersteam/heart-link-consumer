@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { PublicProfileSummary } from '../lib/api';
+import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { formatReleaseMonth, parsePrefs, stateName } from '../lib/prefs';
 import { usePublicProfile } from '../lib/use-public-profiles';
 import { colors, fonts, spacing } from '../theme';

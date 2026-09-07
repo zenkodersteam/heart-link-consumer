@@ -4,7 +4,7 @@ import type {
   ListPublicProfilesQuery,
   ListPublicProfilesResponse,
   PublicProfileDetail,
-} from './api';
+} from '@heartlink/consumer-api';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_DETAILS } from './preview';
 import { useApiClientFactory } from './use-api-client';
 

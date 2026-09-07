@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from 'react';
-import { Platform } from 'react-native';
 
 /**
  * Whether the app can currently reach HeartLink.
@@ -43,7 +42,7 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-if (Platform.OS === 'web' && typeof window !== 'undefined') {
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
   window.addEventListener('offline', () => set(true));
   // Back online is only a hint: the browser knows there is a network, not that
   // our API answers on it. Clear the flag and let the next request confirm.

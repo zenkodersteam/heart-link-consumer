@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
-import type { LetterEntitlement, MySubscription } from '../../src/lib/api';
+import type { LetterEntitlement, MySubscription } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { clearMyProfileCache, useMyProfile } from '../../src/lib/use-my-profile';

@@ -7,7 +7,7 @@ import { BottomTabBar, MobileTopBar, Sidebar } from '../../src/components/AppNav
 import { OfflineBanner } from '../../src/components/ErrorState';
 import { savePendingRoute } from '../../src/lib/pending-route';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
-import { useIsOffline } from '../../src/lib/connectivity';
+import { useIsOffline } from '@heartlink/consumer-api';
 import { isOnboarded, useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, shell } from '../../src/theme';
 

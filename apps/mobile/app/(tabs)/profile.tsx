@@ -21,7 +21,7 @@ import { ErrorState } from '../../src/components/ErrorState';
 import { EmptyState } from '../../src/components/EmptyState';
 import { BChip, ChipRow, SRow, SectionHeader, VitalsStrip } from '../../src/components/profile-bits';
 import { Button } from '../../src/components/primitives';
-import type { PublicProfileDetail, PublicProfilePhoto } from '../../src/lib/api';
+import type { PublicProfileDetail, PublicProfilePhoto } from '@heartlink/consumer-api';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { formatReleaseMonth, parsePrefs, stateName } from '../../src/lib/prefs';
 import { useApiClientFactory } from '../../src/lib/use-api-client';

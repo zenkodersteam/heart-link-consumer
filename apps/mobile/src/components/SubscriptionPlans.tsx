@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import { art } from '../art';
-import { ApiClientError, type Plan } from '../lib/api';
+import { ApiClientError, type Plan } from '@heartlink/consumer-api';
 import { humanError } from '../lib/errors';
 import { PREVIEW_BYPASS_AUTH, PREVIEW_PLANS } from '../lib/preview';
 import { useApiClientFactory } from '../lib/use-api-client';

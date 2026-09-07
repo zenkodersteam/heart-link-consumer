@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import type { PublicProfileSummary } from '../lib/api';
+import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { ProfilePhoto } from './ProfilePhoto';
 import { usePublicProfile } from '../lib/use-public-profiles';
 import { colors, fonts, radii, spacing, type } from '../theme';

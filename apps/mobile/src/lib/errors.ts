@@ -8,7 +8,7 @@
  * it through `humanError()` first.
  */
 
-import { ApiClientError } from './api';
+import { ApiClientError } from '@heartlink/consumer-api';
 
 /** Anything that reads as plumbing rather than product. */
 const TECHNICAL =

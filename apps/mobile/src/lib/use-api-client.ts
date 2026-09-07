@@ -2,7 +2,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
 import { useCallback, useRef } from 'react';
 
-import { createApiClient, type ApiClient } from './api';
+import { createApiClient, type ApiClient } from '@heartlink/consumer-api';
 import { clearMyProfileCache } from './use-my-profile';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
