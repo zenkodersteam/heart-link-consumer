@@ -10,10 +10,13 @@ import type {
   ComposeLetterInput,
   LetterEntitlement,
   LetterLengthLimit,
+  CreateCheckoutInput,
+  ListPlansResponse,
   ListPublicProfilesQuery,
   ListPublicProfilesResponse,
   MailboxThreadDetail,
   MailboxThreadSummary,
+  MySubscription,
   OutsideUserProfile,
   PublicProfileDetail,
   ReportReason,
@@ -37,6 +40,8 @@ export const qk = {
   thread: (id: string) => ['mailbox', 'thread', id] as const,
   entitlement: () => ['letter-entitlement'] as const,
   letterLimit: (profileId: string) => ['letter-limit', profileId] as const,
+  subscription: () => ['subscription'] as const,
+  plans: () => ['plans'] as const,
 };
 
 export function usePublicProfiles(
@@ -268,5 +273,71 @@ export function useReportProfile() {
   return useMutation({
     mutationFn: async ({ profileId, reason }: { profileId: string; reason: ReportReason }) =>
       (await factory()).reportProfile(profileId, { reason }),
+  });
+}
+
+/** The plan this member is on, if any. */
+export function useSubscription() {
+  const factory = useApiFactory();
+  return useQuery({
+    queryKey: qk.subscription(),
+    queryFn: async () => (await factory()).getMySubscription() as Promise<MySubscription>,
+  });
+}
+
+/**
+ * The plan catalogue.
+ *
+ * Two distinct sets come back and showing the wrong one sells the wrong thing:
+ * `inmate_listing` plans pay to put someone's profile live and belong only in
+ * the sponsor flow, while a member looking at their own account is buying
+ * their own subscription. `forProfileId` is what separates the two.
+ */
+export function usePlans(forProfileId?: string) {
+  const factory = useApiFactory();
+  const wantListing = Boolean(forProfileId);
+  return useQuery({
+    queryKey: [...qk.plans(), wantListing] as const,
+    queryFn: async () => (await factory()).listPlans() as Promise<ListPlansResponse>,
+    select: (data) =>
+      data.plans.filter((plan) =>
+        wantListing ? plan.type === 'inmate_listing' : plan.type !== 'inmate_listing',
+      ),
+    // The catalogue is the same for everyone and changes when someone edits it
+    // in admin, not while a member is deciding.
+    staleTime: 10 * 60 * 1000,
+  });
+}
+
+export function useCreateCheckout() {
+  const factory = useApiFactory();
+  return useMutation({
+    mutationFn: async (input: CreateCheckoutInput) =>
+      (await factory()).createSubscriptionCheckout(input),
+  });
+}
+
+/**
+ * Stop the plan renewing.
+ *
+ * The period already paid for is kept, so the response says when access
+ * actually ends — which is not now, and the screen has to say so.
+ */
+export function useCancelSubscription() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await factory()).cancelMySubscription(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.subscription() });
+    },
+  });
+}
+
+/** Irreversible: removes the sign-in and scrubs personal details. */
+export function useDeleteAccount() {
+  const factory = useApiFactory();
+  return useMutation({
+    mutationFn: async () => (await factory()).deleteAccount(),
   });
 }
