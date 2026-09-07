@@ -92,12 +92,20 @@ function Reveal({
   viewport,
   style,
   children,
+  offsetY,
 }: {
   scrollY: Animated.Value;
   reduce: boolean;
   viewport: number;
   style?: object;
   children: ReactNode;
+  /**
+   * Distance from the top of the scroll content to this block's parent.
+   * `onLayout` reports y relative to the parent, so a Reveal that is not a
+   * direct child of the ScrollView needs the parent's own offset to place its
+   * trigger window correctly.
+   */
+  offsetY?: number;
 }) {
   const [y, setY] = useState<number | null>(null);
   if (reduce || y == null) {
@@ -107,8 +115,9 @@ function Reveal({
       </View>
     );
   }
-  const start = y - viewport * 0.92;
-  const end = y - viewport * 0.5;
+  const absoluteY = y + (offsetY ?? 0);
+  const start = absoluteY - viewport * 0.92;
+  const end = absoluteY - viewport * 0.5;
   const anim = {
     opacity: scrollY.interpolate({ inputRange: [start, end], outputRange: [0, 1], extrapolate: 'clamp' }),
     transform: [
@@ -186,11 +195,11 @@ export function Landing() {
                 <Ionicons name="mail" size={12} color={colors.primary} />
                 <Text style={styles.eyebrowText}>Private, supported correspondence</Text>
               </View>
-              <Text style={[styles.headline, isDesktop ? styles.headlineDesktop : null]}>
+              <Text style={[styles.headline, isDesktop ? styles.headlineDesktop : isCompactMobile ? styles.headlineCompact : null]}>
                 Thoughtful connection,{'\n'}
                 <Text style={styles.headlineAccent}>beyond every wall.</Text>
               </Text>
-              <Text style={[styles.subhead, isDesktop ? styles.subheadDesktop : null]}>
+              <Text style={[styles.subhead, isDesktop ? styles.subheadDesktop : isCompactMobile ? styles.subheadCompact : null]}>
                 HeartLink is a calm, private place to write to people inside. Real letters, honest conversations,
                 and trust that builds over time. No swiping, no pressure, support whenever you need it.
               </Text>
@@ -199,10 +208,10 @@ export function Landing() {
                 <Button label="Log In" variant="secondary" pill style={styles.heroLogin} onPress={goSignIn} />
               </View>
               <View style={[styles.trustRow, isDesktop ? styles.trustRowDesktop : styles.trustRowMobile]}>
-                <TrustItem icon="shield-checkmark" label="Verified profiles" />
-                <TrustItem icon="lock-closed" label="Private correspondence" />
-                <TrustItem icon="hand-left" label="Safety-first communication" />
-                <TrustItem icon="heart-circle" label="Real support" />
+                <TrustItem icon="shield-checkmark" label="Verified profiles" compact={isCompactMobile} />
+                <TrustItem icon="lock-closed" label="Private letters" compact={isCompactMobile} />
+                <TrustItem icon="hand-left" label="Safety first" compact={isCompactMobile} />
+                <TrustItem icon="heart-circle" label="Real support" compact={isCompactMobile} />
               </View>
             </Animated.View>
 
@@ -317,11 +326,21 @@ function NavLink({ label, onPress }: { label: string; onPress: () => void }) {
  * the four promises read as one deliberate trust bar under the hero CTAs, and
  * stay legible when they wrap on narrow screens.
  */
-function TrustItem({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+function TrustItem({
+  icon,
+  label,
+  compact,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  compact?: boolean;
+}) {
   return (
-    <View style={styles.trustItem}>
-      <Ionicons name={icon} size={14} color={colors.gold} />
-      <Text style={styles.trustText}>{label}</Text>
+    <View style={[styles.trustItem, compact ? styles.trustItemCompact : null]}>
+      <Ionicons name={icon} size={compact ? 13 : 14} color={colors.gold} />
+      <Text style={[styles.trustText, compact ? styles.trustTextCompact : null]} numberOfLines={1}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -399,12 +418,6 @@ function HeroComposition({
         </Animated.View>
       ) : null}
 
-      {desktop ? (
-        <Animated.View style={[styles.floatChip, styles.floatLetter, parallax(12)]} pointerEvents="none">
-          <Ionicons name="mail" size={15} color={colors.primary} />
-          <Text style={styles.floatLetterText}>App and web stay in sync</Text>
-        </Animated.View>
-      ) : null}
     </View>
   );
 }
@@ -769,15 +782,16 @@ function TrustBand({
   viewport: number;
   desktop: boolean;
 }) {
+  const [bandY, setBandY] = useState(0);
   return (
-    <View style={styles.trustBleed}>
+    <View style={styles.trustBleed} onLayout={(e) => setBandY(e.nativeEvent.layout.y)}>
       <LinearGradient
         colors={['#2E1240', '#2A1140', '#3A1A52']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Reveal scrollY={scrollY} reduce={reduce} viewport={viewport} style={styles.trustContent}>
+      <Reveal scrollY={scrollY} reduce={reduce} viewport={viewport} offsetY={bandY} style={styles.trustContent}>
         <View style={[styles.trustGrid, desktop ? styles.trustGridDesktop : null]}>
           <View style={[styles.trustCopy, desktop ? styles.trustCopyDesktop : null]}>
             <View style={styles.trustEyebrow}>
@@ -926,9 +940,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headlineDesktop: { fontSize: 72, lineHeight: 76, textAlign: 'left', letterSpacing: -0.5 },
+  headlineCompact: { fontSize: 32, lineHeight: 38 },
   headlineAccent: { color: colors.primary },
   subhead: { ...type.bodyMuted, fontSize: 16, lineHeight: 24, textAlign: 'center', maxWidth: 460 },
   subheadDesktop: { textAlign: 'left', fontSize: 18, lineHeight: 28, maxWidth: 520 },
+  subheadCompact: { fontSize: 15, lineHeight: 22 },
 
   heroActions: { width: '100%', maxWidth: 380, gap: spacing.md },
   heroActionsDesktop: { flexDirection: 'row', maxWidth: 460 },
@@ -944,10 +960,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   trustRowDesktop: { justifyContent: 'flex-start', maxWidth: 520 },
-  trustRowMobile: { maxWidth: 380 },
+  trustRowMobile: { maxWidth: 380, gap: spacing.xs },
+  // Two per row on a phone. Left to their natural widths they stacked into four
+  // ragged centered rows that ate most of the first screen.
+  trustItemCompact: { flexGrow: 1, flexBasis: '46%', paddingHorizontal: spacing.sm },
+  trustTextCompact: { fontSize: 12 },
   trustItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     backgroundColor: colors.bgElevated,
     borderWidth: 1,
@@ -1422,16 +1443,6 @@ const styles = StyleSheet.create({
   floatVerifiedTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.textPrimary },
   floatVerifiedSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.textMuted },
 
-  floatLetter: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    top: 14,
-    right: 18,
-  },
-  floatLetterText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.primary },
 
   // ── How it works (editorial rows) ──
   stepsSection: {
