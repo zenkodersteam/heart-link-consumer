@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { currentUser } from '@clerk/nextjs/server';
 import {
   AlertTriangle,
   ArrowRight,
@@ -22,7 +21,7 @@ import {
   type AttentionSeverity,
 } from '../../../lib/dashboardAttention';
 import { cn, formatRelative } from '../../../lib/utils';
-import { serverApi } from '../../../lib/api';
+import { currentStaff, serverApi } from '../../../lib/api';
 import type {
   DashboardMetrics,
   NavCounts,
@@ -110,13 +109,17 @@ export default async function DashboardPage() {
       api.getNavCounts(),
       api.getRecentActivity(10),
       api.getDashboardMetrics(),
-      currentUser(),
+      currentStaff(),
     ]);
   if (countsResult.status === 'fulfilled') counts = countsResult.value;
   if (activityResult.status === 'fulfilled') activity = activityResult.value;
   if (metricsResult.status === 'fulfilled') metrics = metricsResult.value;
+  // There is no separate first name any more: an account is an email address
+  // and whatever display name staff chose, so the greeting takes the first word
+  // of that and falls back to the part before the @.
+  const staff = user.status === 'fulfilled' ? user.value : null;
   const firstName =
-    user.status === 'fulfilled' ? (user.value?.firstName ?? null) : null;
+    staff?.displayName?.trim().split(/\s+/)[0] ?? staff?.email?.split('@')[0] ?? null;
 
   const attentionItems = buildAttentionItems(counts);
   const attentionSummary = summarizeAttention(attentionItems);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { routeAccessToken } from '@/lib/route-token';
 import { createApiClient } from '@heartlink/api-client';
 
 const INBOUND_SCAN_ACCEPTED_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
@@ -14,10 +14,9 @@ export async function POST(
     return NextResponse.json({ error: 'applicationId is required' }, { status: 400 });
   }
 
-  const { getToken } = await auth();
-  const token = await getToken();
+  const token = await routeAccessToken();
   if (!token) {
-    return NextResponse.json({ error: 'Unauthenticated: no Clerk session' }, { status: 401 });
+    return NextResponse.json({ error: 'Unauthenticated: no admin session' }, { status: 401 });
   }
 
   const formData = await request.formData();

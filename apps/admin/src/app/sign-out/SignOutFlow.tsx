@@ -1,16 +1,16 @@
 'use client';
 
-import { useClerk } from '@clerk/nextjs';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 
 /**
  * Ends the session and returns to sign-in.
  *
- * Needed as its own page because signing out has to happen in the browser:
+ * Needed as its own page because the session has to actually be cleared:
  * redirecting a stale or unauthorised session straight to `/sign-in` leaves the
- * session intact, so Clerk sees someone signed in and sends them back to the
- * dashboard — which fails again, and loops.
+ * cookies in place, so the proxy sees someone signed in and sends them back to
+ * the dashboard — which fails again, and loops.
  *
  * The reason is shown rather than left a mystery. Being bounced with no
  * explanation, especially when the account is fine and only its role is wrong,
@@ -29,7 +29,7 @@ const REASONS: Record<string, { title: string; detail: string }> = {
 };
 
 export function SignOutFlow() {
-  const { signOut } = useClerk();
+  const router = useRouter();
   const params = useSearchParams();
   const reason = params.get('reason') ?? 'session_expired';
   const copy = REASONS[reason] ?? REASONS.session_expired;
@@ -37,8 +37,12 @@ export function SignOutFlow() {
   useEffect(() => {
     // Clear the session, then land on sign-in. Without the sign-out the next
     // page would send them straight back here.
-    void signOut({ redirectUrl: `/sign-in?reason=${encodeURIComponent(reason)}` });
-  }, [signOut, reason]);
+    void (async () => {
+      await fetch('/api/auth/sign-out', { method: 'POST' }).catch(() => undefined);
+      router.replace(`/sign-in?reason=${encodeURIComponent(reason)}`);
+      router.refresh();
+    })();
+  }, [router, reason]);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-canvas px-6">

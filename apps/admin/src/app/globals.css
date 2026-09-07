@@ -624,104 +624,158 @@ body {
   line-height: 1.6;
 }
 
-.hl-auth__clerk-card {
+/**
+ * The staff sign-in form.
+ *
+ * Hand-written now that the form is ours: what used to be here was a long list
+ * of overrides fighting a third-party widget's own stylesheet, including a rule
+ * to stop its code step drawing a full-width input across the six boxes.
+ */
+.hl-auth__form {
   width: 100%;
   margin-top: 1.75rem;
-  padding: 1rem;
+  padding: 1.5rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 1.35rem;
   background: #ffffff;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
 }
 
-.hl-auth .cl-rootBox,
-.hl-auth .cl-card,
-.hl-auth .cl-cardBox,
-.hl-auth .cl-main,
-.hl-auth .cl-form,
-.hl-auth .cl-formField,
-/* Every field input EXCEPT the verification code's.
- *
- * Clerk renders the code step as a row of one-character boxes, and the input
- * that actually receives typing carries `cl-formFieldInput` as well. Stretching
- * that to `width: 100%` laid a full-width field straight across the boxes, so
- * the code step showed a text field sitting on top of the six cells. The boxes
- * size themselves and must be left alone. */
-.hl-auth .cl-formFieldInput:not(.cl-otpCodeFieldInput),
-.hl-auth .cl-formButtonPrimary,
-.hl-auth .cl-socialButtons,
-.hl-auth .cl-socialButtonsBlockButton,
-.hl-auth .cl-dividerRow {
-  width: 100%;
-  max-width: none;
+.hl-auth__label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8c769a;
 }
 
-/* Verification code step. The boxes are laid out by Clerk; this only gives them
- * the app's palette and keeps them on one row on a narrow screen. */
-.hl-auth .cl-otpCodeFieldInputContainer,
-.hl-auth .cl-otpCodeFieldInputs {
-  display: flex;
-  gap: 0.5rem;
+.hl-auth__input {
   width: 100%;
-  justify-content: center;
-}
-
-.hl-auth .cl-otpCodeFieldInput {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 3rem;
-  aspect-ratio: 1 / 1;
-  padding: 0;
-  text-align: center;
-  font-size: 1.15rem;
+  padding: 0.85rem 1rem;
   border: 1px solid #e4d5eb;
   border-radius: 0.75rem;
   background: #ffffff;
   color: #2e1240;
+  font-size: 0.95rem;
 }
 
-.hl-auth .cl-otpCodeFieldInput:focus {
+.hl-auth__input:focus {
   outline: none;
-  border-color: var(--auth-pink);
-  box-shadow: 0 0 0 3px rgba(233, 30, 115, 0.16);
+  border-color: #e91e73;
 }
 
-.hl-auth .cl-card,
-.hl-auth .cl-cardBox {
+/* The code is six characters and reads as a code, not as prose. */
+.hl-auth__input--code {
+  text-align: center;
+  font-size: 1.6rem;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+}
+
+.hl-auth__submit {
+  width: 100%;
+  margin-top: 1.1rem;
+  padding: 0.85rem 1rem;
   border: 0;
-  box-shadow: none;
+  border-radius: 0.75rem;
+  background: #e91e73;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(233, 30, 115, 0.24);
 }
 
-.hl-auth .cl-main {
+.hl-auth__submit:hover:not(:disabled) {
+  background: #c81860;
+}
+
+.hl-auth__submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hl-auth__link {
   display: block;
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #e91e73;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.hl-auth .cl-headerTitle,
-.hl-auth .cl-headerSubtitle {
-  display: none;
+.hl-auth__error {
+  margin-top: 0.7rem;
+  color: #d64550;
+  font-size: 0.85rem;
 }
 
-.hl-auth .cl-formButtonPrimary {
-  border-radius: 0.85rem;
-  background: linear-gradient(135deg, var(--auth-pink), #f05297);
-  box-shadow: 0 12px 24px rgba(233, 30, 115, 0.22);
+.hl-auth__sent {
+  margin: 0 0 1.1rem;
+  color: #6e5c80;
+  font-size: 0.9rem;
 }
 
-.hl-auth .cl-formButtonPrimary:hover {
-  background: linear-gradient(135deg, #f13a87, var(--auth-pink-hover));
+.hl-auth__notice {
+  margin: 0 0 1.1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #c9912e;
+  border-radius: 0.75rem;
+  background: rgba(201, 145, 46, 0.12);
+  color: #6e5c80;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
-.hl-auth .cl-footer,
-.hl-auth .cl-footerAction,
-.hl-auth .cl-footerPages,
-.hl-auth .cl-internal-1dauvpw,
-.hl-auth [data-localization-key="footerPageLink__privacy"],
-.hl-auth [data-localization-key="footerPageLink__terms"] {
-  display: none !important;
+/* The signed-in member of staff, in the shell's corner. */
+.hl-userchip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.hl-auth .cl-card {
-  min-height: 0;
+.hl-userchip__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hl-userchip__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #2e1240);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hl-userchip__role {
+  font-size: 0.7rem;
+  text-transform: capitalize;
+  color: var(--text-muted, #6e5c80);
+}
+
+.hl-userchip__out {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--border, #e4d5eb);
+  border-radius: 999px;
+  background: none;
+  color: var(--text-muted, #6e5c80);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hl-userchip__out:hover:not(:disabled) {
+  border-color: #e91e73;
+  color: #e91e73;
 }
 
 .hl-auth :focus-visible {
@@ -788,8 +842,8 @@ body {
     width: 100%;
   }
 
-  .hl-auth__clerk-card {
-    padding: 0.75rem;
+  .hl-auth__form {
+    padding: 1rem;
   }
 }
 

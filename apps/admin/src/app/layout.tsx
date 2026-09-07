@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { ClerkProvider } from '@clerk/nextjs';
 import { Inter, Bree_Serif } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
@@ -29,13 +28,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider signInUrl="/sign-in" signUpUrl="/sign-up">
       <html lang="en" className={`${inter.variable} ${breeSerif.variable}`}>
         <body className="bg-canvas text-text font-sans">
           {children}
           <Toaster position="top-right" richColors closeButton />
         </body>
       </html>
-    </ClerkProvider>
   );
 }

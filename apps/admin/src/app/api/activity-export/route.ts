@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { routeAccessToken } from '@/lib/route-token';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
@@ -10,8 +10,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * downloads is what was on screen rather than an unrelated dump.
  */
 export async function GET(req: NextRequest) {
-  const { getToken } = await auth();
-  const token = await getToken();
+  const token = await routeAccessToken();
   if (!token) {
     return NextResponse.json({ message: 'Not signed in' }, { status: 401 });
   }

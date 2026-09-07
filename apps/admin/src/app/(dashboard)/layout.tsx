@@ -1,7 +1,7 @@
-import { UserButton } from '@clerk/nextjs';
 import { NavCountsProvider } from '../../components/intake/NavCountsProvider';
 import { AdminShell } from '../../components/shell/AdminShell';
-import { serverApi } from '../../lib/api';
+import { AdminUserMenu } from '../../components/auth/AdminUserMenu';
+import { currentStaff, serverApi } from '../../lib/api';
 import { isAuthFailure, redirectToSignOut } from '../../lib/auth-failure';
 import type { NavCounts } from '@heartlink/api-contract';
 
@@ -29,9 +29,23 @@ export default async function DashboardLayout({
     counts = undefined;
   }
 
+  const staff = await currentStaff();
+
   return (
     <NavCountsProvider initialCounts={counts}>
-      <AdminShell userSlot={<UserButton />}>{children}</AdminShell>
+      <AdminShell
+        userSlot={
+          staff ? (
+            <AdminUserMenu
+              email={staff.email}
+              displayName={staff.displayName}
+              role={staff.role}
+            />
+          ) : null
+        }
+      >
+        {children}
+      </AdminShell>
     </NavCountsProvider>
   );
 }
