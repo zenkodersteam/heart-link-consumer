@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,6 +11,7 @@ import { ApiClientError, type UpdateOutsideProfileInput } from '../../src/lib/ap
 import { takePendingRoute } from '../../src/lib/pending-route';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
+import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { colors, fonts, radii, spacing, type } from '../../src/theme';
 
 /**
@@ -73,17 +75,61 @@ const STEPS: { key: StepKey; title: string; subtitle: string }[] = [
   },
 ];
 
-/** Web-only file picker (native photo upload lands with the Flutter app). */
-function pickWebImage(): Promise<File | null> {
-  if (Platform.OS !== 'web' || typeof document === 'undefined') return Promise.resolve(null);
+type PickedPhoto = { blob: Blob; name: string };
+
+/** Hidden file input, the only way to reach the file system on web. */
+function pickWebImage(): Promise<PickedPhoto | null> {
+  if (typeof document === 'undefined') return Promise.resolve(null);
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/jpeg,image/png,image/webp';
-    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.onchange = () => {
+      const f = input.files?.[0];
+      resolve(f ? { blob: f, name: f.name } : null);
+    };
     input.oncancel = () => resolve(null);
     input.click();
   });
+}
+
+/**
+ * Camera / library picker for iOS and Android.
+ *
+ * This used to return null on native, with the UI saying upload was web-only —
+ * a leftover from when native was going to be a separate Flutter app. The
+ * upload endpoint wants multipart form data, so the picked asset's `file://`
+ * uri is fetched into a real Blob. Permissions are asked for at the moment of
+ * use, so the OS prompt arrives with the reason on screen.
+ */
+async function pickNativeImage(source: 'library' | 'camera'): Promise<PickedPhoto | null> {
+  const perm =
+    source === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted) {
+    throw new Error(
+      source === 'camera'
+        ? 'Camera access is off. Turn it on in Settings to take a photo.'
+        : 'Photo access is off. Turn it on in Settings to choose a photo.',
+    );
+  }
+
+  const options: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [4, 5],
+    quality: 0.85,
+  };
+  const result =
+    source === 'camera'
+      ? await ImagePicker.launchCameraAsync(options)
+      : await ImagePicker.launchImageLibraryAsync(options);
+
+  const asset = result.canceled ? null : result.assets?.[0];
+  if (!asset) return null;
+  const res = await fetch(asset.uri);
+  return { blob: await res.blob(), name: asset.fileName ?? `photo-${Date.now()}.jpg` };
 }
 
 const MIN_BIO_CHARS = 40;
@@ -193,6 +239,25 @@ export default function OnboardingScreen() {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /**
+   * Whether to actually show the button's loading state.
+   *
+   * Each step PUTs a draft, which usually returns in well under a tenth of a
+   * second. Binding the spinner straight to `saving` made Continue flash pale
+   * and spin on every one of the nine steps — the only thing in the flow that
+   * visibly moved, and it read as jank rather than progress. Hold the spinner
+   * back so a quick save shows nothing at all, and it only appears when the
+   * request is genuinely slow enough to need explaining.
+   */
+  const [savingVisible, setSavingVisible] = useState(false);
+  useEffect(() => {
+    if (!saving) {
+      setSavingVisible(false);
+      return;
+    }
+    const t = setTimeout(() => setSavingVisible(true), 400);
+    return () => clearTimeout(t);
+  }, [saving]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -248,17 +313,21 @@ export default function OnboardingScreen() {
     return null;
   }
 
-  async function onPickPhoto() {
+  async function onPickPhoto(source: 'web' | 'library' | 'camera') {
     setSaveError(null);
-    const file = await pickWebImage();
-    if (!file) return;
-    setUploadingPhoto(true);
     try {
+      const picked = source === 'web' ? await pickWebImage() : await pickNativeImage(source);
+      // Cancelling the sheet is a normal outcome, not an error.
+      if (!picked) return;
+      setUploadingPhoto(true);
       const api = await apiFactory();
-      const updated = await api.uploadMyProfilePhoto(file, file.name);
+      const updated = await api.uploadMyProfilePhoto(picked.blob, picked.name);
       apply(updated);
     } catch (e) {
-      setSaveError(e instanceof ApiClientError ? e.message : 'Could not upload the photo.');
+      // A denied permission throws with copy worth showing verbatim.
+      setSaveError(
+        e instanceof ApiClientError ? e.message : e instanceof Error ? e.message : 'Could not upload the photo.',
+      );
     } finally {
       setUploadingPhoto(false);
     }
@@ -362,26 +431,32 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <AuthShell title={step.title} subtitle={step.subtitle} compact minimal>
-      {/* Compact responsive progress: avoids nine fixed dots cramping on small
-          phones. The counter sits with the bar it describes — it used to live in
-          the footer, nine steps away from the thing it labelled. */}
-      <View style={styles.progressBlock}>
-        <View style={styles.progressMeta}>
-          <Text style={styles.progressStep}>
-            Step {stepIndex + 1} of {STEPS.length}
-          </Text>
-          <Text style={styles.progressPct}>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</Text>
+    <AuthShell
+      title={step.title}
+      subtitle={step.subtitle}
+      compact
+      minimal
+      staticEntrance
+      stickyHeader={
+        // Pinned with the title. Scrolling a long step used to carry the
+        // question and the progress off screen together.
+        <View style={styles.progressBlock}>
+          <View style={styles.progressMeta}>
+            <Text style={styles.progressStep}>
+              Step {stepIndex + 1} of {STEPS.length}
+            </Text>
+            <Text style={styles.progressPct}>{Math.round(((stepIndex + 1) / STEPS.length) * 100)}%</Text>
+          </View>
+          <View
+            style={styles.progressTrack}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 1, max: STEPS.length, now: stepIndex + 1 }}
+          >
+            <View style={[styles.progressFill, { width: `${((stepIndex + 1) / STEPS.length) * 100}%` }]} />
+          </View>
         </View>
-        <View
-          style={styles.progressTrack}
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 1, max: STEPS.length, now: stepIndex + 1 }}
-        >
-          <View style={[styles.progressFill, { width: `${((stepIndex + 1) / STEPS.length) * 100}%` }]} />
-        </View>
-      </View>
-
+      }
+    >
       {rejected && profile?.moderationNotes ? (
         <View style={styles.rejectedNote}>
           <Feather name="alert-circle" size={16} color={colors.danger} />
@@ -510,27 +585,73 @@ export default function OnboardingScreen() {
 
       {step.key === 'photo' ? (
         <View style={styles.photoStep}>
-          {profile?.primaryPhotoUrl ? (
-            <Image
-              source={{ uri: profile.primaryPhotoUrl }}
-              style={styles.photoPreview}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={[styles.photoPreview, styles.photoEmpty]}>
-              <Feather name="camera" size={28} color={colors.textMuted} />
+          {/* A round avatar with a camera badge, which is what a profile photo
+              control looks like nearly everywhere. The tall rectangle read as
+              an empty content slab waiting to be filled. */}
+          <View style={styles.avatarWrap}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={profile?.primaryPhotoUrl ? 'Change your photo' : 'Add a photo'}
+              disabled={uploadingPhoto}
+              onPress={() => onPickPhoto(Platform.OS === 'web' ? 'web' : 'library')}
+              style={({ pressed }: { pressed: boolean }) => [styles.avatar, pressed ? { opacity: 0.9 } : null]}
+            >
+              {profile?.primaryPhotoUrl ? (
+                <ProfilePhoto
+                  uri={profile.primaryPhotoUrl}
+                  name={profile.displayName}
+                  style={styles.avatarImg}
+                  priority="high"
+                  showCaption={false}
+                />
+              ) : (
+                <View style={styles.avatarEmpty}>
+                  <Feather name="user" size={44} color={colors.gold} />
+                </View>
+              )}
+              {uploadingPhoto ? (
+                <View style={styles.avatarUploading}>
+                  <ActivityIndicator color={colors.onPrimary} />
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add a photo"
+              disabled={uploadingPhoto}
+              onPress={() => onPickPhoto(Platform.OS === 'web' ? 'web' : 'library')}
+              style={({ pressed }: { pressed: boolean }) => [styles.avatarFab, pressed ? { opacity: 0.85 } : null]}
+            >
+              <Feather name={profile?.primaryPhotoUrl ? 'edit-2' : 'plus'} size={16} color={colors.onPrimary} />
+            </Pressable>
+          </View>
+
+          <Text style={styles.photoCaption}>
+            {profile?.primaryPhotoUrl ? 'Looking good. You can change it any time.' : 'Optional — add one now or later from Account.'}
+          </Text>
+
+          {Platform.OS !== 'web' ? (
+            <View style={styles.photoActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={uploadingPhoto}
+                onPress={() => onPickPhoto('camera')}
+                style={({ pressed }: { pressed: boolean }) => [styles.photoAction, pressed ? { opacity: 0.7 } : null]}
+              >
+                <Feather name="camera" size={15} color={colors.primary} />
+                <Text style={styles.photoActionText}>Camera</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={uploadingPhoto}
+                onPress={() => onPickPhoto('library')}
+                style={({ pressed }: { pressed: boolean }) => [styles.photoAction, pressed ? { opacity: 0.7 } : null]}
+              >
+                <Feather name="image" size={15} color={colors.primary} />
+                <Text style={styles.photoActionText}>Gallery</Text>
+              </Pressable>
             </View>
-          )}
-          {Platform.OS === 'web' ? (
-            <Button
-              label={profile?.primaryPhotoUrl ? 'Replace photo' : 'Choose a photo'}
-              variant="secondary"
-              loading={uploadingPhoto}
-              onPress={onPickPhoto}
-            />
-          ) : (
-            <Text style={type.caption}>Photo upload is available on the web app for now.</Text>
-          )}
+          ) : null}
         </View>
       ) : null}
 
@@ -554,7 +675,7 @@ export default function OnboardingScreen() {
       <Button
         label={step.key === 'review' ? 'Submit for review' : 'Continue'}
         onPress={onNext}
-        loading={saving}
+        loading={savingVisible}
         disabled={!stepValid && step.key !== 'review'}
       />
       {stepIndex > 0 ? (
@@ -607,7 +728,10 @@ function OptionGroup({
 }) {
   return (
     <View style={styles.optionGroup}>
-      <Text style={styles.optionLabel}>{label}</Text>
+      <View style={styles.optionHead}>
+        <Text style={styles.optionLabel}>{label}</Text>
+        <Text style={styles.optionHint}>{multi ? 'Choose any' : 'Choose one'}</Text>
+      </View>
       <View style={styles.optionWrap}>
         {options.map((option) => {
           const selected = multi ? !!values?.includes(option) : value === option;
@@ -625,6 +749,7 @@ function OptionGroup({
                 pressed ? { opacity: 0.82 } : null,
               ]}
             >
+              {multi && selected ? <Feather name="check" size={12} color={colors.onPrimary} /> : null}
               <Text style={[styles.optionText, selected ? styles.optionTextSelected : null]}>{option}</Text>
             </Pressable>
           );
@@ -691,22 +816,62 @@ const styles = StyleSheet.create({
   reviewLabel: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.6 },
   reviewValue: { ...type.body },
   reviewValueMultiline: { lineHeight: 21 },
-  optionGroup: { gap: spacing.sm },
-  optionLabel: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.6 },
+  // Each question is its own card. As a bare label plus loose pills, three
+  // questions ran together as one wall of chips with nothing marking where one
+  // ended and the next began.
+  optionGroup: {
+    gap: spacing.md,
+    backgroundColor: colors.bgDeep,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  optionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  optionLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    color: colors.gold,
+  },
+  // Says whether the question takes one answer or several, which the chips
+  // alone never communicated.
+  optionHint: { fontFamily: fonts.body, fontSize: 11, color: colors.textMuted },
   optionWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   optionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    // White on the tinted card, so an unpicked chip still reads as a control.
     backgroundColor: colors.bgElevated,
   },
-  optionPillSelected: { borderColor: colors.primary, backgroundColor: colors.primaryFaint },
+  // Filled rather than tinted: a soft pink wash on a warm background sat too
+  // close to the unselected state to scan at a glance.
+  optionPillSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(233, 30, 115, 0.28)' } as object,
+      default: {
+        shadowColor: colors.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 3,
+      },
+    }),
+  },
   optionPillHover: { borderColor: colors.borderStrong },
   optionPillFocus: { borderColor: colors.primary, shadowColor: colors.primary, shadowOpacity: 0.16, shadowRadius: 8 },
-  optionText: { ...type.caption, color: colors.textSecondary },
-  optionTextSelected: { color: colors.primary, fontFamily: 'Inter_600SemiBold' },
+  optionText: { fontFamily: fonts.bodyMedium, fontSize: 13.5, color: colors.textSecondary },
+  optionTextSelected: { color: colors.onPrimary, fontFamily: fonts.bodySemibold },
   rejectedNote: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -719,13 +884,50 @@ const styles = StyleSheet.create({
   },
   rejectedText: { ...type.caption, color: colors.danger, flex: 1 },
   doneBadge: { alignItems: 'center', marginBottom: spacing.md },
-  photoStep: { alignItems: 'center', gap: spacing.lg },
-  photoPreview: { width: 128, height: 128, borderRadius: 64 },
-  photoEmpty: {
+  photoStep: { alignItems: 'center', gap: spacing.md },
+  avatarWrap: { width: 148, height: 148 },
+  avatar: {
+    width: 148,
+    height: 148,
+    borderRadius: 74,
+    overflow: 'hidden',
     backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: colors.gold,
+  },
+  avatarImg: { width: '100%', height: '100%' },
+  avatarEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.goldFaint },
+  avatarUploading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.scrimStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarFab: {
+    position: 'absolute',
+    right: 0,
+    bottom: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: colors.bgElevated,
+  },
+  photoCaption: { ...type.caption, textAlign: 'center' },
+  photoActions: { flexDirection: 'row', gap: spacing.sm },
+  photoAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+  },
+  photoActionText: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.primary },
 });

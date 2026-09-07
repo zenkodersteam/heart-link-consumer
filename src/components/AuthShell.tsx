@@ -44,6 +44,22 @@ interface AuthShellProps {
    */
   compact?: boolean;
   /**
+   * Render immediately, with no entrance animation.
+   *
+   * The fade-and-rise suits a page you land on once. Across nine onboarding
+   * steps it replays on every shell remount and just makes the form look like
+   * it is arriving late.
+   */
+  staticEntrance?: boolean;
+  /**
+   * Rendered with the title, above the scroll area, so it stays put.
+   *
+   * Onboarding puts its progress bar here: title, subtitle and progress used to
+   * scroll away with the answers, leaving you part way down a step with no way
+   * to see which question you were answering.
+   */
+  stickyHeader?: ReactNode;
+  /**
    * Drop the artwork on phones entirely and show a slim brand bar instead.
    *
    * For the nine sign-up questions: even the compact panel reserved about a
@@ -117,7 +133,7 @@ function ArtPanel({ mobile, height }: { mobile?: boolean; height?: number }) {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer, compact, minimal }: AuthShellProps) {
+export function AuthShell({ title, subtitle, children, footer, compact, minimal, staticEntrance, stickyHeader }: AuthShellProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // Cap the art as a share of the viewport so short phones are not swallowed.
@@ -125,7 +141,7 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal 
     Math.min(compact ? 172 : auth.mobileArtHeight, height * (compact ? 0.2 : 0.32)),
   );
   const isDesktop = width >= 900;
-  const reduce = useReduceMotion();
+  const reduce = useReduceMotion() || !!staticEntrance;
 
   // Gentle mount entrance: art panel rises first (desktop only), then the form.
   const heroReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
@@ -158,10 +174,17 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal 
           transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         };
 
-  const formContent = (
+  const headBlock = (
     <>
       <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      {subtitle ? <Text style={[styles.subtitle, stickyHeader ? styles.subtitleSticky : null]}>{subtitle}</Text> : null}
+      {stickyHeader}
+    </>
+  );
+
+  const formContent = (
+    <>
+      {stickyHeader ? null : headBlock}
       <View style={styles.body}>{children}</View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </>
@@ -206,6 +229,7 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal 
             style={styles.flex}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
+            {stickyHeader ? <View style={styles.stickyHead}>{headBlock}</View> : null}
             <ScrollView
               contentContainerStyle={[styles.scrollMobile, { paddingBottom: 24 + insets.bottom }]}
               keyboardShouldPersistTaps="handled"
@@ -249,12 +273,16 @@ const styles = StyleSheet.create({
     marginTop: -20,
   },
   scrollMobile: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 26 },
+  stickyHead: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: spacing.md },
   brandWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   wordmark: { flexDirection: 'row', alignItems: 'baseline' },
   wordHeart: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText },
   wordLink: { fontFamily: 'BreeSerif_400Regular', color: colors.primary },
   title: { ...type.h1, marginBottom: spacing.xs },
   subtitle: { ...type.bodyMuted, fontSize: 14, marginBottom: spacing.xl, maxWidth: 460 },
+  // Tighter when pinned: the header is always on screen, so it should not eat
+  // the room the answers need.
+  subtitleSticky: { marginBottom: spacing.md },
   body: { gap: spacing.lg },
   footer: { marginTop: spacing.lg, alignItems: 'center' },
 });

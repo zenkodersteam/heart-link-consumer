@@ -95,7 +95,8 @@ export function ProfilePhoto({ uri, name, style, priority = 'normal', compact, s
       source={{ uri }}
       style={[styles.fill, style] as StyleProp<ImageStyle>}
       contentFit="cover"
-      transition={80}
+      // No cross-fade: the photo should just be there.
+      transition={0}
       cachePolicy="memory-disk"
       priority={priority}
       onError={() => setFailed(true)}
