@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthShell } from '../../src/components/AuthShell';
+import { OtpBoxes } from '../../src/components/OtpBoxes';
 import { Button, Field } from '../../src/components/primitives';
 import { takePendingRoute } from '../../src/lib/pending-route';
 import { useSession } from '../../src/lib/session';
@@ -97,24 +98,18 @@ export default function SignInScreen() {
           </View>
         }
       >
-        <Field
-          label="Your code"
+        <Text style={styles.codeLabel}>Your code</Text>
+        <OtpBoxes
           value={code}
-          onChangeText={(next: string) => {
-            const digits = next.replace(/\D/g, '').slice(0, 6);
+          invalid={Boolean(error)}
+          disabled={submitting}
+          autoFocus
+          onChange={(digits) => {
             setCode(digits);
             // Submitted on the sixth digit. The value is passed rather than
             // read back from state, which has not updated yet.
             if (digits.length === 6) void onVerify(digits);
           }}
-          keyboardType="number-pad"
-          // Fills straight from the notification banner on iOS and Android.
-          autoComplete="sms-otp"
-          textContentType="oneTimeCode"
-          placeholder="••••••"
-          maxLength={6}
-          style={styles.codeInput}
-          autoFocus
         />
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -166,5 +161,10 @@ const styles = StyleSheet.create({
   link: { ...type.button, color: colors.primary, fontSize: 14 },
   error: { ...type.caption, color: colors.danger, marginBottom: spacing.sm },
   notice: { ...type.caption, color: colors.textSecondary, marginBottom: spacing.sm },
-  codeInput: { textAlign: 'center', fontSize: 26, letterSpacing: 8 },
+  codeLabel: {
+    ...type.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
 });
