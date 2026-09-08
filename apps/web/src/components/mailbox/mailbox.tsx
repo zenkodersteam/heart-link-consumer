@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronLeft, Lock, Mail, Search } from 'lucide-react';
+import { ChevronLeft, Mail, PenLine, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,8 +20,8 @@ import {
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
-import { FolderRail, type MailFolder } from './folder-rail';
-import { formatTime, threadPreview } from './lib';
+import { LettersCard } from './letters-card';
+import { formatTime, threadPreview, type MailFolder } from './lib';
 import { LetterComposer } from './letter-composer';
 import { ComposeNote, ThreadView } from './thread-view';
 
@@ -146,23 +146,74 @@ export function Mailbox() {
     ? undefined
     : 'Letters unlock once your profile is approved';
 
+  /**
+   * The one column that carries the whole mailbox: what to do, where to look,
+   * and every correspondence.
+   *
+   * It used to be two — a 230px rail of folders beside a list of threads —
+   * which spent a third of a wide screen on two words and left both columns
+   * too narrow to read. Compose, folders and the allowance now sit around the
+   * list they belong to, the way a mail client stacks them.
+   */
   const listColumn = (
-    <div className="flex min-h-0 flex-col gap-4">
-      <label className="flex items-center gap-2 rounded-pill border border-line bg-surface-elevated px-4 py-2.5">
-        <Search className="size-4 shrink-0 text-ink-faint" />
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search letters…"
-          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
-        />
-      </label>
+    <div className="flex min-h-0 flex-col">
+      <div className="flex flex-col gap-3 px-4 pb-3 pt-4">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-[family-name:var(--font-bree)] text-xl text-ink lg:text-lg">
+            Letters
+          </h1>
+          <Button asChild size="sm">
+            <Link href="/browse">
+              <PenLine className="size-3.5" />
+              Write
+            </Link>
+          </Button>
+        </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+        <label className="flex items-center gap-2 rounded-pill border border-line bg-surface-elevated px-3.5 py-2">
+          <Search className="size-4 shrink-0 text-ink-faint" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search letters…"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-faint"
+          />
+        </label>
+
+        {/* Inbox and Sent as two pills rather than a column of their own: the
+            rail they came from held nothing else worth its width. Archive and
+            Trash are not offered, since the API has nothing behind them and a
+            folder that can never fill is worse than no folder. */}
+        <div className="flex gap-1.5">
+          {(['inbox', 'sent'] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFolder(key)}
+              aria-current={folder === key ? 'true' : undefined}
+              className={cn(
+                'flex items-center gap-1.5 rounded-pill px-3.5 py-1.5 text-[13px] capitalize transition-colors',
+                folder === key
+                  ? 'bg-primary-faint font-semibold text-primary'
+                  : 'text-ink-soft hover:bg-surface-muted',
+              )}
+            >
+              {key}
+              {key === 'inbox' && unread > 0 ? (
+                <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                  {unread}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {isPending ? <PageSpinner label="Opening your mailbox…" /> : null}
 
         {isError ? (
-          <div className="rounded-card border border-line bg-surface-elevated p-6 text-center">
+          <div className="m-2 rounded-card border border-line bg-surface-elevated p-6 text-center">
             <p className="text-sm text-ink-soft">
               {error instanceof Error ? error.message : "We couldn't load your mailbox."}
             </p>
@@ -176,13 +227,14 @@ export function Mailbox() {
           <EmptyThreads searching={debounced.trim().length > 0} />
         ) : null}
 
-        <ul className="space-y-1">
+        <ul>
           {filtered.map((thread) => (
             <li key={thread.threadId}>
               <Link
                 href={`/mailbox?thread=${thread.threadId}`}
+                aria-current={thread.threadId === threadId ? 'true' : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors',
+                  'flex items-center gap-3 rounded-xl px-3 py-3 transition-colors',
                   thread.threadId === threadId ? 'bg-primary-faint' : 'hover:bg-surface-muted',
                 )}
               >
@@ -215,10 +267,11 @@ export function Mailbox() {
         </ul>
       </div>
 
-      <p className="flex items-center gap-2 border-t border-line pt-3 text-[12px] leading-relaxed text-ink-faint">
-        <Lock className="size-3.5 shrink-0 text-gold" />
-        Private &amp; secure. Letters are printed and mailed; replies are scanned in by our team.
-      </p>
+      {/* The allowance sits at the foot, where a mail client puts storage: it
+          is status, read before writing rather than acted on. */}
+      <div className="px-4 pb-4">
+        <LettersCard />
+      </div>
     </div>
   );
 
@@ -268,7 +321,7 @@ export function Mailbox() {
     // whole window: the rail and the tab bar stay usable, which is the point —
     // browsing is still allowed while a profile is in review, only the mailbox
     // is not.
-    <div className="relative lg:flex lg:h-[calc(100dvh-9.5rem)] lg:min-h-0">
+    <div className="relative lg:flex lg:h-[calc(100dvh-3.8rem)] lg:min-h-0">
       {myProfile && myProfile.status !== 'approved' ? (
         <ProfileReviewOverlay
           status={myProfile.status}
@@ -278,61 +331,17 @@ export function Mailbox() {
         />
       ) : null}
 
-      {/* Three panes on a desktop, as the screens draw it: folders, the list,
-          then what is open. On a phone the rail is not shown at all — the
-          designs put Inbox/Sent as tabs above the list there, and a third
-          column would leave no room for any of them. */}
+      {/* Two panes, as a mail client has them: the list, and what is open.
+          On a phone they are one screen at a time — the list, or the letter on
+          top of it with a way back. */}
       <div
         className={cn(
-          'hidden w-[230px] shrink-0 flex-col gap-4 border-r border-line px-5 py-6 lg:flex',
-          detailOpen && 'lg:flex',
+          'mx-auto flex w-full max-w-2xl flex-col lg:mx-0 lg:h-full lg:w-[360px] lg:max-w-none lg:shrink-0 lg:border-r lg:border-line',
+          detailOpen && 'hidden lg:flex',
         )}
       >
-        <FolderRail
-          folder={folder}
-          onSelect={setFolder}
-          counts={{
-            inbox: threads.filter((t) => t.lastDirection !== 'outbound').length,
-            sent: threads.filter((t) => t.lastDirection === 'outbound').length,
-            unread,
-          }}
-        />
-      </div>
-
-      <div
-        className={cn(
-          'mx-auto w-full max-w-2xl px-5 py-6 lg:mx-0 lg:h-full lg:w-[340px] lg:max-w-none lg:shrink-0 lg:border-r lg:border-line lg:px-5',
-          detailOpen && 'hidden lg:block',
-        )}
-      >
-        <header className="mb-4 lg:hidden">
-          <h1 className="font-[family-name:var(--font-bree)] text-3xl text-ink">Mailbox</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Private &amp; secure{unread > 0 ? ` · ${unread} new` : ''}
-          </p>
-          <div className="mt-4 flex gap-2">
-            {(['inbox', 'sent'] as const).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFolder(key)}
-                className={cn(
-                  'rounded-pill px-4 py-1.5 text-[13px] capitalize transition-colors',
-                  folder === key
-                    ? 'bg-primary-faint font-semibold text-primary'
-                    : 'text-ink-soft hover:bg-surface-muted',
-                )}
-              >
-                {key}
-                {key === 'inbox' && unread > 0 ? (
-                  <span className="ml-1.5 rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
-                    {unread}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
-        </header>
+        {/* One heading, not two: the column carries its own, and a phone-only
+            "Mailbox" title above it stacked a second one on the same screen. */}
         {listColumn}
       </div>
 
@@ -352,25 +361,35 @@ export function Mailbox() {
   );
 }
 
+/**
+ * Nothing in the list.
+ *
+ * Deliberately plain when the mailbox is simply empty: the reading pane beside
+ * it already carries the full invitation, artwork and button included, so a
+ * second bordered card saying the same thing made one empty mailbox look like
+ * two separate problems. This just labels the empty column.
+ *
+ * An empty *search* is different — the pane still shows the standing
+ * invitation, which does not explain why the list went blank — so that case
+ * keeps its own explanation.
+ */
 function EmptyThreads({ searching }: { searching: boolean }) {
+  if (!searching) {
+    return (
+      <p className="px-1 py-10 text-center text-[13px] text-ink-faint lg:py-8">
+        No letters yet.
+      </p>
+    );
+  }
+
   return (
-    <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
-      <span className="mx-auto grid size-14 place-items-center rounded-full border border-gold bg-gold-faint">
-        <Mail className="size-6 text-gold" />
-      </span>
-      <p className="mt-4 font-[family-name:var(--font-bree)] text-lg text-ink">
-        {searching ? 'No letters match that name' : 'No letters yet'}
+    <div className="px-1 py-10 text-center lg:py-8">
+      <p className="font-[family-name:var(--font-bree)] text-[15px] text-ink">
+        No letters match that name
       </p>
-      <p className="mx-auto mt-2 max-w-xs text-[13px] leading-relaxed text-ink-soft">
-        {searching
-          ? 'Try a different name, or clear the search to see everyone you write to.'
-          : 'Find someone on the browse screen and write your first letter.'}
+      <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-ink-soft">
+        Try a different name, or clear the search to see everyone you write to.
       </p>
-      {searching ? null : (
-        <Button asChild variant="secondary" size="sm" className="mt-4">
-          <Link href="/browse">Browse profiles</Link>
-        </Button>
-      )}
     </div>
   );
 }

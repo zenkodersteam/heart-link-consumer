@@ -1,6 +1,15 @@
 import type { LetterEntitlement, MailboxThreadSummary } from '@heartlink/consumer-api';
 
 /**
+ * Which half of the mailbox is on screen.
+ *
+ * Two, not the four the client screens draw: Inbox and Sent are real — a
+ * thread's last direction decides which it belongs to — while Archive and
+ * Trash have nothing behind them in the API.
+ */
+export type MailFolder = 'inbox' | 'sent';
+
+/**
  * Delivery states, in the member's words.
  *
  * A letter waits for staff review before it is ever printed, so the first

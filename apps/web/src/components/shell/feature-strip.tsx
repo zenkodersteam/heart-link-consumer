@@ -1,4 +1,7 @@
+'use client';
+
 import { BookOpen, Headphones, Heart, Mail, type LucideIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 /**
  * The four promises along the bottom of every signed-in screen, as the client
@@ -32,6 +35,12 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
 ];
 
 export function FeatureStrip() {
+  // Not on the mailbox. That screen is a two-pane app view that runs to the
+  // bottom of the window — a band of promises under it pushed the composer up
+  // and made a letter someone is writing share the page with an advert.
+  const pathname = usePathname();
+  if (pathname?.startsWith('/mailbox')) return null;
+
   return (
     <div className="hidden border-t border-line bg-surface-elevated px-6 py-5 lg:block">
       <ul className="mx-auto grid max-w-6xl grid-cols-4 gap-6">
