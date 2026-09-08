@@ -4,7 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'HeartLink',
   slug: 'heartlink',
-  version: '0.0.1',
+  version: '1.0.0',
   orientation: 'portrait',
   scheme: 'heartlink',
   userInterfaceStyle: 'automatic',
@@ -22,8 +22,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // address. Since iOS 14 the first connection to a local address raises a
       // permission prompt, and a prompt with no usage string is denied outright
       // - which surfaces only as fetch() failing, with no dialog to explain it.
+      //
+      // Worded for the people who actually see it. A released build talks to a
+      // public HTTPS host and never trips this prompt, but the string ships in
+      // every build, and App Review reads it.
       NSLocalNetworkUsageDescription:
-        'HeartLink connects to the development API running on your local network.',
+        'HeartLink uses your local network to reach a HeartLink server on the same network while testing.',
+
+      // Answers App Store Connect's export-compliance question at upload time.
+      // False is correct here: the app has no encryption of its own and only
+      // makes ordinary HTTPS calls, which Apple exempts. Without this, every
+      // single upload stops and waits to be answered by hand in the browser.
+      ITSAppUsesNonExemptEncryption: false,
     },
   },
 
@@ -83,6 +93,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         photosPermission: 'HeartLink uses your photos so you can add a profile picture.',
         cameraPermission: 'HeartLink uses your camera so you can take a profile picture.',
+        // The plugin adds a microphone permission by default, carrying Expo's
+        // placeholder string into the built app. Nothing here records audio, and
+        // a permission the app never uses - described in boilerplate - is a
+        // question App Review asks. False removes the iOS key and blocks
+        // Android's RECORD_AUDIO outright.
+        microphonePermission: false,
       },
     ],
     [

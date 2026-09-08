@@ -12,10 +12,20 @@
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.heartlinkconnect.zenkoders.com",
+        "EXPO_PUBLIC_PREVIEW_BYPASS_AUTH": "false",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@heartlinkconnect.com"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.heartlinkconnect.zenkoders.com",
+        "EXPO_PUBLIC_PREVIEW_BYPASS_AUTH": "false",
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "support@heartlinkconnect.com"
+      }
     }
   },
   "submit": {
