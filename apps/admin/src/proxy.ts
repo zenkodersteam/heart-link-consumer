@@ -13,56 +13,6 @@ import {
 // sent to be cleared, and requiring auth to reach it would be circular.
 const PUBLIC_PATHS = /^\/(sign-in|sign-out)(\/.*)?$/;
 
-/**
- * HTTP Basic Auth gate — runs before anything else. Blocks the entire admin app
- * behind a shared username/password so the URL isn't publicly accessible
- * even to people who would otherwise see the sign-in page.
- *
- * Controlled by `ADMIN_BASIC_AUTH_USER` and `ADMIN_BASIC_AUTH_PASS` env vars.
- * If either is unset, the gate is disabled (useful for local dev).
- *
- * This is a coarse "don't let strangers reach the login form" layer. Knowing
- * which member of staff is asking is the session's job, downstream.
- */
-function basicAuthGate(req: NextRequest): NextResponse | null {
-  const user = process.env.ADMIN_BASIC_AUTH_USER;
-  const pass = process.env.ADMIN_BASIC_AUTH_PASS;
-
-  // Env vars not configured → gate disabled. Convenient for localhost.
-  if (!user || !pass) return null;
-
-  const header = req.headers.get('authorization') ?? '';
-  if (header.startsWith('Basic ')) {
-    try {
-      const decoded = atob(header.slice(6));
-      const sep = decoded.indexOf(':');
-      if (sep > -1) {
-        const providedUser = decoded.slice(0, sep);
-        const providedPass = decoded.slice(sep + 1);
-        // Constant-time-ish compare by comparing lengths first.
-        if (
-          providedUser.length === user.length &&
-          providedPass.length === pass.length &&
-          providedUser === user &&
-          providedPass === pass
-        ) {
-          return null;
-        }
-      }
-    } catch {
-      /* fall through to challenge */
-    }
-  }
-
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="HeartLink Admin", charset="UTF-8"',
-      'Cache-Control': 'no-store',
-    },
-  });
-}
-
 /** Refresh a minute early, so a page never renders with a token about to die. */
 const REFRESH_MARGIN_MS = 60 * 1000;
 
@@ -95,10 +45,6 @@ export default async function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
 
   const isPublic = pathname === '/' || PUBLIC_PATHS.test(pathname);
-
-  const gate = basicAuthGate(request);
-  if (gate && !isPublic) return gate;
-
   if (isPublic) return NextResponse.next();
 
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
