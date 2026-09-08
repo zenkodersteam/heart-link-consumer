@@ -17,6 +17,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.zenkoders.heartlink',
+    // Bumped by hand alongside ios/HeartLink/Info.plist and the Xcode
+    // project's CURRENT_PROJECT_VERSION: the native project is checked in, so
+    // an archive reads those rather than this file. App Store Connect refuses
+    // a build number it has already seen for a version, and 1.0.0 (1) is
+    // already uploaded.
+    buildNumber: '2',
     infoPlist: {
       // Device testing points EXPO_PUBLIC_API_BASE_URL at the dev machine's LAN
       // address. Since iOS 14 the first connection to a local address raises a
@@ -29,11 +35,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSLocalNetworkUsageDescription:
         'HeartLink uses your local network to reach a HeartLink server on the same network while testing.',
 
-      // Answers App Store Connect's export-compliance question at upload time.
-      // False is correct here: the app has no encryption of its own and only
-      // makes ordinary HTTPS calls, which Apple exempts. Without this, every
-      // single upload stops and waits to be answered by hand in the browser.
-      ITSAppUsesNonExemptEncryption: false,
+      // No `ITSAppUsesNonExemptEncryption` on purpose. With the key absent,
+      // App Store Connect asks the export-compliance question for each upload
+      // instead of taking an answer from the binary — which is how the owner
+      // wants it handled.
     },
   },
 

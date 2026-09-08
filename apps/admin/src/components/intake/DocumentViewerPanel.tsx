@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
-  CheckCircle2,
   Download,
   ExternalLink,
   FileText,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { Application, IntakeDocument } from '@heartlink/api-contract';
 import { APPLICATION_STATUS_LABEL } from '../../lib/adminLabels';
+import { cn } from '../../lib/utils';
 
 interface DocumentViewerPanelProps {
   application: Application;
@@ -52,12 +52,43 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
   const [loadError, setLoadError] = useState<'missing' | 'render' | null>(null);
   const [activePage, setActivePage] = useState(1);
   const [zoomIndex, setZoomIndex] = useState(2);
+  // Fit is the default, and it is a real measurement rather than a zoom preset.
+  // At a fixed 100% a Letter page is wider than this pane, so every document
+  // opened clipped under the field panel with a horizontal scrollbar beneath
+  // it - the reviewer's first move was always to shrink it by hand.
+  const [fitMode, setFitMode] = useState(true);
+  const [paneWidth, setPaneWidth] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
   const [rotation, setRotation] = useState(0);
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const sourceUrl = document?.presignedUrl ? resolveStorageUrl(document.presignedUrl) : null;
   const isPdfDocument = document?.mimeType === 'application/pdf' && Boolean(sourceUrl);
-  const zoom = ZOOM_LEVELS[zoomIndex] ?? 1;
+  // Everything horizontal between the pane's edge and the canvas: the
+  // scroller's own padding (16 a side), the page card's (8 a side) and its
+  // border (1 a side) - 50 - plus room for a classic scrollbar on platforms
+  // that reserve one. Erring wide costs a few pixels of page; erring narrow
+  // costs the clipped edge and the horizontal scrollbar this replaces.
+  const PAGE_CHROME = 50 + 12;
+  const fitScale =
+    paneWidth > 0 && pageWidth > 0
+      ? Math.min(2, Math.max(0.25, (paneWidth - PAGE_CHROME) / pageWidth))
+      : 1;
+  const zoom = fitMode ? fitScale : (ZOOM_LEVELS[zoomIndex] ?? 1);
+
+  /** Stepping the zoom leaves fit mode, starting from whatever is on screen. */
+  const stepZoom = (direction: 1 | -1) => {
+    const from = fitMode
+      ? ZOOM_LEVELS.reduce(
+          (best, level, i) =>
+            Math.abs(level - fitScale) < Math.abs((ZOOM_LEVELS[best] ?? 1) - fitScale) ? i : best,
+          0,
+        )
+      : zoomIndex;
+    setFitMode(false);
+    setZoomIndex(Math.min(ZOOM_LEVELS.length - 1, Math.max(0, from + direction)));
+  };
 
   useEffect(() => {
     if (!sourceUrl || !isPdfDocument) {
@@ -110,6 +141,33 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
       }
     };
   }, [sourceUrl, isPdfDocument]);
+
+  // Width of the scroll area, tracked live: the split can change under us when
+  // the window resizes, and a fit that was right at open should stay right.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setPaneWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pdf]);
+
+  // The page's own width at 1:1, which is what the fit scale divides into.
+  // Rotation changes it, so it is read again on every turn.
+  useEffect(() => {
+    if (!pdf) return;
+    let cancelled = false;
+    void (async () => {
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1, rotation });
+      if (!cancelled) setPageWidth(viewport.width);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pdf, rotation]);
 
   const pages = useMemo(() => {
     if (!pdf) return [];
@@ -193,7 +251,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           <button
             type="button"
             aria-label="Zoom out"
-            onClick={() => setZoomIndex((value) => Math.max(0, value - 1))}
+            onClick={() => stepZoom(-1)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
           >
             <Minus className="size-3.5" />
@@ -204,21 +262,24 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           <button
             type="button"
             aria-label="Zoom in"
-            onClick={() => setZoomIndex((value) => Math.min(ZOOM_LEVELS.length - 1, value + 1))}
+            onClick={() => stepZoom(1)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
           >
             <Plus className="size-3.5" />
           </button>
           <button
             type="button"
-            onClick={() => setZoomIndex(1)}
-            className="hidden rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 sm:inline-flex"
+            onClick={() => setFitMode(true)}
+            className={cn(pillCls, fitMode && activePillCls)}
           >
             Fit width
           </button>
           <button
             type="button"
-            onClick={() => setZoomIndex(2)}
+            onClick={() => {
+              setFitMode(false);
+              setZoomIndex(2);
+            }}
             className="hidden rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 sm:inline-flex"
           >
             100%
@@ -244,7 +305,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4">
+        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4">
           {!document || !sourceUrl ? (
             <EmptyDocumentState />
           ) : isImage(document.mimeType) ? (
@@ -254,7 +315,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           ) : loadError || !pdf ? (
             <PdfFallbackState sourceUrl={sourceUrl} error={loadError} />
           ) : (
-            <div className="mx-auto flex w-fit min-w-full flex-col gap-7 pb-8">
+            <div className="mx-auto flex w-fit min-w-full flex-col gap-5 pb-6">
               {pages.map((pageNumber) => (
                 <div
                   key={pageNumber}
@@ -272,12 +333,8 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
                         {PAGE_LABELS[pageNumber - 1] ?? 'Application packet'}
                       </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-success/15 bg-success-tint px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-success">
-                      <CheckCircle2 className="size-3" />
-                      Rendered
-                    </span>
                   </div>
-                  <div className="rounded-[28px] border border-border bg-[#fffaf7] p-3 shadow-[0_18px_44px_rgba(46,18,64,0.15),0_3px_10px_rgba(46,18,64,0.08)] ring-1 ring-white/70">
+                  <div className="rounded-2xl border border-border bg-[#fffaf7] p-2 shadow-[0_6px_18px_rgba(46,18,64,0.10)]">
                     <PdfCanvasPage
                       pdf={pdf}
                       pageNumber={pageNumber}
@@ -447,6 +504,11 @@ function PdfFallbackState({
     </div>
   );
 }
+
+/** Toolbar pill, and the same pill when its mode is the one in effect. */
+const pillCls =
+  'hidden rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 sm:inline-flex';
+const activePillCls = 'border-primary/30 bg-primary-tint text-primary';
 
 function isImage(mime: string): boolean {
   return mime.startsWith('image/');
