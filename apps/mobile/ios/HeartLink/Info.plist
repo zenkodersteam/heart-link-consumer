@@ -28,7 +28,7 @@
         <key>CFBundleURLSchemes</key>
         <array>
           <string>heartlink</string>
-          <string>com.heartlink.app</string>
+          <string>com.zenkoders.heartlink</string>
         </array>
       </dict>
       <dict>

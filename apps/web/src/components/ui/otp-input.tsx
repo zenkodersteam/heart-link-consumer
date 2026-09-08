@@ -1,6 +1,6 @@
 'use client';
 
-import { OTPInput, OTPInputContext } from 'input-otp';
+import { OTPInput, OTPInputContext, REGEXP_ONLY_DIGITS } from 'input-otp';
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
@@ -73,4 +73,14 @@ function InputOtpSlot({
   );
 }
 
-export { InputOtp, InputOtpGroup, InputOtpSlot };
+/**
+ * What the field will accept, as a whole-string regex.
+ *
+ * Not an HTML `pattern` attribute: this component takes its own, tests the
+ * entire value against it, and refuses anything that fails. An unanchored
+ * `[0-9]*` passes every string there is — including a pasted sentence — which
+ * is the same as having no rule at all.
+ */
+const ONLY_DIGITS = REGEXP_ONLY_DIGITS;
+
+export { InputOtp, InputOtpGroup, InputOtpSlot, ONLY_DIGITS };

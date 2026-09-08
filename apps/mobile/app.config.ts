@@ -16,7 +16,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.heartlink.app',
+    bundleIdentifier: 'com.zenkoders.heartlink',
     infoPlist: {
       // Device testing points EXPO_PUBLIC_API_BASE_URL at the dev machine's LAN
       // address. Since iOS 14 the first connection to a local address raises a
@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // Matches the iOS icon ground so the app reads the same on both.
       backgroundColor: '#FDF9F6',
     },
-    package: 'com.heartlink.app',
+    package: 'com.zenkoders.heartlink',
   },
 
 

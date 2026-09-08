@@ -88,12 +88,20 @@ export function OtpBoxes({
       <TextInput
         ref={input}
         value={value}
+        // Everything that is not a digit is dropped before the length is
+        // applied. `maxLength` cannot do this job: it counts raw characters, so
+        // a code pasted out of an email as "123 456" — or with the sentence
+        // around it — was cut to six characters first and arrived as a
+        // different code, or as nothing at all.
         onChangeText={(next) => onChange(next.replace(/\D/g, '').slice(0, LENGTH))}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        editable={!disabled}
+        // Deliberately editable while a code is being checked: a wrong digit is
+        // exactly when someone reaches for backspace, and taking the field away
+        // mid-request shut the keyboard on them. The screen ignores a second
+        // submission instead.
+        editable
         autoFocus={autoFocus}
-        maxLength={LENGTH}
         keyboardType="number-pad"
         // iOS offers the code from Mail or Messages above the keyboard;
         // Android fills it from the SMS. Both need a single field to fill.

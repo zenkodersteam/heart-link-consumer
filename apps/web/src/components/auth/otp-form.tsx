@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { InputOtp, InputOtpGroup, InputOtpSlot } from '@/components/ui/otp-input';
+import { InputOtp, InputOtpGroup, InputOtpSlot, ONLY_DIGITS } from '@/components/ui/otp-input';
 import { Spinner } from '@/components/ui/spinner';
 import {
   clearPendingSignUp,
@@ -408,15 +408,25 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
               setCode(value);
               // Submitted on the sixth digit: it saves a deliberate press for
               // the one thing everybody does next. The value is passed rather
-              // than read back from state, which has not updated yet.
-              if (value.length === 6) void verify(value);
+              // than read back from state, which has not updated yet. The guard
+              // is what this field's `disabled` used to do — without taking the
+              // input away from someone correcting a digit.
+              if (value.length === 6 && !busy) void verify(value);
             }}
+            /**
+             * The clipboard rarely holds six bare digits. Mail clients copy
+             * "123 456", or the sentence around it, or a trailing newline —
+             * and the field caps at six characters, so what landed was a
+             * different code, or nothing. Cleaning it here also makes the
+             * component handle the paste itself: without a transformer it only
+             * does so on iOS and leaves every other browser to the raw insert.
+             */
+            pasteTransformer={(pasted) => pasted.replace(/\D/g, '').slice(0, 6)}
             // Digits only, and the code offered by the OS from the email or SMS.
             inputMode="numeric"
-            pattern="[0-9]*"
+            pattern={ONLY_DIGITS}
             autoComplete="one-time-code"
             autoFocus
-            disabled={busy}
             aria-invalid={invalid || undefined}
           >
             <InputOtpGroup>

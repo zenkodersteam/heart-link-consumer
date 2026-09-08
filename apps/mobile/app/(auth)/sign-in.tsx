@@ -291,13 +291,14 @@ export default function SignInScreen() {
         <OtpBoxes
           value={code}
           invalid={invalid}
-          disabled={submitting}
           autoFocus
           onChange={(digits) => {
             setCode(digits);
             // Submitted on the sixth digit. The value is passed rather than
-            // read back from state, which has not updated yet.
-            if (digits.length === 6) void onVerify(digits);
+            // read back from state, which has not updated yet. The guard is
+            // what the field's own `disabled` used to do — without taking the
+            // keyboard away from someone fixing a typo.
+            if (digits.length === 6 && !submitting) void onVerify(digits);
           }}
         />
         <Button
