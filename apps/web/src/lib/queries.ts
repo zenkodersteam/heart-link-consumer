@@ -396,6 +396,16 @@ export function useSubscription() {
  * the sponsor flow, while a member looking at their own account is buying
  * their own subscription. `forProfileId` is what separates the two.
  */
+/**
+ * The plan catalogue.
+ *
+ * Arriving with a profile means sponsoring that person, so only the listing
+ * plans apply and the rest would be noise. Without one, everything is returned:
+ * hiding the listing plans made the page look like the product sold two things,
+ * when the listing tiers are most of what it sells. The page groups them and
+ * sends the listing tiers through the sponsor flow, because a listing plan
+ * bought with nobody attached is a subscription that lists no one.
+ */
 export function usePlans(forProfileId?: string) {
   const factory = useApiFactory();
   const wantListing = Boolean(forProfileId);
@@ -403,9 +413,7 @@ export function usePlans(forProfileId?: string) {
     queryKey: [...qk.plans(), wantListing] as const,
     queryFn: async () => (await factory()).listPlans() as Promise<ListPlansResponse>,
     select: (data) =>
-      data.plans.filter((plan) =>
-        wantListing ? plan.type === 'inmate_listing' : plan.type !== 'inmate_listing',
-      ),
+      wantListing ? data.plans.filter((plan) => plan.type === 'inmate_listing') : data.plans,
     // The catalogue is the same for everyone and changes when someone edits it
     // in admin, not while a member is deciding.
     staleTime: 10 * 60 * 1000,

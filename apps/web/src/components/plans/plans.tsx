@@ -2,7 +2,7 @@
 
 import type { Plan } from '@heartlink/consumer-api';
 import { Check, CheckCircle2, Sparkles } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -34,6 +34,36 @@ export function Plans() {
 
   const { data: plans, isPending, isError, error, refetch } = usePlans(forProfileId);
   const createCheckout = useCreateCheckout();
+  const router = useRouter();
+
+  /**
+   * The two things on sale, kept apart.
+   *
+   * A membership for the person browsing and a listing for someone inside are
+   * bought by different people for different reasons, and at a glance the only
+   * thing separating a $19.99 membership from a $30 listing is the price. Shown
+   * as one undifferentiated grid they read as five tiers of the same product.
+   */
+  const membership = (plans ?? []).filter((plan) => plan.type !== 'inmate_listing');
+  const listing = (plans ?? []).filter((plan) => plan.type === 'inmate_listing');
+
+  const sections = [
+    {
+      key: 'membership' as const,
+      title: 'Your membership',
+      blurb: 'Browse profiles, save the people you want to come back to, and write.',
+      plans: membership,
+    },
+    {
+      key: 'listing' as const,
+      title: 'Sponsor a listing',
+      blurb: 'Pay for someone inside to have a profile. Pick the person, then the tier.',
+      plans: listing,
+    },
+  ].filter((section) => section.plans.length > 0);
+
+  // With only one kind on the page the headings add nothing.
+  const showSectionHeadings = sections.length > 1;
 
   const subscribe = (plan: Plan) => {
     const origin = window.location.origin;
@@ -94,18 +124,41 @@ export function Plans() {
 
       {plans && plans.length > 0 ? (
         <>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                busy={createCheckout.isPending && createCheckout.variables?.planId === plan.id}
-                disabled={createCheckout.isPending}
-                onSubscribe={() => subscribe(plan)}
-              />
-            ))}
-          </div>
-          <p className="mt-6 text-center text-[13px] text-ink-faint">{renewalNotice(plans)}</p>
+          {sections.map((section) => (
+            <section key={section.key} className={section.key === 'listing' ? 'mt-10' : undefined}>
+              {showSectionHeadings ? (
+                <div className="mb-4">
+                  <h2 className="font-[family-name:var(--font-bree)] text-xl text-ink">
+                    {section.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-soft">{section.blurb}</p>
+                </div>
+              ) : null}
+
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {section.plans.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    busy={createCheckout.isPending && createCheckout.variables?.planId === plan.id}
+                    disabled={createCheckout.isPending}
+                    // A listing plan needs a person before it can be paid for,
+                    // so these lead to choosing one rather than to checkout.
+                    ctaLabel={section.key === 'listing' && !forProfileId ? 'Choose who to sponsor' : undefined}
+                    onSubscribe={
+                      section.key === 'listing' && !forProfileId
+                        ? () => router.push('/browse')
+                        : () => subscribe(plan)
+                    }
+                  />
+                ))}
+              </div>
+
+              <p className="mt-6 text-center text-[13px] text-ink-faint">
+                {renewalNotice(section.plans)}
+              </p>
+            </section>
+          ))}
         </>
       ) : null}
 
@@ -125,11 +178,14 @@ function PlanCard({
   busy,
   disabled,
   onSubscribe,
+  ctaLabel,
 }: {
   plan: Plan;
   busy: boolean;
   disabled: boolean;
   onSubscribe: () => void;
+  /** Overrides the default "Choose <plan>" when the button does something else. */
+  ctaLabel?: string;
 }) {
   const { amount, interval } = priceParts(plan);
   const featured = isFeatured(plan);
@@ -178,7 +234,7 @@ function PlanCard({
           disabled={disabled}
         >
           {busy ? <Spinner size="sm" className={featured ? 'border-white/40 border-t-white' : ''} /> : null}
-          Choose {plan.name}
+          {ctaLabel ?? `Choose ${plan.name}`}
         </Button>
       </div>
     </article>
