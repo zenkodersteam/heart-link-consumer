@@ -38,9 +38,6 @@ export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((item) => isBuilt(item.
  */
 export const TAB_ITEMS = NAV_ITEMS.filter((item) => item.key !== 'account');
 
-/** The top bar drops Account too — the avatar on its right is that door. */
-export const TOP_NAV_ITEMS = NAV_ITEMS.filter((item) => item.key !== 'account');
-
 export function isActive(pathname: string, item: NavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
