@@ -1,0 +1,101 @@
+'use client';
+
+import { formatReleaseMonth, stateName, type PublicProfileSummary } from '@heartlink/consumer-api';
+import { BadgeCheck, Calendar, Heart, Landmark, Mail } from 'lucide-react';
+
+import { ProfilePhoto } from '@/components/profiles/profile-photo';
+import { cn } from '@/lib/utils';
+
+/**
+ * One card in the deck: photo above, details below, as the client screens draw
+ * it.
+ *
+ * The rows underneath are only rendered when the API has something to put in
+ * them. A card with an empty "Release:" line reads as broken, and these
+ * profiles come from scanned paper applications where any given field may
+ * simply not have been filled in.
+ */
+export function DeckCard({
+  profile,
+  releaseDate,
+  saved,
+  onToggleSave,
+  interactive = true,
+}: {
+  profile: PublicProfileSummary;
+  /**
+   * Only the detail endpoint carries a release date, so the deck fetches it for
+   * the card on top and leaves the ones behind without. The row is hidden
+   * rather than blank when it is missing.
+   */
+  releaseDate?: string | null;
+  saved?: boolean;
+  onToggleSave?: () => void;
+  /** False for the cards stacked behind, which are decoration and must not
+   *  take a tap meant for the card on top. */
+  interactive?: boolean;
+}) {
+  const place = stateName(profile.facility?.state);
+  const release = releaseDate ? formatReleaseMonth(releaseDate) : null;
+
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-[20px] bg-surface-elevated shadow-[0_18px_40px_rgba(46,18,64,0.16)]">
+      <div className="relative aspect-[4/3] shrink-0">
+        <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
+
+        {onToggleSave ? (
+          <button
+            type="button"
+            aria-label={saved ? 'Remove from Liked' : 'Save to Liked'}
+            aria-pressed={saved}
+            tabIndex={interactive ? 0 : -1}
+            onClick={onToggleSave}
+            className="absolute right-3.5 top-3.5 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-105 active:scale-95"
+          >
+            <Heart className={cn('size-[18px]', saved ? 'fill-primary text-primary' : 'text-gold')} />
+          </button>
+        ) : null}
+
+        {profile.isVerified ? (
+          <span className="absolute bottom-3.5 left-3.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink shadow-sm">
+            <BadgeCheck className="size-3.5 text-sidebar" />
+            Verified Profile
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-5 py-4">
+        <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-[22px] leading-none text-ink">
+          <span className="truncate">{profile.displayName}</span>
+          {profile.age != null ? (
+            <span className="shrink-0 text-[17px] text-ink-soft">{profile.age}</span>
+          ) : null}
+          {profile.isVerified ? (
+            <BadgeCheck className="size-[18px] shrink-0 fill-sidebar text-white" />
+          ) : null}
+        </h2>
+
+        {place ? (
+          <p className="flex items-center gap-2 text-[13px] text-ink-soft">
+            <Landmark className="size-3.5 shrink-0 text-ink-faint" />
+            <span className="truncate">{place}</span>
+          </p>
+        ) : null}
+
+        {profile.bioExcerpt ? (
+          <p className="flex items-start gap-2 text-[13px] leading-[1.5] text-ink-soft">
+            <Mail className="mt-0.5 size-3.5 shrink-0 text-ink-faint" />
+            <span className="line-clamp-2">{profile.bioExcerpt}</span>
+          </p>
+        ) : null}
+
+        {release ? (
+          <p className="flex items-center gap-2 text-[13px] text-ink-soft">
+            <Calendar className="size-3.5 shrink-0 text-ink-faint" />
+            Release: {release}
+          </p>
+        ) : null}
+      </div>
+    </article>
+  );
+}

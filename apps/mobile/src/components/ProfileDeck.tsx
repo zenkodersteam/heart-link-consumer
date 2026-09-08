@@ -382,10 +382,6 @@ function DeckCard({
         />
         </View>
 
-        {/* Midnight tint, so the photo set reads as one. The bottom scrim went
-            with the overlay it used to carry. */}
-        <View style={styles.photoTint} pointerEvents="none" />
-
         {/* Was shown on whichever card happened to be on top, regardless of
             whether an identity check had ever been done. */}
         {front && profile.isVerified ? (
@@ -426,7 +422,10 @@ function DeckCard({
           </View>
 
           <View style={styles.locationRow}>
-            <Feather name="home" size={13} color={colors.textMuted} />
+            {/* A pin, not a house. The screens draw a building here beside the
+                facility's name; we are only allowed to show the state, and a
+                pin says "where" without implying a building we do not name. */}
+            <Feather name="map-pin" size={13} color={colors.textMuted} />
             <Text style={styles.state}>{stateName(profile.facility.state)}</Text>
           </View>
 
@@ -592,7 +591,6 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 8px rgba(22, 5, 31, 0.20)',
   },
   verifiedBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.textPrimary },
-  photoTint: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.photoTint },
   body: { padding: spacing.lg, gap: 7, backgroundColor: colors.bgCard },
   factRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   // Nudged onto the first line rather than centred on a wrapped block.

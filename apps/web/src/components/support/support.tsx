@@ -72,7 +72,7 @@ export function Support() {
           </h1>
           <p className="mt-1.5 text-sm text-sidebar-text/80">Real people, within 24 hours.</p>
 
-          <label className="mx-auto mt-6 flex max-w-md items-center gap-2 rounded-[--radius-pill] bg-surface-elevated py-1 pl-4 pr-1">
+          <label className="mx-auto mt-6 flex max-w-md items-center gap-2 rounded-pill bg-surface-elevated py-1 pl-4 pr-1">
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -90,11 +90,11 @@ export function Support() {
       {query.trim() ? (
         <div className="mt-7">
           {matches.length === 0 ? (
-            <p className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center text-sm text-ink-soft">
+            <p className="rounded-card border border-line bg-surface-elevated p-8 text-center text-sm text-ink-soft">
               No answers match &ldquo;{query.trim()}&rdquo;. Try fewer words, or contact support.
             </p>
           ) : (
-            <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+            <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
               {matches.map(({ topic: match, faq }) => (
                 <li key={match.key + faq.q}>
                   <button
@@ -122,7 +122,7 @@ export function Support() {
                 <Link
                   key={candidate.key}
                   href={`/support?topic=${candidate.key}`}
-                  className="rounded-[--radius-card] border border-line bg-surface-elevated p-5 shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]"
+                  className="rounded-card border border-line bg-surface-elevated p-5 shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]"
                 >
                   <span className="grid size-11 place-items-center rounded-full border border-gold bg-gold-faint">
                     <Icon className="size-5 text-gold" />
@@ -141,7 +141,7 @@ export function Support() {
           <h2 className="mb-3 mt-9 font-[family-name:var(--font-bree)] text-xl text-ink">
             Popular questions
           </h2>
-          <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+          <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
             {POPULAR_QUESTIONS.map((popular) => (
               <li key={popular.q}>
                 <Link
@@ -189,7 +189,7 @@ function TopicPage({ topic }: { topic: SupportTopic }) {
       <h1 className="mt-4 font-[family-name:var(--font-bree)] text-3xl text-ink">{topic.title}</h1>
       <p className="mt-1.5 text-sm text-ink-soft">{topic.blurb}</p>
 
-      <div className="mt-7 overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <div className="mt-7 overflow-hidden rounded-card border border-line bg-surface-elevated">
         {topic.faqs.map((faq, index) => {
           const isOpen = open === index;
           return (
@@ -238,7 +238,7 @@ function StillStuck({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 rounded-[--radius-card] border border-line bg-surface-elevated p-5 sm:flex-row sm:items-center sm:justify-between',
+        'flex flex-col gap-4 rounded-card border border-line bg-surface-elevated p-5 sm:flex-row sm:items-center sm:justify-between',
         className,
       )}
     >

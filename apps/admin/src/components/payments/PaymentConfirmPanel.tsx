@@ -36,6 +36,12 @@ export function PaymentConfirmPanel({ payment }: { payment: PaymentDetail }) {
           purpose,
           notes: notes.trim() || undefined,
         });
+        // Confirming sends us back to the queue, where the payment has simply
+        // left the list. Say what happened, and to what, before the row goes.
+        toast.success('Payment confirmed', {
+          description:
+            PURPOSE_OPTIONS.find((o) => o.value === purpose)?.label ?? 'Recorded',
+        });
       } catch (err) {
         if (isRedirectError(err)) throw err;
         toast.error(

@@ -80,7 +80,7 @@ export function Plans() {
       {isPending ? <PageSpinner label="Loading plans…" /> : null}
 
       {isError ? (
-        <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center">
+        <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
           <p className="text-sm text-ink-soft">
             {error instanceof Error
               ? error.message
@@ -110,7 +110,7 @@ export function Plans() {
       ) : null}
 
       {plans && plans.length === 0 && !isPending ? (
-        <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center">
+        <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
           <p className="text-sm text-ink-soft">
             There are no plans to show right now. Please check back shortly.
           </p>
@@ -137,7 +137,7 @@ function PlanCard({
   return (
     <article
       className={cn(
-        'flex flex-col overflow-hidden rounded-[--radius-card] border bg-surface-elevated',
+        'flex flex-col overflow-hidden rounded-card border bg-surface-elevated',
         featured
           ? 'border-primary shadow-cta-hover lg:-translate-y-2'
           : 'border-line shadow-[0_2px_12px_rgba(22,5,31,0.06)]',
@@ -151,7 +151,7 @@ function PlanCard({
       />
       <div className="flex flex-1 flex-col p-6">
         {featured ? (
-          <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-[--radius-pill] bg-primary-faint px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+          <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-pill bg-primary-faint px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
             <Sparkles className="size-3" /> Most popular
           </span>
         ) : null}
@@ -222,7 +222,7 @@ function CurrentPlan() {
   };
 
   return (
-    <div className="mb-7 rounded-[--radius-card] border border-line bg-surface-elevated p-5">
+    <div className="mb-7 rounded-card border border-line bg-surface-elevated p-5">
       <p className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-lg text-ink">
         <CheckCircle2 className="size-[18px] text-success" />
         {subscription.planName ?? 'Your plan'}

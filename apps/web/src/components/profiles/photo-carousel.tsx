@@ -80,7 +80,7 @@ export function PhotoCarousel({
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-midnight/75 to-transparent" />
 
       {verified ? (
-        <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-[--radius-pill] border border-gold-bright bg-midnight/55 px-3 py-1.5 text-xs font-semibold text-gold-bright backdrop-blur-sm">
+        <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-pill border border-gold-bright bg-midnight/55 px-3 py-1.5 text-xs font-semibold text-gold-bright backdrop-blur-sm">
           <ShieldCheck className="size-3.5" /> Verified profile
         </span>
       ) : null}

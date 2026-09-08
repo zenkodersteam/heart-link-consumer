@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -163,7 +163,7 @@ export default function LikedScreen() {
         <View style={!isList ? styles.titleBlockLeft : undefined}>
           <View style={[styles.headerRow, !isList ? styles.headerRowLeft : null]}>
             <Text style={styles.headingInline}>Liked or Saved Profiles</Text>
-            <Feather name="heart" size={20} color={colors.primary} />
+            <Ionicons name="heart" size={20} color={colors.primary} />
           </View>
           <Text style={[styles.sub, !isList ? styles.subLeft : null]}>Profiles you've liked or saved for later.</Text>
         </View>
@@ -236,7 +236,11 @@ export default function LikedScreen() {
         <View style={styles.list}>
           {sorted.map((p) => (
             <RemovableItem key={p.id} removing={removing.has(p.id)} onDone={() => finishRemove(p.id)}>
-              <ListRow profile={p} onOpen={() => router.push(`/(tabs)/profile?id=${p.id}`)} />
+              <ListRow
+                profile={p}
+                onOpen={() => router.push(`/(tabs)/profile?id=${p.id}`)}
+                onUnlike={() => beginRemove(p.id)}
+              />
             </RemovableItem>
           ))}
         </View>
@@ -250,6 +254,7 @@ export default function LikedScreen() {
                 onMessage={() =>
                   router.push(`/mailbox?compose=${p.id}&name=${encodeURIComponent(p.displayName)}`)
                 }
+                onUnlike={() => beginRemove(p.id)}
               />
             </RemovableItem>
           ))}
@@ -308,10 +313,12 @@ function WideCard({
   profile,
   onOpen,
   onMessage,
+  onUnlike,
 }: {
   profile: PublicProfileSummary;
   onOpen: () => void;
   onMessage: () => void;
+  onUnlike: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   // Only `state` exists on the summary; expand it so the card reads
@@ -356,6 +363,20 @@ function WideCard({
           <Button label="Write a letter" onPress={onMessage} />
         </View>
       </View>
+
+      <Pressable
+        onPress={onUnlike}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${profile.displayName} from your liked profiles`}
+        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+          styles.cardHeartBtn,
+          hovered ? { backgroundColor: colors.primaryFaint } : null,
+          pressed ? { transform: [{ scale: 0.88 }] } : null,
+        ]}
+      >
+        <Ionicons name="heart" size={20} color={colors.primary} />
+      </Pressable>
     </View>
   );
 }
@@ -401,9 +422,11 @@ function GridCard({
 function ListRow({
   profile,
   onOpen,
+  onUnlike,
 }: {
   profile: PublicProfileSummary;
   onOpen: () => void;
+  onUnlike: () => void;
 }) {
   return (
     <Pressable
@@ -421,7 +444,22 @@ function ListRow({
         <NameRow profile={profile} />
         <Text style={styles.facility} numberOfLines={1}>{profile.facility.state ?? ''}</Text>
       </View>
-      <Feather name="heart" size={18} color={colors.gold} style={styles.rowHeart} />
+      {/* Filled, not an outline: everyone on this screen is already liked, and
+          an empty heart on a list of likes reads as "not liked". Tapping it
+          takes them off the list. */}
+      <Pressable
+        onPress={onUnlike}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${profile.displayName} from your liked profiles`}
+        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+          styles.heartBtn,
+          hovered ? { backgroundColor: colors.primaryFaint } : null,
+          pressed ? { transform: [{ scale: 0.88 }] } : null,
+        ]}
+      >
+        <Ionicons name="heart" size={20} color={colors.primary} />
+      </Pressable>
       <Feather name="chevron-right" size={20} color={colors.textMuted} />
     </Pressable>
   );
@@ -439,7 +477,26 @@ const styles = StyleSheet.create({
   // flexShrink so the longer title wraps rather than clipping at the screen
   // edge, and sized to sit on one line at phone widths as the client sets it.
   headingInline: { ...type.h1, fontSize: 22, lineHeight: 28, textAlign: 'center', flexShrink: 1 },
-  rowHeart: { marginRight: 2 },
+  heartBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeartBtn: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: 34,
+    height: 34,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   sub: { ...type.bodyMuted, textAlign: 'center', marginBottom: spacing.lg },
   headerBar: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.lg, marginBottom: spacing.lg, zIndex: 20 },
   titleBlockLeft: { flexShrink: 1 },
@@ -540,7 +597,8 @@ const styles = StyleSheet.create({
   },
   photoCountText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.sidebarText },
   wideBody: { flex: 1, padding: spacing.xl, justifyContent: 'space-between', gap: spacing.lg },
-  wideTop: { gap: spacing.sm },
+  // Room on the right for the unlike control, which is pinned to the corner.
+  wideTop: { paddingRight: 40, gap: spacing.sm },
   wherePill: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   wideBio: { ...type.bodyMuted, fontSize: 14 },
   wideActions: { flexDirection: 'row', gap: spacing.md },

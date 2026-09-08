@@ -1,9 +1,10 @@
-import type { AuthUser } from '@heartlink/consumer-api';
+import type { AuthUser, SignInResult } from '@heartlink/consumer-api';
 import {
   endSession,
   refreshSession,
   requestSignInCode,
   setAccountPassword,
+  registerAccount,
   signInWithPassword as passwordSignIn,
   verifySignInCode,
 } from '@heartlink/consumer-api';
@@ -40,7 +41,12 @@ interface SessionValue {
   /** False until the stored token has been checked, so screens can hold. */
   isLoaded: boolean;
   requestCode: (email: string) => Promise<number>;
+  register: (email: string, password: string) => Promise<number>;
   signIn: (email: string, code: string) => Promise<{ created: boolean }>;
+  /** Verify a code without adopting the session — see the reset flow. */
+  verifyCodeOnly: (email: string, code: string) => Promise<SignInResult>;
+  adoptSession: (result: SignInResult) => Promise<void>;
+  setPasswordWithToken: (accessToken: string, password: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   setPassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -142,6 +148,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return result.expiresInMinutes;
   }, []);
 
+  const register = useCallback(async (email: string, password: string) => {
+    const result = await registerAccount(API_BASE_URL, { email, password });
+    return result.expiresInMinutes;
+  }, []);
+
   const signIn = useCallback(
     async (email: string, code: string) => {
       const result = await verifySignInCode(API_BASE_URL, { email, code });
@@ -150,6 +161,37 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return { created: result.created };
     },
     [store],
+  );
+
+  /**
+   * Verify a code and hand back the session WITHOUT adopting it.
+   *
+   * Resetting a password needs the token a code buys, but not yet the signed-in
+   * state: the auth group redirects to the app the moment `isSignedIn` flips,
+   * which would carry someone out of the reset before they had chosen the new
+   * password. So the caller holds the result, sets the password with it, and
+   * calls `adoptSession` once that has worked.
+   */
+  const verifyCodeOnly = useCallback(
+    async (email: string, code: string) => verifySignInCode(API_BASE_URL, { email, code }),
+    [],
+  );
+
+  /** Take up a session that was verified earlier and deliberately held back. */
+  const adoptSession = useCallback(
+    async (result: SignInResult) => {
+      await store(result);
+      setUser(result.user);
+    },
+    [store],
+  );
+
+  /** Set a password using a token that has not been adopted as the session yet. */
+  const setPasswordWithToken = useCallback(
+    async (accessToken: string, password: string) => {
+      await setAccountPassword(API_BASE_URL, accessToken, { password });
+    },
+    [],
   );
 
   const signInWithPassword = useCallback(
@@ -190,12 +232,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isSignedIn,
       isLoaded,
       requestCode,
+      register,
       signIn,
+      verifyCodeOnly,
+      adoptSession,
+      setPasswordWithToken,
       signInWithPassword,
       setPassword,
       signOut,
     }),
-    [getToken, user, isSignedIn, isLoaded, requestCode, signIn, signInWithPassword, setPassword, signOut],
+    [
+      getToken,
+      user,
+      isSignedIn,
+      isLoaded,
+      requestCode,
+      register,
+      signIn,
+      verifyCodeOnly,
+      adoptSession,
+      setPasswordWithToken,
+      signInWithPassword,
+      setPassword,
+      signOut,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

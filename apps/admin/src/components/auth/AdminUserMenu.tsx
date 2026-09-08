@@ -28,10 +28,19 @@ export function AdminUserMenu({
     router.refresh();
   }
 
+  const label = displayName ?? email;
+
   return (
     <div className="hl-userchip">
+      {/* The initial gives the block an anchor on the left, so the name and role
+          read as one account rather than two loose lines of text. */}
+      <span className="hl-userchip__avatar" aria-hidden>
+        {label.charAt(0).toUpperCase()}
+      </span>
       <div className="hl-userchip__who">
-        <span className="hl-userchip__name">{displayName ?? email}</span>
+        <span className="hl-userchip__name" title={label}>
+          {label}
+        </span>
         <span className="hl-userchip__role">{role.replace(/_/g, ' ')}</span>
       </div>
       <button

@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { OutsideProfileStatus } from '@heartlink/consumer-api';
@@ -134,14 +134,18 @@ export function ProfileReviewOverlay({ status, moderationNotes, onEditProfile, o
             </View>
           ) : null}
 
+          {/* Dots and labels are two rows rather than a column each. Giving
+              every step an equal column left the last one a third of the width
+              with only its dot in it, so the track stopped short and the
+              right-hand side sat empty. The bars absorb the space instead. */}
           <View style={styles.track}>
-            {STEPS.map((label, i) => {
-              const done = i < copy.step;
-              const active = i === copy.step;
-              const tint = done || active ? copy.accent : colors.borderStrong;
-              return (
-                <View key={label} style={styles.trackItem}>
-                  <View style={styles.trackRow}>
+            <View style={styles.trackRow}>
+              {STEPS.map((label, i) => {
+                const done = i < copy.step;
+                const active = i === copy.step;
+                const tint = done || active ? copy.accent : colors.borderStrong;
+                return (
+                  <Fragment key={label}>
                     <View
                       style={[
                         styles.dot,
@@ -151,14 +155,30 @@ export function ProfileReviewOverlay({ status, moderationNotes, onEditProfile, o
                       {done ? <Feather name="check" size={10} color={colors.onPrimary} /> : null}
                       {active ? <View style={[styles.dotCore, { backgroundColor: tint }]} /> : null}
                     </View>
-                    {i < STEPS.length - 1 ? <View style={[styles.bar, { backgroundColor: i < copy.step ? copy.accent : colors.border }]} /> : null}
-                  </View>
-                  <Text style={[styles.trackLabel, (done || active) && { color: colors.textPrimary, fontFamily: fonts.bodySemibold }]}>
-                    {label}
-                  </Text>
-                </View>
-              );
-            })}
+                    {i < STEPS.length - 1 ? (
+                      <View style={[styles.bar, { backgroundColor: i < copy.step ? copy.accent : colors.border }]} />
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </View>
+
+            <View style={styles.trackLabels}>
+              {STEPS.map((label, i) => (
+                <Text
+                  key={label}
+                  style={[
+                    styles.trackLabel,
+                    {
+                      textAlign: i === 0 ? 'left' : i === STEPS.length - 1 ? 'right' : 'center',
+                    },
+                    i <= copy.step && { color: colors.textPrimary, fontFamily: fonts.bodySemibold },
+                  ]}
+                >
+                  {label}
+                </Text>
+              ))}
+            </View>
           </View>
 
           <View style={styles.actions}>
@@ -228,13 +248,21 @@ const styles = StyleSheet.create({
   notesLabel: { fontFamily: fonts.bodySemibold, fontSize: 12, color: colors.danger, letterSpacing: 0.3 },
   notesBody: { ...type.body, fontSize: 14 },
 
-  track: { flexDirection: 'row', alignSelf: 'stretch', marginTop: spacing.xl, marginBottom: spacing.lg },
-  trackItem: { flex: 1 },
+  // Inset from the card's own padding so the outer dots do not sit hard
+  // against the edge, and the track reads as narrower than the text above it.
+  track: {
+    alignSelf: 'stretch',
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.md,
+  },
   trackRow: { flexDirection: 'row', alignItems: 'center' },
+  trackLabels: { flexDirection: 'row', marginTop: spacing.xs },
   dot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   dotCore: { width: 6, height: 6, borderRadius: 3 },
-  bar: { flex: 1, height: 2, marginHorizontal: spacing.xs, borderRadius: 1 },
-  trackLabel: { ...type.caption, marginTop: spacing.xs },
+  bar: { flex: 1, height: 2, marginHorizontal: spacing.sm, borderRadius: 1 },
+  // Equal columns, so each label sits under its own dot.
+  trackLabel: { ...type.caption, flex: 1 },
 
   actions: { alignSelf: 'stretch', gap: spacing.sm },
   footnote: { ...type.caption, textAlign: 'center', marginTop: spacing.md },

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { Inter, Bree_Serif } from 'next/font/google';
-import { Toaster } from 'sonner';
+
 
 import { SessionProvider } from '@/components/auth/session-provider';
+import { Toaster } from '@/components/ui/toaster';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { hasSessionCookie } from '@/lib/session';
 import './globals.css';
@@ -38,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SessionProvider hasSession={hasSession}>
           <QueryProvider>{children}</QueryProvider>
         </SessionProvider>
-        <Toaster position="top-center" richColors />
+        <Toaster />
       </body>
     </html>
   );

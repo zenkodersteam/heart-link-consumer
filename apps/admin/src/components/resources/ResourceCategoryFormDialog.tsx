@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import {useState, useTransition} from 'react';
 import { toast } from 'sonner';
 import type { AdminResourceCategory } from '@heartlink/api-contract';
 import {
@@ -58,9 +58,18 @@ export function ResourceCategoryFormDialog({ mode, category, trigger }: Props) {
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState<FormState>(category ? fromCategory(category) : EMPTY);
 
-  useEffect(() => {
-    if (open) setForm(category ? fromCategory(category) : EMPTY);
-  }, [open, category]);
+  /**
+   * Opening the dialog starts from the record again.
+   *
+   * Done in the handler rather than an effect keyed on `open`: the effect
+   * version rendered the dialog once with the previous edit still in it,
+   * then re-rendered with the reset values — a visible flash of stale
+   * input on every open, and a second render for nothing.
+   */
+  const onOpenChange = (next: boolean) => {
+    if (next) setForm(category ? fromCategory(category) : EMPTY);
+    setOpen(next);
+  };
 
   const onSubmit = () => {
     if (form.slug.trim().length === 0) {
@@ -103,8 +112,8 @@ export function ResourceCategoryFormDialog({ mode, category, trigger }: Props) {
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <span onClick={() => onOpenChange(true)}>{trigger}</span>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{mode === 'create' ? 'Add Category' : 'Edit Category'}</DialogTitle>

@@ -670,94 +670,151 @@ body {
  * of overrides fighting a third-party widget's own stylesheet, including a rule
  * to stop its code step drawing a full-width input across the six boxes.
  */
-.hl-auth__form {
-  width: 100%;
-  margin-top: 1.75rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 1.35rem;
-  background: #ffffff;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
-}
-
-.hl-auth__label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #8c769a;
-}
-
-.hl-auth__input {
-  width: 100%;
-  padding: 0.85rem 1rem;
-  border: 1px solid #e4d5eb;
-  border-radius: 0.75rem;
-  background: #ffffff;
-  color: #2e1240;
-  font-size: 0.95rem;
-}
-
-.hl-auth__input:focus {
-  outline: none;
-  border-color: #db0252;
-}
-
-/* Six boxes drawn from one real input, so paste and autofill still work. */
-.hl-otp {
+/**
+ * The sign-in card.
+ *
+ * Rewritten because the old one had no rhythm: the label of one field sat hard
+ * against the input of the last, so the two questions read as one block, and
+ * the reveal was a word floating inside the field rather than a control.
+ */
+.hl-auth__form-card {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  padding: 1.75rem;
+  border: 1px solid var(--auth-hairline);
+  border-radius: 1.25rem;
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgba(46, 18, 64, 0.10);
+}
+
+/* Label and control are one unit; the gap above separates the units. */
+.hl-auth__field {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-.hl-otp__box {
-  position: relative;
+.hl-auth__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.hl-auth__control {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 3.4rem;
-  border: 1px solid #e4d5eb;
-  border-radius: 0.75rem;
+  gap: 0.6rem;
+  padding: 0 0.9rem;
+  border: 1px solid var(--auth-hairline);
+  border-radius: 0.85rem;
   background: #ffffff;
-  font-family: var(--font-bree-serif), Georgia, serif;
-  font-size: 1.5rem;
-  color: #2e1240;
   transition:
     border-color 140ms ease,
     box-shadow 140ms ease;
 }
 
-.hl-otp__box--active {
-  z-index: 1;
-  border-color: #db0252;
-  box-shadow: 0 0 0 3px rgba(219, 2, 82, 0.18);
+.hl-auth__control:focus-within {
+  border-color: var(--auth-pink);
+  box-shadow: 0 0 0 3px rgba(219, 2, 82, 0.14);
 }
 
-.hl-otp__box--invalid {
+.hl-auth__control--invalid {
   border-color: #d64550;
 }
 
-/* The real input is transparent, so the active box needs a caret of its own. */
-.hl-otp__caret {
-  position: absolute;
-  width: 1px;
-  height: 1.7rem;
-  background: #2e1240;
-  animation: hl-caret-blink 1.25s ease-out infinite;
+.hl-auth__control-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
 }
 
-@keyframes hl-caret-blink {
-  0%,
-  70% {
-    opacity: 1;
-  }
-  71%,
-  100% {
-    opacity: 0;
-  }
+.hl-auth__control input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.85rem 0;
+  border: 0;
+  background: none;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.hl-auth__control input:focus {
+  outline: none;
+}
+
+/* A control, not a word: same footprint as the icon on the other side. */
+.hl-auth__reveal {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.hl-auth__reveal:hover {
+  background: var(--color-canvas);
+  color: var(--auth-pink);
+}
+
+.hl-auth__reveal svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.hl-auth__submit {
+  margin-top: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--auth-pink);
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(219, 2, 82, 0.24);
+  transition:
+    background-color 140ms ease,
+    transform 140ms ease;
+}
+
+.hl-auth__submit:hover:not(:disabled) {
+  background: var(--auth-pink-hover);
+  transform: translateY(-1px);
+}
+
+.hl-auth__submit:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+  cursor: default;
+}
+
+.hl-auth__help {
+  margin: 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+.hl-auth__notice {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--auth-gold);
+  border-radius: 0.75rem;
+  background: rgba(201, 145, 46, 0.12);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 .hl-auth__submit {
@@ -820,54 +877,103 @@ body {
 }
 
 /* The signed-in member of staff, in the shell's corner. */
+/* --------------------------------------------------------------------------
+   The signed-in member of staff.
+
+   The variable names here used to be `--text`, `--text-muted` and `--border`,
+   none of which this app defines — every one silently fell back to a hardcoded
+   literal, and the border fallback was a lilac that belongs to no palette we
+   use. They are the real `--color-*` tokens now, so this block follows the
+   theme like everything else.
+   -------------------------------------------------------------------------- */
 .hl-userchip {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
+}
+
+.hl-userchip__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .hl-userchip__who {
   display: flex;
   flex-direction: column;
+  gap: 0.05rem;
   min-width: 0;
+  /* Long addresses truncate rather than stretching the header. */
+  max-width: 13rem;
 }
 
 .hl-userchip__name {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  color: var(--text, #2e1240);
+  line-height: 1.2;
+  color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .hl-userchip__role {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
   text-transform: capitalize;
-  color: var(--text-muted, #6e5c80);
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
 }
 
 .hl-userchip__out {
-  padding: 0.4rem 0.8rem;
-  border: 1px solid var(--border, #e4d5eb);
+  flex: none;
+  padding: 0.38rem 0.75rem;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
-  background: none;
-  color: var(--text-muted, #6e5c80);
-  font-size: 0.78rem;
+  background: var(--color-canvas);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
 
 .hl-userchip__out:hover:not(:disabled) {
-  border-color: #db0252;
-  color: #db0252;
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+  color: var(--color-primary);
 }
 
+.hl-userchip__out:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The halo was the dark brand ground, from when this panel was near-black. On
+   the light card it drew as a stray black rectangle around whatever had focus,
+   so it is white now — the colour of what is actually behind it. */
 .hl-auth :focus-visible {
   outline: none;
   border-radius: 0.75rem;
-  box-shadow: 0 0 0 2px var(--auth-ground), 0 0 0 4px var(--auth-pink);
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px var(--auth-pink);
+}
+
+/* A field already shows focus as a ring around the whole control, icon and
+   all. The input inside it must not draw a second one within the first. */
+.hl-auth__control :focus-visible {
+  border-radius: 0;
+  box-shadow: none;
 }
 
 @media (max-width: 900px) {
@@ -939,4 +1045,59 @@ body {
   .hl-auth__primary:hover {
     transform: none;
   }
+}
+
+
+/* --------------------------------------------------------------------------
+   Toasts
+   Sonner's own palette is a different product's voice, so `richColors` is off
+   and these are painted in the brand instead: warm paper, a coloured left edge
+   that says what kind of message it is before the words do, and the icon tinted
+   to match. The edge and the icon together, rather than colour alone, so the
+   distinction survives not being able to tell the two colours apart.
+   -------------------------------------------------------------------------- */
+
+.hl-toast {
+  background: var(--color-background) !important;
+  border: 1px solid var(--color-border) !important;
+  border-left-width: 4px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(46, 18, 64, 0.18) !important;
+  color: var(--color-text) !important;
+  font-family: inherit !important;
+}
+
+.hl-toast [data-title] {
+  color: var(--color-text) !important;
+  font-weight: 600 !important;
+}
+
+.hl-toast [data-description] {
+  color: var(--color-text-muted) !important;
+}
+
+.hl-toast[data-type='success'] {
+  border-left-color: var(--color-success) !important;
+}
+
+.hl-toast[data-type='success'] [data-icon] {
+  color: var(--color-success) !important;
+}
+
+.hl-toast[data-type='error'] {
+  border-left-color: var(--color-danger) !important;
+}
+
+.hl-toast[data-type='error'] [data-icon] {
+  color: var(--color-danger) !important;
+}
+
+.hl-toast[data-type='info'],
+.hl-toast[data-type='warning'] {
+  border-left-color: var(--color-accent-gold) !important;
+}
+
+.hl-toast[data-type='info'] [data-icon],
+.hl-toast[data-type='warning'] [data-icon] {
+  color: var(--color-accent-gold) !important;
 }

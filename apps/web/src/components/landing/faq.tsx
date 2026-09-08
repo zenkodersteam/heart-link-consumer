@@ -12,7 +12,7 @@ export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <div className="divide-y divide-line overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+    <div className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface-elevated">
       {FAQS.map((faq, i) => {
         const isOpen = open === i;
         return (

@@ -25,6 +25,7 @@ export function LetterComposer({
   tall,
   disabled,
   disabledReason,
+  salutation,
 }: {
   placeholder: string;
   limit: LetterLengthLimit | null | undefined;
@@ -32,6 +33,12 @@ export function LetterComposer({
   tall?: boolean;
   disabled?: boolean;
   disabledReason?: string;
+  /**
+   * Drawn above the box, not typed into it: someone writing their first letter
+   * starts on the second line the way they would on paper. It is not part of
+   * the body that gets sent.
+   */
+  salutation?: string;
 }) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
@@ -52,7 +59,10 @@ export function LetterComposer({
   }
 
   return (
-    <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-3">
+    <div className="rounded-card border border-line bg-surface-elevated p-3">
+      {salutation ? (
+        <p className="px-2 pt-1 text-[15px] leading-7 text-ink">{salutation}</p>
+      ) : null}
       <textarea
         value={body}
         onChange={(event) => setBody(event.target.value)}
@@ -69,7 +79,9 @@ export function LetterComposer({
           tall ? 'min-h-[38dvh]' : 'min-h-28',
         )}
       />
-      <div className="flex items-center justify-between gap-3 px-2 pt-1">
+      {/* The count and the way to send share one row above a rule, so the box
+          reads as a sheet with a footer rather than a field with strays. */}
+      <div className="mt-1 flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
         <span
           className={cn('text-xs', overLimit ? 'font-semibold text-danger' : 'text-ink-faint')}
         >

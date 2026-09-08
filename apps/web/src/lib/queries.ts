@@ -19,7 +19,9 @@ import type {
   MySubscription,
   OutsideUserProfile,
   PublicProfileDetail,
+  RecordSwipeResponse,
   ReportReason,
+  SwipeAction,
   UpdateOutsideProfileInput,
   BlockedProfile,
   ListResourcesQuery,
@@ -440,5 +442,28 @@ export function useDeleteAccount() {
   const factory = useApiFactory();
   return useMutation({
     mutationFn: async () => (await factory()).deleteAccount(),
+  });
+}
+
+/**
+ * Record a deck action.
+ *
+ * The server persists it so the browse query stops returning that profile —
+ * which is also why Second Look is a `second_look` action rather than a purely
+ * local undo: it removes the row, so the person comes back on the next fetch
+ * for every device, not just this one.
+ */
+export function useRecordSwipe() {
+  const factory = useApiFactory();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: SwipeAction }) =>
+      (await factory()).recordSwipe(id, action) as Promise<RecordSwipeResponse>,
+    onSuccess: (_result, { action }) => {
+      // A like lands in Liked, and a second look changes what browse returns.
+      if (action === 'like') void queryClient.invalidateQueries({ queryKey: qk.saved() });
+      if (action === 'second_look') void queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
   });
 }

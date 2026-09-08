@@ -10,3 +10,8 @@ out/
 
 # TypeScript incremental build state — churns on every build
 *.tsbuildinfo
+
+# The Android native project is generated, not committed - `npm run android`,
+# `npm run apk` and every EAS build run prebuild first. iOS is committed because
+# its project carries hand-made state (signing, Pods); Android's does not.
+apps/mobile/android/

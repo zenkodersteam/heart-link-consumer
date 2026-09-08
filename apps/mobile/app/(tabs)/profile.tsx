@@ -1,10 +1,11 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -83,6 +84,26 @@ export default function ProfileDetailScreen() {
   const [blockOpen, setBlockOpen] = useState(false);
   const [safetyBusy, setSafetyBusy] = useState(false);
   const [safetyNote, setSafetyNote] = useState<string | null>(null);
+
+  /**
+   * Leaving the profile the way a phone does it.
+   *
+   * This screen is a tab route under a `Slot`, not a pushed native stack, so
+   * the platform's own back gesture never reaches it — with the back control
+   * gone from the photo, this is what replaces it. The system back button and
+   * the browser's own back still work as they did.
+   */
+  const edgeSwipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, g) =>
+          g.dx > 12 && Math.abs(g.dy) < 12 && g.moveX - g.dx < 44,
+        onPanResponderRelease: (_evt, g) => {
+          if (g.dx > 80 || g.vx > 0.4) router.back();
+        },
+      }),
+    [router],
+  );
 
   const submitReport = useCallback(
     (reason: 'inappropriate_content' | 'fake_identity' | 'policy_violation') => {
@@ -261,19 +282,10 @@ export default function ProfileDetailScreen() {
       />
       {/* Controls sit on the photo, the way a phone app puts them, instead of
           a text link in the page flow above it. */}
+      {/* No back control here: leaving is a swipe from the left edge or the
+          system back button, the way a phone does it. The overflow keeps the
+          corner to itself. */}
       <View style={styles.photoTopBar}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          style={({ pressed }: { pressed: boolean }) => [
-            styles.roundBtn,
-            pressed ? { transform: [{ scale: 0.94 }] } : null,
-          ]}
-        >
-          <Feather name="chevron-left" size={20} color={colors.textPrimary} />
-        </Pressable>
         <Pressable
           ref={menuBtnRef}
           onPress={() => {
@@ -354,7 +366,7 @@ export default function ProfileDetailScreen() {
         onClose={() => setMenuOpen(false)}
         items={[
           {
-            label: saved ? 'Saved to Liked' : 'Save to Liked',
+            label: saved ? 'Remove from Liked' : 'Like',
             icon: 'heart',
             onPress: () => toggleSave(data.id),
           },
@@ -439,13 +451,53 @@ export default function ProfileDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
+    <SafeAreaView style={styles.safe} edges={[]} {...edgeSwipe.panHandlers}>
       <ScrollView contentContainerStyle={styles.mobileScroll} showsVerticalScrollIndicator={false}>
         {photoPane}
-        <View style={styles.mobileBody}>
+        {/* The words get their own paper, lifted over the photo — the same idea
+            the deck card uses. Before this the photo and the text met at a hard
+            horizontal line across the screen, which is what made the page read
+            as two slabs rather than one profile. */}
+        <View style={styles.mobileSheet}>
+          <View style={styles.sheetGrabber} />
           <EditorialColumn data={data} hideName />
         </View>
       </ScrollView>
+
+      {/* The two things anyone opens a profile to do. They were both inside the
+          "..." menu, so nothing on the screen was actionable. */}
+      <View style={styles.mobileActions}>
+        <View style={styles.mobileActionBtn}>
+          <Button
+            label={saved ? 'Liked' : 'Like'}
+            variant="secondary"
+            // Filled once liked, outline before: the icon says the state, so
+            // the word does not have to carry it alone.
+            icon={
+              <Ionicons
+                name={saved ? 'heart' : 'heart-outline'}
+                size={17}
+                color={saved ? colors.primary : colors.textSecondary}
+              />
+            }
+            onPress={() => toggleSave(data.id)}
+          />
+        </View>
+        {data.acceptsMail ? (
+          <View style={styles.mobileActionBtnWide}>
+            <Button
+              label={saved ? 'Write a letter' : 'Like first to write'}
+              disabled={!saved}
+              onPress={() =>
+                router.push(
+                  `/mailbox?compose=${data.id}&name=${encodeURIComponent(data.displayName)}`,
+                )
+              }
+            />
+          </View>
+        ) : null}
+      </View>
+
       {actionBar}
     </SafeAreaView>
   );
@@ -491,9 +543,13 @@ function EditorialColumn({ data, hideName }: { data: PublicProfileDetail; hideNa
           {data.age != null ? <Text style={styles.ag}>{data.age}</Text> : null}
         </View>
       )}
-      {data.bio ? <Text style={styles.prose}>{data.bio}</Text> : null}
-
+      {/* Facts before prose, the order the client's card uses. A full bio is
+          often several hundred words, and leading with it buried when someone
+          is coming home and whether they take mail — which is what most people
+          open a profile to find out — under a wall of text. */}
       <VitalsStrip releaseDate={release} state={stateName(data.facility.state)} acceptsMail={data.acceptsMail} />
+
+      {data.bio ? <Text style={styles.prose}>{data.bio}</Text> : null}
 
       {basics.length ? (
         <>
@@ -581,6 +637,9 @@ function Fallback({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** How far the detail sheet is lifted over the foot of the photo. */
+const SHEET_OVERLAP = 26;
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl },
@@ -600,7 +659,10 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    // `flex-end`, not `space-between`: the back control that used to hold the
+    // left of this row is gone, and space-between with one child parks it on
+    // the left.
+    justifyContent: 'flex-end',
     zIndex: 2,
   },
   roundBtn: {
@@ -611,10 +673,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(251,245,232,0.92)',
   },
-  photoIdentity: { position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.lg, gap: 3 },
+  // Clears SHEET_OVERLAP as well as its own margin: the sheet is lifted over
+  // the foot of the photo, and without this it cut the state line in half.
+  photoIdentity: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.lg + SHEET_OVERLAP,
+    gap: 3,
+  },
   // The thumbnail strip is pinned to the same corner, so with more than one
   // photo the name sat underneath it. Clear the strip (52px) plus a gap.
-  photoIdentityRaised: { bottom: spacing.lg + 18 },
+  photoIdentityRaised: { bottom: spacing.lg + SHEET_OVERLAP + 18 },
   photoName: { fontFamily: fonts.heading, fontSize: 26, color: '#FBF5E8' },
   photoAge: { fontFamily: fonts.heading, fontSize: 20, color: 'rgba(251,245,232,0.85)' },
   photoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -689,8 +759,41 @@ const styles = StyleSheet.create({
 
   bodyCol: { flex: 1, minWidth: 0 },
   bodyScroll: { paddingHorizontal: 40, paddingTop: 20, paddingBottom: 0, flexGrow: 1 },
-  mobileScroll: { paddingBottom: 90, flexGrow: 1, paddingTop: 0 },
+  mobileScroll: { paddingBottom: spacing.xl, flexGrow: 1, paddingTop: 0 },
   mobileBody: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  mobileSheet: {
+    marginTop: -SHEET_OVERLAP,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.bgDeep,
+  },
+  // A short bar at the top of the sheet, so the lift reads as deliberate.
+  sheetGrabber: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  mobileActions: {
+    flexDirection: 'row',
+    // Room between the two: at 8 they read as one segmented control, and the
+    // secondary button was easy to hit when reaching for the primary one.
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.bgElevated,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    // Lifts the bar off the page rather than drawing a hard line across it.
+    boxShadow: '0 -6px 20px rgba(46, 18, 64, 0.06)',
+  },
+  mobileActionBtn: { flex: 1 },
+  mobileActionBtnWide: { flex: 1.4 },
 
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingLeft: spacing.lg, alignSelf: 'flex-start', paddingHorizontal: Platform.select({ default: 0 }) },
   backLabel: { ...type.button, color: colors.primary, fontSize: 14 },

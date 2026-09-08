@@ -9,10 +9,11 @@ import { useFonts } from 'expo-font';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { BrandSplash, preloadBrandSplash } from '../src/components/BrandSplash';
 import { ToastProvider } from '../src/components/Toast';
 import { SessionProvider } from '../src/lib/session';
 import {
@@ -52,11 +53,28 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // Web has no native splash, so release it on the first frame; native waits for
-  // the fonts so the branded splash covers the swap.
+  // The in-app splash cannot cover the swap until it has the artwork, so the
+  // native one is held for that as well as for the fonts. A failed fetch still
+  // releases: a plain cream screen beats a launch that never finishes.
+  const [artworkLoaded, setArtworkLoaded] = useState(false);
   useEffect(() => {
-    if (fontsLoaded || Platform.OS === 'web') SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsLoaded]);
+    let live = true;
+    preloadBrandSplash()
+      .catch(() => undefined)
+      .finally(() => {
+        if (live) setArtworkLoaded(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Web has no native splash, so release it on the first frame; native waits so
+  // the branded splash covers the swap.
+  const ready = fontsLoaded && artworkLoaded;
+  useEffect(() => {
+    if (ready || Platform.OS === 'web') SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
 
 
   return (
@@ -72,8 +90,18 @@ export default function RootLayout() {
                 signed in, so the permission prompt arrives when there is
                 something to be notified about rather than on first launch. */}
             <PushRegistration />
-            <Slot />
+            {/* Nothing is drawn until the fonts are in.
+                Android measures a Text once, with whatever typeface is loaded
+                at that moment, and does not re-measure when the real font
+                arrives - so a tree laid out against the fallback keeps those
+                widths and renders Inter and Bree Serif inside them. That is
+                what was clipping the wordmark to "HeartLin" and ellipsising
+                buttons mid-word. iOS re-measures, which is why it only showed
+                on Android. The splash is up for this whole time anyway. */}
+            {fontsLoaded ? <Slot /> : null}
           </ToastProvider>
+          {/* Last child, so it covers the app rather than sitting under it. */}
+          <BrandSplash release={ready} />
         </View>
       </SessionProvider>
     </GestureHandlerRootView>

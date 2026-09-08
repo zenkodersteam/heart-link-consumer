@@ -1,31 +1,28 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Heart } from 'lucide-react';
 
-import { UserMenu } from '@/components/auth/user-menu';
 import { NAV_ITEMS, isActive } from '@/components/shell/nav-items';
 import { UnreadBadge, useUnreadCount } from '@/components/shell/unread-badge';
 import { cn } from '@/lib/utils';
 
-/** Midnight rail with a pink pill on the active item, as on the desktop app. */
+/**
+ * The deep purple rail down the left of every signed-in screen.
+ *
+ * Flat purple rather than the gradient it had, and the active item is a lighter
+ * purple block rather than a pink pill — the pink in these screens is spent on
+ * the top bar's underline and the Like button, and a pink block here competed
+ * with both. The gold-bordered motto sits at the foot, as drawn.
+ */
 export function Sidebar() {
   const pathname = usePathname();
   const unread = useUnreadCount();
 
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col bg-gradient-to-b from-[#1b0826] via-[#2e1240] to-[#3a1550] px-3.5 py-5 lg:flex">
-      <Link href="/browse" className="mb-6 flex items-center gap-2.5 px-3 pt-1.5">
-        <Image src="/heartlink-emblem.png" alt="" width={32} height={27} priority />
-        <span className="font-[family-name:var(--font-bree)] text-xl">
-          <span className="text-sidebar-text">Heart</span>
-          <span className="text-primary">Link</span>
-        </span>
-      </Link>
-
-      <nav className="flex flex-1 flex-col gap-0.5">
+    <aside className="hidden w-[214px] shrink-0 flex-col bg-sidebar px-3.5 py-6 lg:flex">
+      <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const active = isActive(pathname, item);
           const Icon = item.icon;
@@ -35,13 +32,12 @@ export function Sidebar() {
               href={item.href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'relative flex items-center gap-3 overflow-hidden rounded-xl px-3.5 py-3 text-[14.5px] font-semibold transition-colors',
+                'flex items-center gap-3 rounded-xl px-3.5 py-3 text-[14.5px] transition-colors',
                 active
-                  ? 'bg-gradient-to-r from-primary to-[#c81860] text-white'
-                  : 'text-sidebar-text/65 hover:bg-white/[0.06] hover:text-sidebar-text',
+                  ? 'bg-white/[0.09] font-semibold text-sidebar-text'
+                  : 'text-sidebar-text/80 hover:bg-white/[0.05] hover:text-sidebar-text',
               )}
             >
-              {active ? <span className="absolute inset-y-0 left-0 w-[3px] bg-white/70" /> : null}
               <Icon className="size-[19px] shrink-0" />
               {item.label}
               {item.key === 'mailbox' ? <UnreadBadge count={unread} /> : null}
@@ -50,18 +46,14 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="relative mt-4 flex flex-col items-center px-2.5 pb-1.5 pt-4">
-        <span className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-        <p className="text-center font-[family-name:var(--font-bree)] text-[15px] leading-6 text-gold">
+      {/* Gold-bordered motto at the foot, as the screens draw it. */}
+      <div className="mt-4 rounded-xl border border-gold/70 px-4 py-5 text-center">
+        <p className="font-[family-name:var(--font-bree)] text-[15px] leading-6 text-sidebar-text">
           Love Knows
           <br />
           No Bounds
         </p>
-        <Heart className="mt-1 size-3 text-gold/80" />
-      </div>
-
-      <div className="mt-4 flex justify-center border-t border-white/10 pt-4">
-        <UserMenu tone="dark" />
+        <Heart className="mx-auto mt-2 size-3.5 fill-gold text-gold" />
       </div>
     </aside>
   );

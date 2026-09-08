@@ -46,7 +46,7 @@ export function SettingsRow({
         {label}
       </span>
       {pending ? (
-        <span className="shrink-0 rounded-[--radius-pill] bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-ink-faint">
+        <span className="shrink-0 rounded-pill bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-ink-faint">
           Coming soon
         </span>
       ) : value ? (

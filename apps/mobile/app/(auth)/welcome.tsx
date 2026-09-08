@@ -24,10 +24,10 @@ import { colors, radii, spacing } from '../../src/theme';
  * store listing already does the selling; by the time someone has installed it,
  * scrolling a pitch is in the way of signing in.
  *
- * Both buttons lead to the same place. Sign-in is one OTP flow that creates the
- * account when the address is new, so "Create Account" and "Log In" are the same
- * door — they are drawn separately because someone arriving without an account
- * should not have to work out that "Log In" will take them.
+ * Both buttons lead to the same screen, which decides for itself whether an
+ * address opens an account or creates one. They differ only in the intent they
+ * carry: someone who pressed "Create Account" is choosing a password and should
+ * not be greeted with "Welcome back".
  */
 
 /** The shared promise vocabulary, drawn with this app's icon set. */
@@ -76,7 +76,7 @@ export default function WelcomeScreen() {
             label="Create Account"
             pill
             icon={<Feather name="user" size={17} color={colors.onPrimary} />}
-            onPress={() => router.push('/(auth)/sign-in')}
+            onPress={() => router.push('/(auth)/sign-in?intent=sign_up')}
           />
           <Button
             label="Log In"

@@ -60,7 +60,7 @@ export function ChipRow({ children }: { children: ReactNode }) {
 
 export function Chip({ label, icon: Icon }: { label: string; icon?: LucideIcon }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[--radius-pill] border border-gold/40 bg-surface-elevated px-3.5 py-2 text-[13px] text-ink">
+    <span className="inline-flex items-center gap-1.5 rounded-pill border border-gold/40 bg-surface-elevated px-3.5 py-2 text-[13px] text-ink">
       {Icon ? <Icon className="size-3.5 text-gold" /> : null}
       {label}
     </span>

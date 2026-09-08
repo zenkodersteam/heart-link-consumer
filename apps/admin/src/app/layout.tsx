@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Bree_Serif } from 'next/font/google';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/Toaster';
 import './globals.css';
 
 const inter = Inter({
@@ -31,7 +31,7 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${breeSerif.variable}`}>
       <body className="bg-canvas text-text font-sans">
         {children}
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster />
       </body>
     </html>
   );

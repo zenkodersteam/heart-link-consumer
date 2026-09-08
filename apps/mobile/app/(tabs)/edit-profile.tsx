@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { humanError } from '../../src/lib/errors';
+import { useToast } from '../../src/components/Toast';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, radii, spacing, type, inputReset } from '../../src/theme';
@@ -66,25 +67,23 @@ export default function EditProfileScreen() {
   const [editing, setEditing] = useState<FieldKey | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   function open(key: FieldKey) {
     setDraft((profile?.[key] as string | null) ?? '');
-    setError(null);
     setEditing(key);
   }
 
   async function save() {
     if (!editing) return;
     setSaving(true);
-    setError(null);
     try {
       const api = await apiFactory();
       await api.updateMyProfile({ [editing]: draft.trim() });
       await refresh();
       setEditing(null);
     } catch (e) {
-      setError(humanError(e, 'We could not save that. Please try again.'));
+      toast.error(humanError(e, 'We could not save that. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -187,7 +186,6 @@ export default function EditProfileScreen() {
                 {draft.length} / {field.max}
               </Text>
             ) : null}
-            {error ? <Text style={styles.error}>{error}</Text> : null}
             <View style={styles.sheetActions}>
               <Pressable
                 onPress={() => setEditing(null)}
@@ -272,7 +270,6 @@ const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 140, textAlignVertical: 'top' },
   count: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: colors.textMuted, textAlign: 'right' },
-  error: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: colors.danger },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: spacing.md },
   btn: { flex: 1, minHeight: 46, borderRadius: radii.pill, alignItems: 'center', justifyContent: 'center' },
   btnQuiet: { borderWidth: 1, borderColor: colors.border },

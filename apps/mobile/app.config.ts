@@ -27,11 +27,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
 
+  // Expo's web export only picks up a favicon when it is named here.
+  web: {
+    favicon: './assets/favicon.png',
+  },
+
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       // Matches the iOS icon ground so the app reads the same on both.
-      backgroundColor: '#2E1240',
+      backgroundColor: '#FDF9F6',
     },
     package: 'com.heartlink.app',
   },
@@ -48,11 +53,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     [
+      // React Native 0.76 pins Kotlin 1.9.24 on the Gradle classpath, while the
+      // Expo template's default is 1.9.25. expo-modules-core picks its Compose
+      // compiler from the template's number, so the two disagree and the
+      // Android build dies on "Compose Compiler 1.5.15 requires Kotlin 1.9.25".
+      // Saying 1.9.24 out loud settles it on React Native's version.
+      'expo-build-properties',
+      {
+        android: {
+          kotlinVersion: '1.9.24',
+        },
+      },
+    ],
+    [
       // Sets the Android notification icon/colour and, on iOS, the push
       // entitlement the OS requires before it will issue a device token.
       'expo-notifications',
       {
-        icon: './assets/icon.png',
+        // Android keeps only the alpha of a notification icon, so this is a
+        // white silhouette; the full-colour icon arrived as a white blob.
+        icon: './assets/notification-icon.png',
         color: '#E91E73',
       },
     ],
@@ -70,15 +90,44 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       // generated iOS storyboard carried constraints pointing at an image view
       // that was never created, and there was no SplashScreenLogo image set for
       // them to point at.
+      //
+      // The two platforms get different artwork because they can show different
+      // things. iOS renders a launch storyboard, which can hold a full screen
+      // image; Android 12 and up hand the splash to the platform's own API,
+      // which draws one centred icon on a flat colour and nothing else. Sending
+      // the tall artwork to Android would only crop it to a circle.
+      //
+      // The ground is the brand page colour on both, matching the artwork's own
+      // ground and the first screen behind it, so the splash has no seam on the
+      // way in or out. Dark mode reuses the light images deliberately: the
+      // artwork is light by design, and the old dark override only meant a
+      // purple flash on dark-mode devices.
       'expo-splash-screen',
       {
-        image: './assets/splash-icon.png',
-        imageWidth: 200,
-        resizeMode: 'contain',
-        backgroundColor: '#2E1240',
-        dark: {
+        backgroundColor: '#FDF9F6',
+        dark: { backgroundColor: '#FDF9F6' },
+        ios: {
+          // Fitted, not cropped: the artwork meets the left and right edges of a
+          // phone, and the band it leaves above and below is the same cream as
+          // the image, so it reads full-bleed while nothing is cut off - on a
+          // tablet as well, where filling would eat the tagline.
+          image: './assets/heartlink-splash.png',
+          resizeMode: 'contain',
+          // Without this the plugin squashes the artwork into a centred 100pt
+          // square. It is the only prop that pins the image view to all four
+          // edges of the storyboard and copies the file at its full resolution,
+          // which is what full-screen artwork needs; the `_legacy` name is about
+          // matching the pre-SDK-50 layout, not deprecation.
+          enableFullScreenImage_legacy: true,
+          dark: { image: './assets/heartlink-splash.png' },
+        },
+        android: {
+          // The mark, inset far enough to survive the circular mask Android 12
+          // crops the splash icon with.
           image: './assets/splash-icon.png',
-          backgroundColor: '#16051F',
+          imageWidth: 180,
+          resizeMode: 'contain',
+          dark: { image: './assets/splash-icon.png' },
         },
       },
     ],

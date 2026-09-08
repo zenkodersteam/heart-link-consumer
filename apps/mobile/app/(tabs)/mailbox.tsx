@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -12,6 +12,8 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  BackHandler,
+  PanResponder,
   RefreshControl,
 } from 'react-native';
 
@@ -21,16 +23,21 @@ import type {
   MailboxMessage,
   MailboxThreadDetail,
   MailboxThreadSummary,
+  PublicProfileDetail,
 } from '@heartlink/consumer-api';
+import { stateName } from '@heartlink/consumer-api';
 import { useRefresh } from '../../src/lib/use-refresh';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
+import { ConfirmDialog } from '../../src/components/ConfirmDialog';
+import { DropdownMenu } from '../../src/components/DropdownMenu';
+import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { ProfileReviewOverlay } from '../../src/components/ProfileReviewOverlay';
 import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useToast } from '../../src/components/Toast';
-import { colors, cta, radii, spacing, type, inputReset } from '../../src/theme';
+import { colors, fonts, cta, radii, spacing, type, inputReset } from '../../src/theme';
 import {
   LettersCardSkeleton,
   ThreadDetailSkeleton,
@@ -59,13 +66,38 @@ const webTransition =
     ? { transitionProperty: 'background-color, border-color, transform', transitionDuration: '150ms', transitionTimingFunction: 'ease-out' }
     : null;
 
+/**
+ * Inbox and Sent, from the direction of each thread's last letter.
+ *
+ * The screens draw an Archive tab as well. There is nothing behind it in the
+ * API — no archive flag, no endpoint — and a tab that can only ever be empty
+ * is worse than one that is not there, so it waits until there is something to
+ * put in it.
+ */
+type MailFolder = 'inbox' | 'sent';
+
+const FOLDERS: { key: MailFolder; label: string }[] = [
+  { key: 'inbox', label: 'Inbox' },
+  { key: 'sent', label: 'Sent' },
+];
+
 function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
 }
 
-function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+function Avatar({ name, uri, size = 44 }: { name: string; uri?: string | null; size?: number }) {
+  const shape = { width: size, height: size, borderRadius: size / 2 };
+  // A photo where there is one, initials otherwise: many correspondents have no
+  // approved photo, and a broken image in a list of letters reads as a fault.
+  if (uri) {
+    return (
+      <View style={[styles.avatar, shape, styles.avatarPhoto]}>
+        <ProfilePhoto uri={uri} name={name} compact />
+      </View>
+    );
+  }
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.avatar, shape]}>
       <Text style={[styles.avatarText, { fontSize: size * 0.36 }]}>{initials(name)}</Text>
     </View>
   );
@@ -196,6 +228,19 @@ function lettersLeftText(e: LetterEntitlement | null): string {
   return `${total} letter${total === 1 ? '' : 's'} left`;
 }
 
+/**
+ * The line under a name in the thread list.
+ *
+ * An inbound letter is scanned paper, so it carries no typed text to quote —
+ * and "No messages yet" printed over a reply that has actually arrived reads
+ * as the app having lost it.
+ */
+function threadPreview(thread: MailboxThreadSummary): string {
+  if (thread.lastMessagePreview) return thread.lastMessagePreview;
+  if (thread.lastDirection === 'inbound') return 'Scanned reply · tap to read';
+  return 'No letters yet';
+}
+
 interface ComposeParam {
   profileId: string;
   name: string;
@@ -232,6 +277,7 @@ export default function MailboxScreen() {
   const [loading, setLoading] = useState(true);
   // The caught value, not a message: ErrorState decides the wording.
   const [error, setError] = useState<unknown>(null);
+  const [folder, setFolder] = useState<MailFolder>('inbox');
   const [search, setSearch] = useState('');
   // Debounced so filtering does not run on every keystroke.
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -364,6 +410,92 @@ export default function MailboxScreen() {
     }
   }, [params.thread, detail, loadingDetail, openThread]);
 
+  /**
+   * The person a thread is with, for the header above their letters.
+   *
+   * The thread payload carries only a name, and a name on its own leaves the
+   * reader checking they opened the right conversation. Age and state come
+   * from the public profile — the facility itself is deliberately not shown
+   * anywhere in the app.
+   */
+  const [peer, setPeer] = useState<PublicProfileDetail | null>(null);
+  useEffect(() => {
+    const id = detail?.profileId;
+    if (!id) {
+      setPeer(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const client = await factoryRef.current();
+        const p = await client.getPublicProfile(id);
+        if (!cancelled) setPeer(p);
+      } catch {
+        // Decorative: without it the header just shows the name, which is
+        // what it showed before.
+        if (!cancelled) setPeer(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detail?.profileId]);
+
+  const blockPeer = useCallback(
+    async (profileId: string) => {
+      try {
+        const client = await factoryRef.current();
+        await client.blockProfile(profileId);
+        toast.show('Blocked', 'You will not hear from this person again.');
+        setSelectedThreadId(null);
+        setDetail(null);
+        void loadThreads();
+      } catch {
+        toast.error('Could not block', 'Please try again in a moment.');
+      }
+    },
+    [toast, loadThreads],
+  );
+
+  const closeThread = useCallback(() => {
+    setSelectedThreadId(null);
+    setDetail(null);
+  }, []);
+
+  /**
+   * Leaving an open letter, the way the platform does it.
+   *
+   * An open thread is state on this screen rather than a pushed route, so
+   * nothing gives us the stack's own back gesture for free — the two ways out
+   * a phone user reaches for have to be wired by hand: the Android system back
+   * button, and a swipe from the left edge.
+   */
+  useEffect(() => {
+    if (!selectedThreadId || Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeThread();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selectedThreadId, closeThread]);
+
+  const closeThreadRef = useRef(closeThread);
+  closeThreadRef.current = closeThread;
+  const edgeSwipe = useMemo(
+    () =>
+      PanResponder.create({
+        // Claimed only for a clearly horizontal drag that began near the left
+        // edge, so the letters underneath still scroll normally.
+        onMoveShouldSetPanResponder: (_evt, g) =>
+          g.dx > 12 && Math.abs(g.dy) < 12 && g.moveX - g.dx < 44,
+        onPanResponderRelease: (_evt, g) => {
+          if (g.dx > 80 || g.vx > 0.4) closeThreadRef.current();
+        },
+      }),
+    [],
+  );
+
   // Load the word limit for whoever is being written to. The limit belongs to
   // the recipient's plan, so it changes with the open thread / compose target.
   const limitProfileId = composing?.profileId ?? detail?.profileId ?? null;
@@ -467,14 +599,18 @@ export default function MailboxScreen() {
 
   const filteredThreads = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    return threads.filter((t) => !q || t.profileDisplayName.toLowerCase().includes(q));
-  }, [threads, debouncedSearch]);
+    return threads
+      .filter((t) =>
+        folder === 'sent' ? t.lastDirection === 'outbound' : t.lastDirection !== 'outbound',
+      )
+      .filter((t) => !q || t.profileDisplayName.toLowerCase().includes(q));
+  }, [threads, folder, debouncedSearch]);
 
   const totalUnread = threads.reduce((n, t) => n + t.unreadCount, 0);
 
   // ----- shared sub-views -------------------------------------------------
 
-  function ThreadList({ onPick }: { onPick: (id: string) => void }) {
+  function ThreadList({ onPick, flush }: { onPick: (id: string) => void; flush?: boolean }) {
     if (loading) return <ThreadListSkeleton />;
     if (error) {
       return (
@@ -506,13 +642,14 @@ export default function MailboxScreen() {
             onPress={() => onPick(t.threadId)}
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
               styles.msgRow,
+              flush ? styles.msgRowFlush : null,
               webTransition,
               t.threadId === selectedThreadId ? styles.msgRowActive : null,
               hovered && t.threadId !== selectedThreadId ? { backgroundColor: colors.surfaceMuted } : null,
               pressed ? { opacity: 0.9 } : null,
             ]}
           >
-            <Avatar name={t.profileDisplayName} />
+            <Avatar name={t.profileDisplayName} uri={t.profilePhotoUrl} />
             <View style={styles.msgBody}>
               <View style={styles.msgTopline}>
                 <Text style={[styles.msgName, t.unreadCount > 0 ? styles.msgNameUnread : null]} numberOfLines={1}>
@@ -522,7 +659,7 @@ export default function MailboxScreen() {
               </View>
               <Text style={styles.msgPreview} numberOfLines={1}>
                 {t.lastDirection === 'outbound' ? 'You: ' : ''}
-                {t.lastMessagePreview ?? 'No messages yet'}
+                {threadPreview(t)}
               </Text>
             </View>
             {t.unreadCount > 0 ? <View style={styles.unreadDot} /> : null}
@@ -674,13 +811,17 @@ export default function MailboxScreen() {
               onSend={(body) => sendLetter(composing.profileId, body)}
               onCancel={() => setComposing(null)}
               limit={letterLimit}
+              allowance={<LettersWidget />}
             />
           ) : loadingDetail ? (
             <ThreadDetailSkeleton />
           ) : detail ? (
             <ThreadView
               detail={detail}
+              peer={peer}
               onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
+              onOpenProfile={() => router.push({ pathname: '/(tabs)/profile', params: { id: detail.profileId } })}
+              onBlock={() => void blockPeer(detail.profileId)}
               limit={letterLimit}
             />
           ) : (
@@ -711,6 +852,7 @@ export default function MailboxScreen() {
           onSend={(body) => sendLetter(composing.profileId, body)}
           onCancel={() => setComposing(null)}
           limit={letterLimit}
+          allowance={<LettersWidget />}
         />
       </View>
     );
@@ -718,17 +860,22 @@ export default function MailboxScreen() {
 
   if (selectedThreadId) {
     return (
-      <View style={styles.mobRoot}>
-        <Pressable onPress={() => { setSelectedThreadId(null); setDetail(null); }} style={styles.backBtn}>
-          <Feather name="chevron-left" size={20} color={colors.primary} />
-          <Text style={styles.backText}>Mailbox</Text>
-        </Pressable>
+      // No breadcrumb above the letter: the person's own header is the top of
+      // this screen, and getting out is the system back button or a swipe from
+      // the left edge. The web build has neither, so it keeps a chevron inside
+      // the header instead.
+      <View style={styles.mobThreadRoot} {...edgeSwipe.panHandlers}>
         {loadingDetail ? (
           <ThreadDetailSkeleton />
         ) : detail ? (
           <ThreadView
             detail={detail}
+            peer={peer}
             onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
+            onOpenProfile={() => router.push({ pathname: '/(tabs)/profile', params: { id: detail.profileId } })}
+            onBlock={() => void blockPeer(detail.profileId)}
+            onBack={closeThread}
+            flush
             limit={letterLimit}
           />
         ) : (
@@ -739,13 +886,17 @@ export default function MailboxScreen() {
   }
 
   return (
-    <View style={styles.mobRoot}>
+    <View style={[styles.mobRoot, styles.mobListRoot]}>
       <View style={styles.mobHeader}>
         <View>
           <Text style={type.h1}>Mailbox</Text>
           <View style={styles.encLine}>
             <Feather name="lock" size={12} color={colors.textMuted} />
-            <Text style={styles.readTo}>Secure &amp; private{totalUnread > 0 ? ` · ${totalUnread} new` : ''}</Text>
+            <Text style={styles.readTo}>
+              Secure &amp; private
+              {totalUnread > 0 ? ` · ${totalUnread} new` : ''}
+              {lettersLeftText(entitlement) ? ` · ${lettersLeftText(entitlement)}` : ''}
+            </Text>
           </View>
         </View>
         <Pressable
@@ -756,7 +907,29 @@ export default function MailboxScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.searchRow}>
+      <View style={[styles.folderTabs, styles.folderTabsFlush]}>
+        {FOLDERS.map((f) => {
+          const active = folder === f.key;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFolder(f.key)}
+              style={[styles.folderTab, active ? styles.folderTabActive : null]}
+            >
+              <Text style={[styles.folderTabText, active ? styles.folderTabTextActive : null]}>
+                {f.label}
+              </Text>
+              {f.key === 'inbox' && totalUnread > 0 ? (
+                <View style={styles.folderBadge}>
+                  <Text style={styles.folderBadgeText}>{totalUnread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={[styles.searchRow, styles.searchRowFlush]}>
         <Feather name="search" size={16} color={colors.textMuted} />
         <TextInput
           style={[styles.searchInput, inputReset]}
@@ -767,12 +940,8 @@ export default function MailboxScreen() {
         />
       </View>
 
-      <View style={styles.mobLettersRow}>
-        <LettersWidget />
-      </View>
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
-        <ThreadList onPick={openThread} />
+        <ThreadList onPick={openThread} flush />
       </ScrollView>
 
       {!profileApproved && myProfile ? (
@@ -797,16 +966,50 @@ export default function MailboxScreen() {
 
 function ThreadView({
   detail,
+  peer,
   onReply,
+  onOpenProfile,
+  onBlock,
+  onBack,
+  flush,
   limit,
 }: {
   detail: MailboxThreadDetail;
+  /** The public profile behind the thread, once it has loaded. */
+  peer: PublicProfileDetail | null;
   onReply: (body: string) => Promise<boolean>;
+  onOpenProfile: () => void;
+  onBlock: () => void;
+  /**
+   * Only drawn on the web build. A phone leaves this thread by its own back
+   * gesture; a browser has no such gesture, and this is state rather than a
+   * URL, so without a control there is no way back to the list.
+   */
+  onBack?: () => void;
+  /**
+   * Phone layout: the header is the top of the screen, so it runs edge to edge
+   * and its rule meets the one under the app's own top bar.
+   */
+  flush?: boolean;
   limit: LetterLengthLimit | null;
 }) {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const overLimit = limit?.wordLimit != null && countWords(reply) > limit.wordLimit;
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const menuBtnRef = useRef<View | null>(null);
+  const [blockOpen, setBlockOpen] = useState(false);
+
+  // Age and state, whichever of them we have. The facility name is not shown:
+  // the client's own privacy decision keeps it off every member-facing screen.
+  const peerMeta = [
+    peer?.age != null ? `${peer.age}` : null,
+    peer?.facility?.state ? stateName(peer.facility.state) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   async function submit() {
     const body = reply.trim();
@@ -821,13 +1024,108 @@ function ThreadView({
   }
 
   return (
-    <View style={styles.readInner}>
-      <View style={styles.readHeader}>
-        <View style={styles.readSender}>
-          <Avatar name={detail.profileDisplayName} size={40} />
-          <Text style={styles.readSenderName}>{detail.profileDisplayName}</Text>
-        </View>
+    <View style={[styles.readInner, flush ? styles.readInnerFlush : null]}>
+      {/* Who this is, and the way out of the thread — the shape the client
+          screens draw: portrait, name over a line of detail, overflow on the
+          far right. Tapping the person opens their profile, which is where
+          reporting lives. */}
+      <View style={[styles.readHeader, flush ? styles.readHeaderFlush : null]}>
+        {onBack && Platform.OS === 'web' ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Back to mailbox"
+            style={({ pressed }: { pressed: boolean }) => [
+              styles.readBackBtn,
+              pressed ? { opacity: 0.7 } : null,
+            ]}
+          >
+            <Feather name="chevron-left" size={22} color={colors.primary} />
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onOpenProfile}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${detail.profileDisplayName}'s profile`}
+          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+            styles.readSender,
+            webTransition,
+            hovered ? { opacity: 0.9 } : null,
+            pressed ? { opacity: 0.75 } : null,
+          ]}
+        >
+          <Avatar name={detail.profileDisplayName} uri={peer?.primaryPhotoUrl ?? null} size={46} />
+          <View style={styles.readSenderText}>
+            <Text style={styles.readSenderName} numberOfLines={1}>
+              {detail.profileDisplayName}
+            </Text>
+            {peerMeta ? (
+              <Text style={styles.readSenderMeta} numberOfLines={1}>
+                {peerMeta}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+
+        <Pressable
+          ref={menuBtnRef}
+          onPress={() => {
+            // Measured, so the menu hangs under the button rather than from a
+            // guessed offset that could land on top of it.
+            menuBtnRef.current?.measureInWindow?.((x, y, w, h) => {
+              setMenuAnchor({ top: y + h + 8, right: spacing.lg });
+              setMenuOpen(true);
+            });
+            if (!menuBtnRef.current?.measureInWindow) setMenuOpen(true);
+          }}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="More options"
+          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+            styles.readMenuBtn,
+            webTransition,
+            hovered ? { backgroundColor: colors.primaryFaint } : null,
+            pressed ? { transform: [{ scale: 0.94 }] } : null,
+          ]}
+        >
+          <Feather name="more-horizontal" size={18} color={colors.textSecondary} />
+        </Pressable>
       </View>
+
+      <DropdownMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        anchor={menuAnchor}
+        items={[
+          { label: 'View profile', icon: 'user', onPress: onOpenProfile },
+          {
+            label: 'Block this person',
+            icon: 'slash',
+            destructive: true,
+            separated: true,
+            onPress: () => setBlockOpen(true),
+          },
+        ]}
+      />
+
+      <ConfirmDialog
+        open={blockOpen}
+        icon="slash"
+        title={`Block ${detail.profileDisplayName}?`}
+        message="Their letters stop reaching your mailbox, and you will not see this profile again. You can undo this from Blocked profiles."
+        actions={[
+          {
+            label: 'Block',
+            destructive: true,
+            onPress: () => {
+              setBlockOpen(false);
+              onBlock();
+            },
+          },
+        ]}
+        onCancel={() => setBlockOpen(false)}
+      />
 
       <ScrollView style={styles.readBodyScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
         {detail.messages.map((m) => (
@@ -844,25 +1142,38 @@ function ThreadView({
           value={reply}
           onChangeText={setReply}
         />
-        <WordCount text={reply} limit={limit} />
-        <Pressable
-          onPress={submit}
-          disabled={sending || reply.trim().length === 0 || overLimit}
-          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-            styles.sendBtn,
-            webTransition,
-            reply.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
-            hovered ? { opacity: 0.92 } : null,
-            pressed ? { transform: [{ scale: 0.97 }] } : null,
-          ]}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color={colors.onPrimary} />
-          ) : (
-            <Feather name="send" size={15} color={colors.onPrimary} />
-          )}
-          <Text style={styles.sendText}>Send letter</Text>
-        </Pressable>
+        {/* Counter and button share one row. They were stacked, which left a
+            band of empty box between the words and the way to send them. */}
+        <View style={styles.replyFooter}>
+          <WordCount text={reply} limit={limit} />
+          <Pressable
+            onPress={submit}
+            disabled={sending || reply.trim().length === 0 || overLimit}
+            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+              styles.sendBtn,
+              webTransition,
+              reply.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
+              hovered ? { opacity: 0.92 } : null,
+              pressed ? { transform: [{ scale: 0.97 }] } : null,
+            ]}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <Feather name="send" size={15} color={colors.onPrimary} />
+            )}
+            <Text style={styles.sendText}>Send letter</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Said once, where it matters: this is not a message that arrives in a
+          second, and knowing that before writing changes what people write. */}
+      <View style={styles.replyHint}>
+        <Feather name="info" size={12} color={colors.textMuted} />
+        <Text style={styles.replyHintText}>
+          Checked by our team, then printed and posted. Replies are scanned back here.
+        </Text>
       </View>
     </View>
   );
@@ -939,11 +1250,17 @@ function ComposePane({
   onSend,
   onCancel,
   limit,
+  allowance,
 }: {
   target: ComposeParam;
   onSend: (body: string) => Promise<boolean>;
   onCancel: () => void;
   limit: LetterLengthLimit | null;
+  /**
+   * The letters-left card, passed in rather than rendered here: it reads the
+   * screen's own entitlement state, which lives a level up.
+   */
+  allowance?: ReactNode;
 }) {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
@@ -976,43 +1293,61 @@ function ComposePane({
         </View>
       </View>
 
-      <View style={styles.composeNote}>
-        <Feather name="info" size={13} color={colors.textMuted} />
-        <Text style={styles.composeNoteText}>
-          Our team reviews every letter, then it is printed and mailed to the facility.
-          Replies are scanned back into this thread.
-          {limit?.wordLimit != null ? ` Letters to ${target.name} can be up to ${limit.wordLimit} words.` : ''}
-        </Text>
+      {/* The allowance belongs here rather than over the list of letters: this
+          is the screen where one gets spent, and it is the last moment it can
+          change what someone does. */}
+      {allowance ? <View style={styles.composeLetters}>{allowance}</View> : null}
+
+      {/* The journey, as three words rather than a paragraph. It is the thing
+          people most need to know before writing, and the thing they stop
+          reading if it is a block of prose. */}
+      <View style={styles.journey}>
+        <View style={styles.journeySteps}>
+          {['Reviewed', 'Printed', 'Posted'].map((step, i) => (
+            <Fragment key={step}>
+              {i > 0 ? <Feather name="chevron-right" size={12} color={colors.textMuted} /> : null}
+              <Text style={styles.journeyStep}>{step}</Text>
+            </Fragment>
+          ))}
+        </View>
+        <Text style={styles.journeyTail}>Replies are scanned back into this thread.</Text>
       </View>
 
-      <View style={[styles.replyBox, { flex: 1 }]}>
+      {/* A sheet of paper, not a form field. The salutation is drawn, not
+          typed, so the writer starts on the second line the way they would
+          on paper — it is not part of the body that gets sent. */}
+      <View style={styles.sheet}>
+        <Text style={styles.sheetSalutation}>Dear {target.name.split(' ')[0]},</Text>
         <TextInput
-          style={[styles.replyInput, { flex: 1, textAlignVertical: 'top' }, inputReset]}
-          placeholder={`Write your letter to ${target.name}…`}
+          style={[styles.sheetInput, inputReset]}
+          placeholder="Tell them about your day, ask about theirs…"
           placeholderTextColor={colors.textMuted}
           multiline
+          autoFocus
           value={body}
           onChangeText={setBody}
         />
-        <WordCount text={body} limit={limit} />
-        <Pressable
-          onPress={submit}
-          disabled={sending || body.trim().length === 0 || overLimit}
-          style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-            styles.sendBtn,
-            webTransition,
-            body.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
-            hovered ? { opacity: 0.92 } : null,
-            pressed ? { transform: [{ scale: 0.97 }] } : null,
-          ]}
-        >
-          {sending ? (
-            <ActivityIndicator size="small" color={colors.onPrimary} />
-          ) : (
-            <Feather name="send" size={15} color={colors.onPrimary} />
-          )}
-          <Text style={styles.sendText}>Send letter</Text>
-        </Pressable>
+        <View style={styles.sheetFooter}>
+          <WordCount text={body} limit={limit} />
+          <Pressable
+            onPress={submit}
+            disabled={sending || body.trim().length === 0 || overLimit}
+            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+              styles.sendBtn,
+              webTransition,
+              body.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
+              hovered ? { opacity: 0.92 } : null,
+              pressed ? { transform: [{ scale: 0.97 }] } : null,
+            ]}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={colors.onPrimary} />
+            ) : (
+              <Feather name="send" size={15} color={colors.onPrimary} />
+            )}
+            <Text style={styles.sendText}>Send letter</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -1050,6 +1385,10 @@ const styles = StyleSheet.create({
   emptyBtnText: { ...type.button, color: colors.onPrimary, fontSize: 13 },
 
   msgRow: { flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, alignItems: 'center', borderLeftWidth: 3, borderLeftColor: 'transparent' },
+  // Pulled out to the page edges so the selected row's tint and its left rule
+  // reach them, while the text keeps the same left edge as the title and the
+  // search box above it.
+  msgRowFlush: { marginHorizontal: -spacing.lg },
   msgRowActive: { backgroundColor: colors.primaryFaint, borderLeftColor: colors.primary },
   msgBody: { flex: 1, gap: 1 },
   msgTopline: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
@@ -1062,15 +1401,78 @@ const styles = StyleSheet.create({
   readCol: { flex: 1, minWidth: 0 },
   readEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   readInner: { flex: 1, padding: spacing.xl, gap: spacing.lg },
-  readHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
-  readSender: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  readSenderName: { ...type.body, fontFamily: 'Inter_600SemiBold' },
+  // Nothing above the header on a phone, so the page's own top padding goes:
+  // the header's rule is meant to sit directly under the top bar's.
+  readInnerFlush: { paddingTop: 0 },
+  readHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  // `flex: 1` and `minWidth: 0` so a long name truncates instead of pushing the
+  // overflow button off the row.
+  readSender: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 },
+  // Pulled out to the screen edges so the rule under the header spans the full
+  // width, the way the top bar's does.
+  readHeaderFlush: {
+    marginHorizontal: -spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+  },
+  readBackBtn: { marginLeft: -spacing.xs, marginRight: -spacing.xs },
+  readSenderText: { flex: 1, minWidth: 0, gap: 1 },
+  readSenderName: { ...type.body, fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  readSenderMeta: { ...type.caption, fontSize: 12 },
+  readMenuBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+  },
   encLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: 2 },
   readTo: { ...type.caption, fontSize: 12 },
   readBodyScroll: { flex: 1 },
 
-  composeNote: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, backgroundColor: colors.surfaceMuted, borderRadius: radii.md, padding: spacing.md },
-  composeNoteText: { ...type.caption, color: colors.textSecondary, flex: 1, fontSize: 12 },
+  journey: { gap: 2 },
+  journeySteps: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  journeyStep: { ...type.caption, color: colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 11.5 },
+  journeyTail: { ...type.caption, color: colors.textMuted, fontSize: 11.5 },
+
+  sheet: {
+    flex: 1,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  sheetSalutation: { ...type.body, fontSize: 15, color: colors.textPrimary, marginBottom: 2 },
+  sheetInput: {
+    flex: 1,
+    textAlignVertical: 'top',
+    color: colors.textPrimary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    marginTop: spacing.sm,
+  },
 
   // message bubbles
   bubbleWrap: { maxWidth: '85%', gap: 2 },
@@ -1129,15 +1531,67 @@ const styles = StyleSheet.create({
   bubbleBodyMuted: { fontStyle: 'italic', color: colors.textMuted },
   bubbleMeta: { ...type.caption, fontSize: 10, marginHorizontal: spacing.xs },
 
-  replyBox: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: spacing.md, gap: spacing.md, backgroundColor: colors.bgElevated },
-  replyInput: { minHeight: 44, color: colors.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 14 },
-  sendBtn: { flexDirection: 'row', alignSelf: 'flex-end', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.primary, borderRadius: radii.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  replyBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    backgroundColor: colors.bgElevated,
+  },
+  replyFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  replyHint: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4, marginTop: 6 },
+  replyHintText: { ...type.caption, color: colors.textMuted, flex: 1, fontSize: 11.5 },
+  replyInput: { minHeight: 76, color: colors.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21 },
+  // `marginLeft: 'auto'` rather than leaning on the row's `space-between`: the
+  // word count renders nothing until something is typed, so with an empty
+  // field the button was the row's only child and space-between parked it on
+  // the left, then jumped it right on the first keystroke.
+  sendBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginLeft: 'auto', backgroundColor: colors.primary, borderRadius: radii.pill, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   sendText: { ...type.button, color: colors.onPrimary, fontSize: 13 },
 
   // mobile
   mobRoot: { flex: 1, padding: spacing.lg, gap: spacing.md },
+  mobThreadRoot: { flex: 1 },
+  // The list screen sets its own rhythm: one gap between every band, and no
+  // double inset. The search row and the folder tabs carry margins of their own
+  // for the desktop column, which inside this padded page put them 32pt from
+  // the edge while the title sat at 16, and pushed the whole list down the
+  // screen for no reason.
+  mobListRoot: { paddingTop: spacing.md, gap: spacing.md },
+  folderTabsFlush: { marginHorizontal: 0, marginTop: 0 },
+  searchRowFlush: { margin: 0 },
   mobHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  mobLettersRow: { },
+  composeLetters: { marginHorizontal: spacing.lg, marginBottom: spacing.md },
+  folderTabs: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md },
+  folderTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+  },
+  folderTabActive: { backgroundColor: colors.primaryFaint },
+  folderTabText: { fontFamily: fonts.bodySemibold, fontSize: 14, color: colors.textMuted },
+  folderTabTextActive: { color: colors.primary },
+  folderBadge: {
+    minWidth: 18,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  folderBadgeText: { fontFamily: fonts.bodyBold, fontSize: 10.5, color: colors.onPrimary },
+  avatarPhoto: { overflow: 'hidden' },
   composeFab: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(219, 2, 82,0.35)' },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   backText: { ...type.button, color: colors.primary, fontSize: 15 },

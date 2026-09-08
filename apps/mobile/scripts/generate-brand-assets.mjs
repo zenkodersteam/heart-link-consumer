@@ -1,250 +1,297 @@
 /**
- * Generates the app icon, Android adaptive icon and splash logo from the
- * HeartLink mark, so every launcher asset comes from one definition instead of
- * being traced by hand at each size.
+ * Derives every launcher icon and favicon in the repo from one drawing:
+ * `apps/mobile/assets/heartlink-app-icon.png`.
  *
- * Run with `node scripts/generate-brand-assets.mjs`. Output is committed - this
- * script exists so the assets can be regenerated when the brand moves, not as a
- * build step.
+ * Run with `node scripts/generate-brand-assets.mjs` from `apps/mobile`. Output
+ * is committed - this script exists so the assets can be regenerated when the
+ * brand moves, not as a build step. Replace the source PNG, re-run, and every
+ * surface follows; the phone app also needs `npx expo prebuild -p ios` after,
+ * because the iOS icons are baked into `ios/`.
  *
- * There is no image library in this project (no sharp, no ImageMagick, no
- * librosvg), and adding one for three PNGs is not worth the install, so this
- * rasterises the mark directly and writes the PNG with zlib. The mark is drawn
- * from the classic heart curve rather than traced from
- * assets/logo/heartlink-emblem.png, which is only 296x251 and would be a blurry
- * mess upscaled to the 1024x1024 that iOS and Android both want.
+ * The earlier version of this script drew the mark procedurally with a hand
+ * rolled PNG writer, because nothing in the repo could resize an image. The
+ * artwork is now supplied as a real drawing, so this reads it with `sharp`
+ * (already present - Expo's own image tooling depends on it) and only resizes,
+ * flattens and pads.
+ *
+ * Two rules drive the shapes below:
+ *
+ * - iOS icons must be opaque and square. Alpha is rendered as black, and iOS
+ *   applies its own squircle mask, so the artwork is trimmed to its tile and
+ *   flattened onto the brand ground rather than left with soft corners.
+ * - Android adaptive foregrounds are cropped hard by whatever mask the launcher
+ *   uses; only the middle ~66% is guaranteed to survive. The tile is scaled to
+ *   sit inside that circle, on a transparent canvas, over the ground colour set
+ *   in app.config.ts.
  */
-import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const MOBILE = join(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO = join(MOBILE, '..', '..');
 
-// ── Brand ────────────────────────────────────────────────────────────────────
-// Values from heart-link-consumer/src/theme.ts and the HeartLink Branding Book.
-const PURPLE_DEEP = [0x16, 0x05, 0x1f];
-const PURPLE = [0x2e, 0x12, 0x40];
-const PINK = [0xe9, 0x1e, 0x73];
-const PINK_BRIGHT = [0xff, 0x4f, 0x92];
-const PINK_DEEP = [0xc8, 0x18, 0x60];
-const GOLD = [0xd6, 0xa8, 0x4f];
-const GOLD_DEEP = [0xc9, 0x91, 0x2e];
+// sharp lives in the workspace root, hoisted there by Expo's image tooling.
+const sharp = createRequire(join(REPO, 'package.json'))('sharp');
 
-// ── Tiny PNG writer (8-bit RGBA, no interlace) ───────────────────────────────
-const CRC_TABLE = (() => {
-  const t = new Int32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c;
-  }
-  return t;
-})();
+const SOURCE = join(MOBILE, 'assets', 'heartlink-app-icon.png');
 
-function crc32(buf) {
-  let c = -1;
-  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
-  return (c ^ -1) >>> 0;
-}
-
-function chunk(type, data) {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length);
-  const body = Buffer.concat([Buffer.from(type, 'latin1'), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(body));
-  return Buffer.concat([len, body, crc]);
-}
-
-function encodePng(width, height, rgba) {
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(width, 0);
-  ihdr.writeUInt32BE(height, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // colour type: RGBA
-  // 10..12 = compression, filter, interlace: all 0
-
-  // One filter byte (0 = None) per scanline, then the row's pixels.
-  const stride = width * 4;
-  const raw = Buffer.alloc((stride + 1) * height);
-  for (let y = 0; y < height; y++) {
-    raw[y * (stride + 1)] = 0;
-    rgba.copy(raw, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
-  }
-
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw, { level: 9 })),
-    chunk('IEND', Buffer.alloc(0)),
-  ]);
-}
-
-// ── Drawing helpers ──────────────────────────────────────────────────────────
-const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const mix = (a, b, t) => [
-  a[0] + (b[0] - a[0]) * t,
-  a[1] + (b[1] - a[1]) * t,
-  a[2] + (b[2] - a[2]) * t,
-];
+/** The page ground, from packages/design-tokens. Icons sit on it opaquely. */
+const GROUND = '#FDF9F6';
 
 /**
- * Classic heart curve: (x² + y² − 1)³ − x²y³ ≤ 0, with y pointing up.
- * `scale` is the half-width of the curve's unit space in pixels.
+ * The drawing is a tile floating on transparency, and the margin around it is
+ * not quite even. Everything below is cut from the tile's own bounding box -
+ * found by alpha rather than hard-coded - so the artwork is centred on its
+ * shape instead of on the canvas it happens to sit in.
  */
-function insideHeart(px, py, cx, cy, scale) {
-  const x = (px - cx) / scale;
-  const y = (cy - py) / scale;
-  const a = x * x + y * y - 1;
-  return a * a * a - x * x * y * y * y <= 0;
-}
+let cachedTile;
+async function tile() {
+  if (cachedTile) return cachedTile;
 
-/**
- * Extent of the curve in unit space, measured rather than hardcoded.
- *
- * The heart is not symmetric about y and sits low in its own unit box, so
- * centring on the curve's origin leaves it visibly below centre - which
- * matters on Android, where only the middle ~66% of the adaptive icon is
- * guaranteed to survive the launcher's mask.
- */
-const EXTENT = (() => {
-  const STEP = 0.002;
-  let xMax = 0;
-  let yMin = 0;
-  let yMax = 0;
-  for (let x = -2; x <= 2; x += STEP) {
-    for (let y = -2; y <= 2; y += STEP) {
-      const a = x * x + y * y - 1;
-      if (a * a * a - x * x * y * y * y > 0) continue;
-      if (x > xMax) xMax = x;
-      if (y > yMax) yMax = y;
-      if (y < yMin) yMin = y;
+  const { data, info } = await sharp(SOURCE).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let minX = info.width;
+  let minY = info.height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * info.channels + 3] > 200) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
     }
   }
-  return { xMax, yMin, yMax };
-})();
 
-/** Keyhole: a circle over a trapezoid, as on the HeartLink emblem. */
-function insideKeyhole(px, py, cx, cy, r) {
-  const dx = px - cx;
-  const dy = py - cy;
-  if (dx * dx + dy * dy <= r * r) return true;
-  const stemTop = cy + r * 0.45;
-  const stemBottom = cy + r * 2.5;
-  if (dy < r * 0.45 || py > stemBottom) return false;
-  const t = (py - stemTop) / (stemBottom - stemTop);
-  const halfWidth = r * (0.42 + 0.5 * t);
-  return Math.abs(dx) <= halfWidth;
+  // Square the box around the tile's centre: a lopsided crop would show up as
+  // the mark sitting off-centre in the launcher.
+  const side = Math.max(maxX - minX + 1, maxY - minY + 1);
+  const left = Math.round((minX + maxX + 1 - side) / 2);
+  const top = Math.round((minY + maxY + 1 - side) / 2);
+
+  cachedTile = { left, top, side };
+  return cachedTile;
 }
 
 /**
- * Renders the mark at `size`, supersampling `ss`× per axis for antialiasing.
+ * Square, opaque, full-bleed: iOS home screen, Apple touch icon.
  *
- * `background` false leaves everything outside the mark transparent, which is
- * what the Android adaptive foreground and the splash logo need; iOS wants an
- * opaque square because it applies its own squircle mask and shows black
- * through any alpha.
+ * The crop reaches slightly inside the tile so the artwork's own rounded
+ * corners fall outside the icon, leaving iOS's squircle to do the rounding.
+ * Left whole, the two radii stack up and the icon reads as a card inside a
+ * card. Any corner that is still transparent lands on the ground colour.
  */
-function renderMark({ size, ss = 4, background, markScale }) {
-  const rgba = Buffer.alloc(size * size * 4);
-  const cx = size / 2;
-  // `markScale` is the fraction of the canvas the mark spans horizontally, so
-  // the safe-zone maths below is about the drawn shape rather than the curve's
-  // arbitrary unit box.
-  const outer = (size * markScale) / (2 * EXTENT.xMax);
-  const cy = size / 2 + ((EXTENT.yMax + EXTENT.yMin) / 2) * outer;
-  const gold = outer * 0.955;
-  const inner = outer * 0.9;
-  const keyR = outer * 0.19;
-  const keyY = cy - outer * 0.12;
+async function opaque(size) {
+  const { left, top, side } = await tile();
+  const inset = Math.round(side * 0.06);
+  return sharp(SOURCE)
+    .extract({ left: left + inset, top: top + inset, width: side - inset * 2, height: side - inset * 2 })
+    .resize(size, size, { fit: 'fill' })
+    .flatten({ background: GROUND })
+    .png()
+    .toBuffer();
+}
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      let a = 0;
+/** Square, transparent outside the tile: browser tabs, Android foreground. */
+async function transparent(size, scale = 1) {
+  const { left, top, side } = await tile();
+  const inner = Math.round(size * scale);
+  const pad = Math.round((size - inner) / 2);
+  return sharp(SOURCE)
+    .extract({ left, top, width: side, height: side })
+    .resize(inner, inner, { fit: 'fill' })
+    .extend({
+      top: pad,
+      bottom: size - inner - pad,
+      left: pad,
+      right: size - inner - pad,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
 
-      for (let sy = 0; sy < ss; sy++) {
-        for (let sx = 0; sx < ss; sx++) {
-          const px = x + (sx + 0.5) / ss;
-          const py = y + (sy + 0.5) / ss;
+/**
+ * A white silhouette of the heart, for the Android notification tray. Android
+ * throws away every colour in a notification icon and keeps only the alpha, so
+ * a full-colour icon arrives as a white blob.
+ *
+ * The shape is lifted from the artwork rather than drawn again: pixels that are
+ * strongly coloured or nearly black are the mark, cream is the ground. That
+ * also catches the orbiting dots and rings, so only the blob connected to the
+ * centre of the drawing - the heart - is kept, flood filled from the middle.
+ * The keyhole is inside that blob and fills in with it, which is what you want
+ * at 24dp.
+ */
+async function silhouette(size) {
+  const { data, info } = await sharp(SOURCE).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { width: w, height: h, channels } = info;
 
-          let col = null;
-          let alpha = 0;
+  const mark = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) {
+    const p = i * channels;
+    if (data[p + 3] < 128) continue;
+    const max = Math.max(data[p], data[p + 1], data[p + 2]);
+    const min = Math.min(data[p], data[p + 1], data[p + 2]);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    if ((saturation > 0.45 && max > 60) || max < 90) mark[i] = 1;
+  }
 
-          if (background) {
-            // Deep purple ground, lifted diagonally so the icon has depth.
-            const d = clamp01((px / size) * 0.5 + (py / size) * 0.5);
-            col = mix(PURPLE, PURPLE_DEEP, d);
-            alpha = 1;
+  // Flood fill from the centre to keep the heart and drop the orbit.
+  const keep = new Uint8Array(w * h);
+  const start = Math.floor(h / 2) * w + Math.floor(w / 2);
+  if (!mark[start]) throw new Error('the centre of the artwork is not part of the mark');
+  const queue = [start];
+  keep[start] = 1;
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  while (queue.length) {
+    const i = queue.pop();
+    const x = i % w;
+    const y = (i - x) / w;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    for (const j of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1]) {
+      if (j >= 0 && mark[j] && !keep[j]) {
+        keep[j] = 1;
+        queue.push(j);
+      }
+    }
+  }
 
-            // Pink bloom behind the heart.
-            const dist = Math.hypot(px - cx, py - cy) / (size * 0.52);
-            const glow = Math.pow(clamp01(1 - dist), 2.2) * 0.42;
-            col = mix(col, PINK, glow);
-          }
+  const cw = maxX - minX + 1;
+  const ch = maxY - minY + 1;
 
-          if (insideHeart(px, py, cx, cy, outer)) {
-            col = PINK_DEEP;
-            alpha = 1;
-          }
-          if (insideHeart(px, py, cx, cy, gold)) {
-            // Gold rim, brighter at the top like a bevelled edge.
-            col = mix(GOLD, GOLD_DEEP, clamp01((py - (cy - outer)) / (outer * 2)));
-            alpha = 1;
-          }
-          if (insideHeart(px, py, cx, cy, inner)) {
-            const t = clamp01((px / size) * 0.35 + (py / size) * 0.85 - 0.1);
-            col = mix(PINK_BRIGHT, PINK, t);
-            alpha = 1;
-          }
-          if (insideKeyhole(px, py, cx, keyY, keyR) && insideHeart(px, py, cx, cy, inner)) {
-            col = PURPLE;
-            alpha = 1;
-          }
-
-          if (col && alpha) {
-            r += col[0];
-            g += col[1];
-            b += col[2];
-            a += alpha;
+  // The gloss on the heart is pale enough to read as ground, which leaves the
+  // silhouette full of holes. Anything enclosed by the shape is filled in:
+  // flood the gaps from the edge of the crop, and whatever the flood cannot
+  // reach was inside.
+  const outside = new Uint8Array(cw * ch);
+  const edges = [];
+  for (let x = 0; x < cw; x++) edges.push(x, (ch - 1) * cw + x);
+  for (let y = 0; y < ch; y++) edges.push(y * cw, y * cw + cw - 1);
+  for (const e of edges) {
+    if (!keep[(Math.floor(e / cw) + minY) * w + (e % cw) + minX] && !outside[e]) {
+      outside[e] = 1;
+      const gaps = [e];
+      while (gaps.length) {
+        const i = gaps.pop();
+        const x = i % cw;
+        const y = (i - x) / cw;
+        for (const j of [x > 0 ? i - 1 : -1, x < cw - 1 ? i + 1 : -1, y > 0 ? i - cw : -1, y < ch - 1 ? i + cw : -1]) {
+          if (j >= 0 && !outside[j] && !keep[(Math.floor(j / cw) + minY) * w + (j % cw) + minX]) {
+            outside[j] = 1;
+            gaps.push(j);
           }
         }
       }
-
-      const n = ss * ss;
-      const i = (y * size + x) * 4;
-      if (a > 0) {
-        // Average over covered subsamples so edge colour is not darkened by
-        // the transparent ones, then carry coverage into alpha.
-        rgba[i] = Math.round(r / a);
-        rgba[i + 1] = Math.round(g / a);
-        rgba[i + 2] = Math.round(b / a);
-        rgba[i + 3] = Math.round((a / n) * 255);
-      }
     }
   }
-  return rgba;
+
+  const white = Buffer.alloc(cw * ch * 4);
+  for (let y = 0; y < ch; y++) {
+    for (let x = 0; x < cw; x++) {
+      const p = (y * cw + x) * 4;
+      white[p] = 255;
+      white[p + 1] = 255;
+      white[p + 2] = 255;
+      white[p + 3] = outside[y * cw + x] ? 0 : 255;
+    }
+  }
+
+  // Android draws the icon inside a 24dp box with the art inset; 70% leaves the
+  // margin the platform expects instead of a silhouette jammed against the edge.
+  const inner = Math.round(size * 0.7);
+  const pad = Math.round((size - inner) / 2);
+  return sharp(white, { raw: { width: cw, height: ch, channels: 4 } })
+    .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extend({
+      top: pad,
+      bottom: size - inner - pad,
+      left: pad,
+      right: size - inner - pad,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
 }
 
-function write(relPath, size, opts) {
-  const out = join(ROOT, relPath);
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, encodePng(size, size, renderMark({ size, ...opts })));
-  console.log(`wrote ${relPath} (${size}x${size})`);
+/**
+ * An .ico wrapping PNGs, which every browser in use has read for a decade.
+ * sharp cannot write .ico, and the container is a 6-byte header plus one
+ * 16-byte directory entry per image, so it is assembled here.
+ */
+function ico(images) {
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: icon
+  header.writeUInt16LE(images.length, 4);
+
+  let offset = 6 + images.length * 16;
+  const entries = images.map(({ size, png }) => {
+    const entry = Buffer.alloc(16);
+    entry.writeUInt8(size >= 256 ? 0 : size, 0); // 0 means 256
+    entry.writeUInt8(size >= 256 ? 0 : size, 1);
+    entry.writeUInt8(0, 2); // palette
+    entry.writeUInt8(0, 3); // reserved
+    entry.writeUInt16LE(1, 4); // colour planes
+    entry.writeUInt16LE(32, 6); // bits per pixel
+    entry.writeUInt32LE(png.length, 8);
+    entry.writeUInt32LE(offset, 12);
+    offset += png.length;
+    return entry;
+  });
+
+  return Buffer.concat([header, ...entries, ...images.map((i) => i.png)]);
 }
 
-// iOS home screen + the Expo `icon`. Opaque; iOS masks the corners itself.
-write('assets/icon.png', 1024, { background: true, markScale: 0.66 });
+function write(absPath, buffer, note) {
+  mkdirSync(dirname(absPath), { recursive: true });
+  writeFileSync(absPath, buffer);
+  console.log(`wrote ${relative(REPO, absPath)} - ${note}`);
+}
 
-// Android adaptive foreground. Android crops hard - only the middle ~66% of the
-// canvas is guaranteed visible - so the mark stays inside that circle.
-write('assets/adaptive-icon.png', 1024, { background: false, markScale: 0.46 });
+// ── Phone app ────────────────────────────────────────────────────────────────
 
-// Splash logo, shown on the brand ground set in app.config.ts.
-write('assets/splash-icon.png', 1024, { background: false, markScale: 0.82 });
+// iOS home screen and the Expo `icon`.
+write(join(MOBILE, 'assets/icon.png'), await opaque(1024), '1024 opaque');
 
-// Web favicon.
-write('assets/favicon.png', 256, { background: true, markScale: 0.72 });
+// Android adaptive foreground, inside the guaranteed-visible circle.
+write(join(MOBILE, 'assets/adaptive-icon.png'), await transparent(1024, 0.66), '1024 inset 66%');
+
+// Expo web favicon.
+write(join(MOBILE, 'assets/favicon.png'), await transparent(256), '256');
+
+// Android's splash is a centred logo on a plain ground - the platform's own
+// splash API allows nothing else - so the phone splash artwork cannot be used
+// there. This is the tile, kept small enough to survive the circular mask.
+write(join(MOBILE, 'assets/splash-icon.png'), await transparent(1024, 0.72), '1024 inset 72%');
+
+// Android notification tray.
+write(join(MOBILE, 'assets/notification-icon.png'), await silhouette(192), '192 white silhouette');
+
+// ── Website and admin console ────────────────────────────────────────────────
+// Next.js serves these by filename: `icon` is the tab icon, `apple-icon` the
+// iOS home-screen bookmark (opaque, because Safari does not mask transparency).
+
+for (const app of ['web', 'admin']) {
+  const appDir = join(REPO, 'apps', app, 'src', 'app');
+  write(join(appDir, 'icon.png'), await transparent(512), '512');
+  write(join(appDir, 'apple-icon.png'), await opaque(180), '180 opaque');
+  write(
+    join(appDir, 'favicon.ico'),
+    ico(
+      await Promise.all(
+        [16, 32, 48].map(async (size) => ({ size, png: await transparent(size) })),
+      ),
+    ),
+    'ico 16/32/48',
+  );
+}

@@ -142,6 +142,20 @@ export function requestSignInCode(
   return post<RequestCodeResult>(baseUrl, '/auth/otp/request', input);
 }
 
+/**
+ * Start an account, then have a code emailed to confirm the address.
+ *
+ * The account and its password are saved now rather than when the code is
+ * entered, so abandoning the code step does not throw the password away. Until
+ * the address is confirmed that password will not sign anyone in.
+ */
+export function registerAccount(
+  baseUrl: string,
+  input: { email: string; password: string },
+): Promise<RequestCodeResult> {
+  return post<RequestCodeResult>(baseUrl, '/auth/register', input);
+}
+
 export function verifySignInCode(
   baseUrl: string,
   input: { email: string; code: string },

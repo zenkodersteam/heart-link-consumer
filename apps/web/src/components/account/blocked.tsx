@@ -35,7 +35,7 @@ export function Blocked() {
       </p>
 
       {isError ? (
-        <div className="mt-6 rounded-[--radius-card] border border-line bg-surface-elevated p-6 text-center">
+        <div className="mt-6 rounded-card border border-line bg-surface-elevated p-6 text-center">
           <p className="text-sm text-ink-soft">
             {error instanceof Error ? error.message : 'We could not load your blocked list.'}
           </p>
@@ -52,7 +52,7 @@ export function Blocked() {
       ) : null}
 
       {!isPending && !isError && items.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center gap-3 rounded-[--radius-card] border border-line bg-surface-elevated py-12">
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-card border border-line bg-surface-elevated py-12">
           <ShieldOff className="size-6 text-ink-faint" aria-hidden />
           <p className="text-sm text-ink-faint">You have not blocked anyone.</p>
         </div>

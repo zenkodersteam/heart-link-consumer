@@ -72,3 +72,26 @@ body {
 .animate-caret-blink {
   animation: caret-blink 1.25s ease-out infinite;
 }
+
+/**
+ * The breathing rings behind the "in review" icon.
+ *
+ * A wait with nothing happening on screen reads as stuck, so the icon keeps a
+ * slow pulse. Two rings offset in time, matching the phone app's.
+ */
+@keyframes review-ring {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-review-ring {
+    animation: review-ring 1.8s ease-out infinite;
+  }
+}

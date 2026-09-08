@@ -1,7 +1,7 @@
 'use client';
 
 import { stateName, type PublicProfileSummary } from '@heartlink/consumer-api';
-import { Check, ChevronDown, Heart, HeartOff, Images, MapPin, PenLine, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, Heart, Images } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -51,12 +51,12 @@ export function LikedList() {
     <div className="mx-auto max-w-4xl px-5 py-8">
       <header className="mb-6 sm:flex sm:items-start sm:justify-between sm:gap-6">
         <div>
-          <h1 className="flex items-center gap-2.5 font-[family-name:var(--font-bree)] text-3xl text-ink">
-            Liked
+          <h1 className="flex items-center gap-2.5 font-[family-name:var(--font-bree)] text-[26px] text-ink">
+            Liked or Saved Profiles
             <Heart className="size-5 fill-primary text-primary" />
           </h1>
-          <p className="mt-1.5 text-sm text-ink-soft">
-            Profiles you&apos;ve liked and want to revisit.
+          <p className="mt-1 text-sm text-ink-soft">
+            Profiles you&apos;ve liked or saved for later.
           </p>
         </div>
 
@@ -93,7 +93,7 @@ export function LikedList() {
       {isPending ? <PageSpinner label="Opening your liked profiles…" /> : null}
 
       {isError ? (
-        <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center">
+        <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
           <p className="font-[family-name:var(--font-bree)] text-xl text-ink">
             Your liked list is taking a moment
           </p>
@@ -109,7 +109,7 @@ export function LikedList() {
       ) : null}
 
       {!isPending && !isError && items.length === 0 ? (
-        <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-10 text-center">
+        <div className="rounded-card border border-line bg-surface-elevated p-10 text-center">
           <span className="mx-auto grid size-16 place-items-center rounded-full border border-gold bg-gold-faint">
             <Heart className="size-7 text-gold" />
           </span>
@@ -126,7 +126,10 @@ export function LikedList() {
         </div>
       ) : null}
 
-      <ul className="space-y-4">
+      {/* Three across on a desktop, as the screens draw it; two, then one, as
+          the room runs out. On a phone the designs switch to a compact row,
+          which is what the card collapses to below `sm`. */}
+      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((profile) => (
           <li key={profile.id}>
             <LikedCard
@@ -152,70 +155,61 @@ function LikedCard({
   const place = stateName(profile.facility?.state);
 
   return (
-    <article className="flex overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
-      <Link
-        href={`/profiles/${profile.id}`}
-        className="relative w-28 shrink-0 self-stretch sm:w-[190px]"
-      >
+    <article className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
+      <Link href={`/profiles/${profile.id}`} className="relative block aspect-[4/3] shrink-0">
         <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
+
+        {/* Filled heart, top right, as the screens have it — on this page every
+            card is already liked, so it is the way to unlike rather than a
+            state to read. */}
+        <span className="absolute right-3 top-3">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              onUnsave();
+            }}
+            aria-label={`Remove ${profile.displayName} from Liked`}
+            className="grid size-9 place-items-center rounded-full bg-white/95 shadow-sm transition-transform hover:scale-105 active:scale-95"
+          >
+            <Heart className="size-[18px] fill-primary text-primary" />
+          </button>
+        </span>
+
         {profile.photoCount > 1 ? (
-          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-[--radius-pill] bg-midnight/60 px-2 py-0.5 text-[11px] font-semibold text-sidebar-text">
+          <span className="absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-pill bg-midnight/60 px-2 py-0.5 text-[11px] font-semibold text-sidebar-text">
             <Images className="size-3" />
             {profile.photoCount}
           </span>
         ) : null}
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-4 p-4 sm:p-5">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
         <div>
-          <div className="flex items-start justify-between gap-2">
-            <Link href={`/profiles/${profile.id}`} className="min-w-0">
-              <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-lg text-ink">
-                <span className="truncate">{profile.displayName}</span>
-                {profile.age != null ? (
-                  <span className="shrink-0 text-base font-semibold text-gold">{profile.age}</span>
-                ) : null}
-                {/* Same rule as browse and the profile page: shown only when
-                    staff recorded an identity check. */}
-                {profile.isVerified ? (
-                  <ShieldCheck className="size-4 shrink-0 text-gold-bright" />
-                ) : null}
-              </h2>
-            </Link>
+          <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-[17px] text-ink">
+            <span className="truncate">{profile.displayName}</span>
+            {profile.age != null ? (
+              <span className="shrink-0 text-[15px] text-ink-soft">{profile.age}</span>
+            ) : null}
+            {/* Same rule as browse and the profile page: shown only when staff
+                recorded an identity check. */}
+            {profile.isVerified ? (
+              <BadgeCheck className="size-4 shrink-0 fill-sidebar text-white" />
+            ) : null}
+          </h2>
 
-            <button
-              type="button"
-              onClick={onUnsave}
-              aria-label={`Remove ${profile.displayName} from Liked`}
-              className="grid size-9 shrink-0 place-items-center rounded-full border border-line text-ink-faint transition-colors hover:border-danger hover:text-danger"
-            >
-              <HeartOff className="size-4" />
-            </button>
-          </div>
-
-          {place ? (
-            <p className="mt-1 inline-flex items-center gap-1 text-xs text-ink-faint">
-              <MapPin className="size-3" /> {place}
-            </p>
-          ) : null}
-
-          {profile.bioExcerpt ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-soft">
-              {profile.bioExcerpt}
-            </p>
-          ) : null}
+          {place ? <p className="mt-1 text-[12.5px] text-ink-soft">{place}</p> : null}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild variant="secondary" size="sm" className="sm:flex-1">
-            <Link href={`/profiles/${profile.id}`}>View profile</Link>
+        <div className="mt-auto grid grid-cols-2 gap-2">
+          <Button asChild variant="secondary" size="sm">
+            <Link href={`/profiles/${profile.id}`}>View Profile</Link>
           </Button>
-          <Button asChild size="sm" className="sm:flex-1">
+          <Button asChild size="sm">
             <Link
               href={`/mailbox?compose=${profile.id}&name=${encodeURIComponent(profile.displayName)}`}
             >
-              <PenLine className="size-4" />
-              Write a letter
+              Message
             </Link>
           </Button>
         </div>

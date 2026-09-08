@@ -264,18 +264,24 @@ export async function recordInboundScan(
   forward.append('file', file);
 
   const api = await serverApi();
+  let params: URLSearchParams;
   try {
     const result = await api.recordInboundScan(forward);
     revalidatePath('/inbound-mail');
-    const params = new URLSearchParams({
+    params = new URLSearchParams({
       ok: '1',
       threadId: result.threadId,
       documentId: result.documentId,
     });
-    redirect(`/inbound-mail?${params.toString()}`);
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Failed to record inbound scan' };
   }
+
+  // Outside the try on purpose: `redirect` reports itself by throwing, so a
+  // redirect inside that block was caught by the same `catch` and returned as
+  // `{ error: 'NEXT_REDIRECT;...' }` — every successful upload ended on an
+  // error message, and the success card was never reached.
+  redirect(`/inbound-mail?${params.toString()}`);
 }
 
 export async function moderateCommunication(input: {

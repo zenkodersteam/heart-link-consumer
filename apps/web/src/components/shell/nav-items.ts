@@ -1,4 +1,4 @@
-import { BookOpen, Heart, Home, Mail, PenLine, User, type LucideIcon } from 'lucide-react';
+import { BookOpen, Heart, Home, LifeBuoy, Mail, User, type LucideIcon } from 'lucide-react';
 
 import { isBuilt } from '@/lib/routes';
 
@@ -10,12 +10,17 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
+/**
+ * Order, labels and icons follow the client screens. The rail says "Liked
+ * Profiles" where the top bar and the tab bar say "Liked" — that is how the
+ * designs have it, and `short` is what carries the difference.
+ */
 const ALL_NAV_ITEMS: NavItem[] = [
   { key: 'browse', label: 'Home', short: 'Home', href: '/browse', icon: Home },
   { key: 'mailbox', label: 'Mailbox', short: 'Mailbox', href: '/mailbox', icon: Mail },
-  { key: 'liked', label: 'Liked', short: 'Liked', href: '/liked', icon: Heart },
-  { key: 'circle', label: 'Support Circle', short: 'Circle', href: '/circle', icon: PenLine },
+  { key: 'liked', label: 'Liked Profiles', short: 'Liked', href: '/liked', icon: Heart },
   { key: 'resources', label: 'Resources', short: 'Resources', href: '/resources', icon: BookOpen },
+  { key: 'support', label: 'Support', short: 'Support', href: '/support', icon: LifeBuoy },
   { key: 'account', label: 'Account', short: 'Account', href: '/account', icon: User },
 ];
 
@@ -28,10 +33,13 @@ const ALL_NAV_ITEMS: NavItem[] = [
 export const NAV_ITEMS: NavItem[] = ALL_NAV_ITEMS.filter((item) => isBuilt(item.href));
 
 /**
- * The bottom bar keeps five items, as on the phone. Support Circle is reached
- * from Account rather than crowding the bar.
+ * The phone's tab bar carries five: Home, Mailbox, Liked, Resources, Support.
+ * Account is reached from the avatar rather than crowding the bar.
  */
-export const TAB_ITEMS = NAV_ITEMS.filter((i) => i.key !== 'circle');
+export const TAB_ITEMS = NAV_ITEMS.filter((item) => item.key !== 'account');
+
+/** The top bar drops Account too — the avatar on its right is that door. */
+export const TOP_NAV_ITEMS = NAV_ITEMS.filter((item) => item.key !== 'account');
 
 export function isActive(pathname: string, item: NavItem): boolean {
   return pathname === item.href || pathname.startsWith(`${item.href}/`);

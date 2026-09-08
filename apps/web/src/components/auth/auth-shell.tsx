@@ -80,7 +80,7 @@ export function AuthShell({
         </div>
 
         {/* The promise strip only earns its space on a tall panel. */}
-        <ul className="mt-2 hidden w-full max-w-sm grid-cols-2 gap-x-4 gap-y-5 rounded-[--radius-card] border border-line bg-surface-elevated/70 p-5 lg:grid">
+        <ul className="mt-2 hidden w-full max-w-sm grid-cols-2 gap-x-4 gap-y-5 rounded-card border border-line bg-surface-elevated/70 p-5 lg:grid">
           {BRAND_PROMISES.map((promise) => {
             const Icon = PROMISE_ICONS[promise.icon];
             return (

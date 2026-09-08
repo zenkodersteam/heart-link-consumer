@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -26,8 +27,9 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error('[dashboard] segment failed', error);
   }, [error]);
 
@@ -46,7 +48,10 @@ export default function DashboardError({
           <Button onClick={reset} variant="primary" size="sm">
             <RotateCcw className="size-4" /> Try again
           </Button>
-          <Button onClick={() => window.location.assign('/dashboard')} variant="outline" size="sm">
+          {/* Client navigation, not a full page load: `window.location.assign`
+              threw away the whole app and reloaded it, which on a screen that
+              exists because something already failed is a slow blank flash. */}
+          <Button onClick={() => router.push('/dashboard')} variant="outline" size="sm">
             Back to dashboard
           </Button>
         </div>

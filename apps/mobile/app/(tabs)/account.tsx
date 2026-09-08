@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import { SubscriptionPlans } from '../../src/components/SubscriptionPlans';
-import type { LetterEntitlement, MySubscription } from '@heartlink/consumer-api';
+import type { LetterEntitlement } from '@heartlink/consumer-api';
 import { humanError } from '../../src/lib/errors';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { clearMyProfileCache, useMyProfile } from '../../src/lib/use-my-profile';
@@ -32,8 +32,7 @@ export default function AccountScreen() {
   const apiFactory = useApiClientFactory();
   const [signingOut, setSigningOut] = useState(false);
   const [entitlement, setEntitlement] = useState<LetterEntitlement | null>(null);
-  const [plansUnavailable, setPlansUnavailable] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<MySubscription | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Splitting settings across pushed screens is a phone pattern. On a wide
@@ -50,12 +49,8 @@ export default function AccountScreen() {
         const api = await apiFactory();
         const e = await api.getLetterEntitlement();
         if (active) setEntitlement(e);
-        // The plan row said "No active plan" for everyone, paying members
-        // included, because nothing ever asked what they were on.
-        const sub = await api.getMySubscription();
-        if (active) setSubscription(sub);
       } catch (e) {
-        if (active) setPlansUnavailable(humanError(e, "Plan details aren't available right now."));
+        if (active) setLoadError(humanError(e, "Your account details aren't available right now."));
       }
     })();
     return () => {
@@ -182,18 +177,6 @@ export default function AccountScreen() {
                 ? () => router.push('/edit-profile' as never)
                 : () => router.push('/onboarding' as never)
             }
-          />
-          <SettingsRow
-            icon="credit-card"
-            label="Plan"
-            value={
-              subscription === null
-                ? '…'
-                : subscription.active
-                  ? (subscription.planName ?? 'Active')
-                  : 'No active plan'
-            }
-            onPress={isDesktop ? undefined : () => router.push('/plans' as never)}
             last
           />
         </View>
@@ -246,10 +229,10 @@ export default function AccountScreen() {
           </View>
         ) : null}
 
-        {plansUnavailable ? (
+        {loadError ? (
           <View style={styles.notice}>
             <Feather name="wifi-off" size={15} color={colors.gold} />
-            <Text style={styles.noticeText}>{plansUnavailable}</Text>
+            <Text style={styles.noticeText}>{loadError}</Text>
           </View>
         ) : null}
       </ScrollView>

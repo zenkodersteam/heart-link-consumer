@@ -39,33 +39,39 @@ export function InboundMailForm({
    * Seeded with the page's own profiles so the field is useful before a single
    * key is pressed, and debounced so typing does not fire a request per letter.
    */
-  const [remoteProfiles, setRemoteProfiles] = useState<
-    Array<Pick<Profile, 'id' | 'displayName'>> | null
-  >(null);
-  const [lookupPending, setLookupPending] = useState(false);
+  /**
+   * The last lookup that came back, tagged with the query it answered.
+   *
+   * Storing the query alongside the rows is what lets "still searching" and
+   * "nothing typed" be derived rather than tracked in their own state. Setting
+   * those synchronously inside the effect made React re-render twice for every
+   * keystroke — once for the flag, once for the rows.
+   */
+  const [lookup, setLookup] = useState<{
+    query: string;
+    rows: Array<Pick<Profile, 'id' | 'displayName'>>;
+  } | null>(null);
+
+  const trimmedQuery = profileQuery.trim();
+  // Results only count when they answer the query on screen now; anything else
+  // belongs to a keystroke that has already been superseded.
+  const remoteProfiles = lookup && lookup.query === trimmedQuery ? lookup.rows : null;
+  const lookupPending = trimmedQuery.length > 0 && remoteProfiles === null;
 
   useEffect(() => {
     const q = profileQuery.trim();
-    if (!q) {
-      setRemoteProfiles(null);
-      return;
-    }
-    setLookupPending(true);
+    if (!q) return;
+
+    let cancelled = false;
     const id = setTimeout(() => {
-      let cancelled = false;
       void searchProfilesForLookup(q).then((rows) => {
-        if (!cancelled) {
-          setRemoteProfiles(rows);
-          setLookupPending(false);
-        }
+        if (!cancelled) setLookup({ query: q, rows });
       });
-      return () => {
-        cancelled = true;
-      };
     }, 300);
+
     return () => {
+      cancelled = true;
       clearTimeout(id);
-      setLookupPending(false);
     };
   }, [profileQuery]);
 
@@ -86,7 +92,13 @@ export function InboundMailForm({
       if (result?.error) {
         setError(result.error);
         toast.error(result.error);
+        return;
       }
+      // Recording a scan redirects and clears the form, which on its own looks
+      // like the page simply reset — say that the letter actually landed.
+      toast.success('Inbound letter recorded', {
+        description: 'It is now on the member’s thread.',
+      });
     });
   }
 

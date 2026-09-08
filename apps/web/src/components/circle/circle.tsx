@@ -108,7 +108,7 @@ function Home({
 }) {
   return (
     <>
-      <header className="overflow-hidden rounded-[--radius-card] bg-gradient-to-br from-[#1B0826] via-sidebar to-[#451A5E] p-8">
+      <header className="overflow-hidden rounded-card bg-gradient-to-br from-[#1B0826] via-sidebar to-[#451A5E] p-8">
         <h1 className="font-[family-name:var(--font-bree)] text-3xl text-sidebar-text">
           Support Circle
         </h1>
@@ -125,7 +125,7 @@ function Home({
         {TOTAL_PROMPT_COUNT} prompts, grouped by the moment you are writing in.
       </p>
 
-      <ul className="mt-4 overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <ul className="mt-4 overflow-hidden rounded-card border border-line bg-surface-elevated">
         {MOMENTS.map((m, i) => {
           const Icon = MOMENT_ICONS[m.icon];
           return (
@@ -159,7 +159,7 @@ function Home({
       <button
         type="button"
         onClick={onOpenLetters}
-        className="mt-5 flex w-full items-center gap-4 rounded-[--radius-card] border border-line bg-surface-elevated p-5 text-left transition-shadow hover:shadow-[0_12px_30px_rgba(46,18,64,0.09)]"
+        className="mt-5 flex w-full items-center gap-4 rounded-card border border-line bg-surface-elevated p-5 text-left transition-shadow hover:shadow-[0_12px_30px_rgba(46,18,64,0.09)]"
       >
         <span className="min-w-0 flex-1">
           <span className="block font-[family-name:var(--font-bree)] text-lg text-ink">
@@ -174,8 +174,8 @@ function Home({
         <ArrowRight className="size-[18px] shrink-0 text-primary" aria-hidden />
       </button>
 
-      <section className="mt-6 rounded-[--radius-card] border border-line bg-surface-muted p-5">
-        <span className="inline-block rounded-[--radius-pill] border border-gold bg-gold-faint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gold">
+      <section className="mt-6 rounded-card border border-line bg-surface-muted p-5">
+        <span className="inline-block rounded-pill border border-gold bg-gold-faint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-gold">
           Later
         </span>
         <h3 className="mt-3 font-[family-name:var(--font-bree)] text-lg text-ink">
@@ -233,7 +233,7 @@ function MomentPage({
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">{moment.intro}</p>
       </header>
 
-      <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
         {moment.prompts.map((p, i) => (
           <li key={p.id}>
             <button
@@ -295,7 +295,7 @@ function PromptPage({
     <>
       <Crumb onBack={onBack} trail={moment.title} current={prompt.title} />
 
-      <article className="rounded-[--radius-card] border border-line bg-surface-elevated p-7">
+      <article className="rounded-card border border-line bg-surface-elevated p-7">
         <div className="mb-5 h-px w-12 bg-gold" aria-hidden />
         <h1 className="font-[family-name:var(--font-bree)] text-[26px] leading-tight text-ink">
           {prompt.title}
@@ -341,7 +341,7 @@ function LettersPage({ onBack }: { onBack: () => void }) {
       </header>
 
       <GroupHeading>What gets a letter rejected</GroupHeading>
-      <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
         {MAILROOM_RULES.map((r, i) => (
           <li
             key={r.avoid}
@@ -360,7 +360,7 @@ function LettersPage({ onBack }: { onBack: () => void }) {
       </ul>
 
       <GroupHeading>How long your letter can be</GroupHeading>
-      <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
         {PLAN_WORD_LIMITS.map((p, i) => (
           <li
             key={p.key}
@@ -381,7 +381,7 @@ function LettersPage({ onBack }: { onBack: () => void }) {
       </p>
 
       <GroupHeading>Run this before it goes out</GroupHeading>
-      <ul className="overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+      <ul className="overflow-hidden rounded-card border border-line bg-surface-elevated">
         {PRE_SEND_CHECKLIST.map((item, i) => (
           <li
             key={item}

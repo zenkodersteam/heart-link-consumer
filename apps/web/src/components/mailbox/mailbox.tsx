@@ -1,11 +1,12 @@
 'use client';
 
-import { ChevronLeft, Lock, Mail, PenLine, Search } from 'lucide-react';
+import { ChevronLeft, Lock, Mail, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ProfileReviewOverlay } from '@/components/profile/review-overlay';
 import { Avatar } from '@/components/profiles/avatar';
 import { Button } from '@/components/ui/button';
 import { PageSpinner } from '@/components/ui/spinner';
@@ -19,9 +20,9 @@ import {
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
-import { formatTime } from './lib';
+import { FolderRail, type MailFolder } from './folder-rail';
+import { formatTime, threadPreview } from './lib';
 import { LetterComposer } from './letter-composer';
-import { LettersCard } from './letters-card';
 import { ComposeNote, ThreadView } from './thread-view';
 
 /**
@@ -45,12 +46,13 @@ export function Mailbox() {
   const purchase = params.get('purchase');
 
   const { data, isPending, isError, error, refetch } = useMailboxThreads();
-  const { data: myProfile } = useMyProfile();
+  const { data: myProfile, refetch: refetchProfile, isFetching: profileRefetching } = useMyProfile();
   const { data: saved } = useSavedProfiles();
   const { data: composeLimit } = useLetterLimit(composeId ?? undefined);
   const composeLetter = useComposeLetter();
   const { mutate: markThreadRead } = useMarkThreadRead();
 
+  const [folder, setFolder] = useState<MailFolder>('inbox');
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {
@@ -62,12 +64,27 @@ export function Mailbox() {
   const profileApproved = myProfile?.status === 'approved';
 
   const threads = useMemo(() => data?.items ?? [], [data]);
+  /**
+   * Which folder a thread belongs in, from the direction of its last letter:
+   * one you have replied to most recently sits in Sent, one waiting on you
+   * sits in Inbox. A thread with nothing in it yet counts as Inbox.
+   */
+  const inFolder = useMemo(
+    () =>
+      threads.filter((thread) =>
+        folder === 'sent'
+          ? thread.lastDirection === 'outbound'
+          : thread.lastDirection !== 'outbound',
+      ),
+    [threads, folder],
+  );
+
   const filtered = useMemo(() => {
     const query = debounced.trim().toLowerCase();
     return query
-      ? threads.filter((t) => t.profileDisplayName.toLowerCase().includes(query))
-      : threads;
-  }, [threads, debounced]);
+      ? inFolder.filter((t) => t.profileDisplayName.toLowerCase().includes(query))
+      : inFolder;
+  }, [inFolder, debounced]);
 
   // Opening a letter clears its unread badge. Guarded by a ref so a re-render
   // while the thread is open does not fire the mutation again.
@@ -131,16 +148,7 @@ export function Mailbox() {
 
   const listColumn = (
     <div className="flex min-h-0 flex-col gap-4">
-      <Button asChild className="w-full">
-        <Link href="/browse">
-          <PenLine className="size-4" />
-          Write a new letter
-        </Link>
-      </Button>
-
-      <LettersCard profileApproved={Boolean(profileApproved)} />
-
-      <label className="flex items-center gap-2 rounded-[--radius-pill] border border-line bg-surface-elevated px-4 py-2.5">
+      <label className="flex items-center gap-2 rounded-pill border border-line bg-surface-elevated px-4 py-2.5">
         <Search className="size-4 shrink-0 text-ink-faint" />
         <input
           value={search}
@@ -154,7 +162,7 @@ export function Mailbox() {
         {isPending ? <PageSpinner label="Opening your mailbox…" /> : null}
 
         {isError ? (
-          <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-6 text-center">
+          <div className="rounded-card border border-line bg-surface-elevated p-6 text-center">
             <p className="text-sm text-ink-soft">
               {error instanceof Error ? error.message : "We couldn't load your mailbox."}
             </p>
@@ -195,7 +203,7 @@ export function Mailbox() {
                   </span>
                   <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
                     {thread.lastDirection === 'outbound' ? 'You: ' : ''}
-                    {thread.lastMessagePreview ?? 'No letters yet'}
+                    {threadPreview(thread)}
                   </span>
                 </span>
                 {thread.unreadCount > 0 ? (
@@ -227,7 +235,8 @@ export function Mailbox() {
         <ComposeNote name={composeName} wordLimit={composeLimit?.wordLimit ?? null} />
         <LetterComposer
           tall
-          placeholder={`Write your letter to ${composeName}…`}
+          salutation={`Dear ${composeName.split(' ')[0]},`}
+          placeholder="Tell them about your day, ask about theirs…"
           limit={composeLimit}
           disabled={!profileApproved}
           disabledReason={sendBlockedReason}
@@ -255,10 +264,44 @@ export function Mailbox() {
   const detailOpen = Boolean(threadId || composePane);
 
   return (
-    <div className="lg:flex lg:h-dvh lg:min-h-0">
+    // `relative` so the overlay can cover exactly this pane rather than the
+    // whole window: the rail and the tab bar stay usable, which is the point —
+    // browsing is still allowed while a profile is in review, only the mailbox
+    // is not.
+    <div className="relative lg:flex lg:h-[calc(100dvh-9.5rem)] lg:min-h-0">
+      {myProfile && myProfile.status !== 'approved' ? (
+        <ProfileReviewOverlay
+          status={myProfile.status}
+          moderationNotes={myProfile.moderationNotes}
+          onRefresh={() => void refetchProfile()}
+          refreshing={profileRefetching}
+        />
+      ) : null}
+
+      {/* Three panes on a desktop, as the screens draw it: folders, the list,
+          then what is open. On a phone the rail is not shown at all — the
+          designs put Inbox/Sent as tabs above the list there, and a third
+          column would leave no room for any of them. */}
       <div
         className={cn(
-          'mx-auto w-full max-w-2xl px-5 py-6 lg:mx-0 lg:h-full lg:w-[380px] lg:max-w-none lg:shrink-0 lg:border-r lg:border-line lg:px-5',
+          'hidden w-[230px] shrink-0 flex-col gap-4 border-r border-line px-5 py-6 lg:flex',
+          detailOpen && 'lg:flex',
+        )}
+      >
+        <FolderRail
+          folder={folder}
+          onSelect={setFolder}
+          counts={{
+            inbox: threads.filter((t) => t.lastDirection !== 'outbound').length,
+            sent: threads.filter((t) => t.lastDirection === 'outbound').length,
+            unread,
+          }}
+        />
+      </div>
+
+      <div
+        className={cn(
+          'mx-auto w-full max-w-2xl px-5 py-6 lg:mx-0 lg:h-full lg:w-[340px] lg:max-w-none lg:shrink-0 lg:border-r lg:border-line lg:px-5',
           detailOpen && 'hidden lg:block',
         )}
       >
@@ -267,6 +310,28 @@ export function Mailbox() {
           <p className="mt-1 text-sm text-ink-soft">
             Private &amp; secure{unread > 0 ? ` · ${unread} new` : ''}
           </p>
+          <div className="mt-4 flex gap-2">
+            {(['inbox', 'sent'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFolder(key)}
+                className={cn(
+                  'rounded-pill px-4 py-1.5 text-[13px] capitalize transition-colors',
+                  folder === key
+                    ? 'bg-primary-faint font-semibold text-primary'
+                    : 'text-ink-soft hover:bg-surface-muted',
+                )}
+              >
+                {key}
+                {key === 'inbox' && unread > 0 ? (
+                  <span className="ml-1.5 rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                    {unread}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </div>
         </header>
         {listColumn}
       </div>
@@ -289,7 +354,7 @@ export function Mailbox() {
 
 function EmptyThreads({ searching }: { searching: boolean }) {
   return (
-    <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center">
+    <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
       <span className="mx-auto grid size-14 place-items-center rounded-full border border-gold bg-gold-faint">
         <Mail className="size-6 text-gold" />
       </span>

@@ -190,7 +190,7 @@ export function ProfileDetail({ id }: { id: string }) {
           onSelect={() => toggleSaved.mutate({ id: data.id, saved: isSaved })}
         >
           <Heart className={isSaved ? 'size-4 fill-primary text-primary' : 'size-4 text-ink-faint'} />
-          {isSaved ? 'Saved to Liked' : 'Save to Liked'}
+          {isSaved ? 'Remove from Liked' : 'Like'}
         </DropdownMenuItem>
         {data.acceptsMail ? (
           <DropdownMenuItem
@@ -395,15 +395,19 @@ function Story({ data }: { data: PublicProfileDetail }) {
         {data.age != null ? <span className="text-xl text-ink-soft">{data.age}</span> : null}
       </div>
 
-      {data.bio ? (
-        <p className="mt-3 whitespace-pre-line text-[15px] leading-7 text-ink-soft">{data.bio}</p>
-      ) : null}
-
+      {/* Facts before prose, the order the client's card uses. A full bio is
+          often several hundred words, and leading with it buried when someone
+          is coming home and whether they take mail — which is what most people
+          open a profile to find out — under a wall of text. */}
       <VitalsStrip
         releaseDate={release}
         state={stateName(data.facility?.state)}
         acceptsMail={data.acceptsMail}
       />
+
+      {data.bio ? (
+        <p className="mt-5 whitespace-pre-line text-[15px] leading-7 text-ink-soft">{data.bio}</p>
+      ) : null}
 
       {basics.length ? (
         <>

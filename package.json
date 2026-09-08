@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "mobile": "npm run --workspace @heartlink/mobile ios",
+    "mobile:android": "npm run --workspace @heartlink/mobile android",
     "mobile:dev": "npm run --workspace @heartlink/mobile dev",
     "web": "npm run --workspace @heartlink/web dev",
     "admin": "npm run --workspace @heartlink/admin dev",

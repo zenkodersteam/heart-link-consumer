@@ -150,7 +150,10 @@ export function AdminShell({
             </div>
           </div>
 
-          <div className="shrink-0 rounded-full border border-border bg-background px-1.5 py-1 shadow-soft">
+          {/* A rounded rectangle, not `rounded-full`: this holds two stacked
+              lines, and a pill shape around a two-line block bows out at the
+              ends and crowds the text against its own border. */}
+          <div className="shrink-0 rounded-2xl border border-border bg-background py-1.5 pl-3 pr-1.5 shadow-soft">
             {userSlot}
           </div>
         </header>

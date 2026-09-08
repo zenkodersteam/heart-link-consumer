@@ -101,7 +101,7 @@ export default function LandingPage() {
             {STEPS.map((step) => (
               <li
                 key={step.n}
-                className="rounded-[--radius-card] border border-line bg-surface-elevated p-6"
+                className="rounded-card border border-line bg-surface-elevated p-6"
               >
                 <span className="font-[family-name:var(--font-bree)] text-3xl text-primary/35">
                   {step.n}
@@ -145,7 +145,7 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-5 shadow-[0_20px_44px_rgba(22,5,31,0.10)]">
+            <div className="rounded-card border border-line bg-surface-elevated p-5 shadow-[0_20px_44px_rgba(22,5,31,0.10)]">
               <div className="mb-4 flex items-center justify-between">
                 <p className="font-[family-name:var(--font-bree)] text-lg text-ink">Darnell, 34</p>
                 <span className="text-[11px] text-ink-faint">3-page letter this week</span>
@@ -201,7 +201,7 @@ export default function LandingPage() {
             {VALUE_PROPS.map((prop) => (
               <div
                 key={prop.title}
-                className="rounded-[--radius-card] border border-line bg-surface-elevated p-5"
+                className="rounded-card border border-line bg-surface-elevated p-5"
               >
                 <h3 className="font-[family-name:var(--font-bree)] text-lg text-ink">
                   {prop.title}
@@ -232,7 +232,7 @@ export default function LandingPage() {
                 return (
                   <div
                     key={item.title}
-                    className="rounded-[--radius-card] border border-white/10 bg-white/[0.04] p-6"
+                    className="rounded-card border border-white/10 bg-white/[0.04] p-6"
                   >
                     <span className="grid size-10 place-items-center rounded-full border border-gold/40 bg-gold-faint">
                       <Icon className="size-5 text-gold-bright" />

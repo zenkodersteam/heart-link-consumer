@@ -196,7 +196,7 @@ export function Onboarding() {
     return (
       <Shell>
         <div
-          className="flex flex-col items-center gap-3 rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center"
+          className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface-elevated p-8 text-center"
           role="alert"
         >
           <WifiOff className="size-6 text-gold" aria-hidden />
@@ -218,7 +218,7 @@ export function Onboarding() {
   if (done) {
     return (
       <Shell>
-        <div className="flex flex-col items-center gap-4 rounded-[--radius-card] border border-line bg-surface-elevated p-10 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-card border border-line bg-surface-elevated p-10 text-center">
           <CheckCircle2 className="size-11 text-success" aria-hidden />
           <h1 className="font-[family-name:var(--font-bree)] text-2xl text-ink">You&apos;re all set</h1>
           <p className="max-w-sm text-sm leading-relaxed text-ink-soft">
@@ -542,7 +542,7 @@ export function Onboarding() {
         ) : null}
 
         {step.key === 'review' ? (
-          <dl className="divide-y divide-line overflow-hidden rounded-[--radius-card] border border-line bg-surface-elevated">
+          <dl className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface-elevated">
             <ReviewRow label="Name" value={name} />
             <ReviewRow label="Birth date" value={dob} />
             <ReviewRow label="Location" value={loc} />

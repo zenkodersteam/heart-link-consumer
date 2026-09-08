@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import {useMemo, useState, useTransition} from 'react';
 import { toast } from 'sonner';
 import type { AdminResource, AdminResourceCategory } from '@heartlink/api-contract';
 import {
@@ -70,11 +70,20 @@ export function ResourceFormDialog({ mode, resource, categories, trigger }: Prop
   const defaultCategoryId = useMemo(() => categories[0]?.id ?? '', [categories]);
   const [form, setForm] = useState<FormState>(resource ? fromResource(resource) : { ...EMPTY, categoryId: defaultCategoryId });
 
-  useEffect(() => {
-    if (open) {
+  /**
+   * Opening the dialog starts from the record again.
+   *
+   * Done in the handler rather than an effect keyed on `open`: the effect
+   * version rendered the dialog once with the previous edit still in it, then
+   * re-rendered with the reset values — a visible flash of stale input on every
+   * open, and a second render for nothing.
+   */
+  const onOpenChange = (next: boolean) => {
+    if (next) {
       setForm(resource ? fromResource(resource) : { ...EMPTY, categoryId: defaultCategoryId });
     }
-  }, [open, resource, defaultCategoryId]);
+    setOpen(next);
+  };
 
   const onSubmit = () => {
     if (!form.categoryId) {
@@ -121,8 +130,8 @@ export function ResourceFormDialog({ mode, resource, categories, trigger }: Prop
 
   return (
     <>
-      <span onClick={() => setOpen(true)}>{trigger}</span>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <span onClick={() => onOpenChange(true)}>{trigger}</span>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{mode === 'create' ? 'Add Resource' : 'Edit Resource'}</DialogTitle>

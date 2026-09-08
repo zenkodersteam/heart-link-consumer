@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { ReactNode, useState } from 'react';
 import {
   ActivityIndicator,
@@ -45,32 +46,74 @@ const webTransition: Record<string, unknown> | null =
 interface FieldProps extends TextInputProps {
   label: string;
   error?: string | null;
+  /**
+   * Adds a show/hide control inside the field and starts it hidden.
+   *
+   * Passed rather than inferred from `secureTextEntry` so a field that should
+   * stay hidden — a card number, say — does not silently gain a reveal.
+   */
+  revealable?: boolean;
 }
 
-export function Field({ label, error, style, onFocus, onBlur, ...rest }: FieldProps) {
+export function Field({
+  label,
+  error,
+  style,
+  onFocus,
+  onBlur,
+  revealable,
+  secureTextEntry,
+  ...rest
+}: FieldProps) {
   const [focused, setFocused] = useState(false);
+  // Never remembered between visits: leaving a password on screen is a
+  // decision to take each time, not one to inherit.
+  const [revealed, setRevealed] = useState(false);
+
   return (
     <View style={fieldStyles.wrapper}>
       <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
-        placeholderTextColor={colors.textMuted}
-        style={[
-          fieldStyles.input,
-          webTransition,
-          focused ? fieldStyles.inputFocused : null,
-          error ? fieldStyles.inputError : null,
-          style,
-        ]}
-        onFocus={(e) => {
-          setFocused(true);
-          onFocus?.(e);
-        }}
-        onBlur={(e) => {
-          setFocused(false);
-          onBlur?.(e);
-        }}
-        {...rest}
-      />
+      <View style={fieldStyles.inputRow}>
+        <TextInput
+          placeholderTextColor={colors.textMuted}
+          secureTextEntry={revealable ? secureTextEntry && !revealed : secureTextEntry}
+          style={[
+            fieldStyles.input,
+            revealable ? fieldStyles.inputWithAction : null,
+            webTransition,
+            focused ? fieldStyles.inputFocused : null,
+            error ? fieldStyles.inputError : null,
+            style,
+          ]}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
+          {...rest}
+        />
+        {revealable ? (
+          <Pressable
+            onPress={() => setRevealed((shown) => !shown)}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+            accessibilityState={{ selected: revealed }}
+            // The tap target is bigger than the icon, which at 18px is well
+            // under the 44pt everyone can reliably hit.
+            hitSlop={12}
+            style={fieldStyles.reveal}
+          >
+            <Feather
+              name={revealed ? 'eye-off' : 'eye'}
+              size={18}
+              color={focused ? colors.primary : colors.textMuted}
+            />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
     </View>
   );
@@ -89,6 +132,15 @@ const fieldStyles = StyleSheet.create({
     color: colors.textPrimary,
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
+  },
+  inputRow: { position: 'relative', justifyContent: 'center' },
+  // Room for the reveal, so a long password does not run underneath it.
+  inputWithAction: { paddingRight: spacing.xxl + spacing.lg },
+  reveal: {
+    position: 'absolute',
+    right: spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputFocused: { borderColor: colors.primary },
   inputError: { borderColor: colors.danger },

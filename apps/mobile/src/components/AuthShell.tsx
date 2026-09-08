@@ -243,7 +243,7 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
       <SafeAreaView style={styles.flex} edges={['top']}>
         {minimal ? (
           <View style={styles.slimBar}>
-            <Brand size={17} />
+            <Brand size={20} />
           </View>
         ) : (
           <ArtPanel mobile height={artHeight} />
@@ -273,7 +273,15 @@ const styles = StyleSheet.create({
 
   // Brand panel (client screen 10)
   artInner: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xxl },
-  artInnerMobile: { justifyContent: 'flex-end', paddingBottom: spacing.lg, gap: spacing.sm },
+  // Centred, not bottom-aligned: the form sheet rises over the last 20px of
+  // this panel, so anything pushed to the bottom is clipped by it. The extra
+  // bottom padding keeps the optical centre above that overlap.
+  artInnerMobile: {
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
+    gap: spacing.sm,
+  },
   artEmblem: { width: 76, height: 66 },
   artEmblemMobile: { width: 46, height: 40 },
   artWordmark: { fontFamily: 'BreeSerif_400Regular', fontSize: 38, lineHeight: 46 },
@@ -304,7 +312,7 @@ const styles = StyleSheet.create({
   split: { flex: 1, flexDirection: 'row' },
   artCol: { flex: 1.15, minWidth: 0 },
   artDesktop: { flex: 1, overflow: 'hidden' },
-  slimBar: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 30 },
+  slimBar: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 26 },
   artMobile: { height: auth.mobileArtHeight, overflow: 'hidden' },
   statementGold: { color: colors.goldBright },
   formCol: { flex: 1, backgroundColor: colors.bgElevated },
@@ -321,7 +329,9 @@ const styles = StyleSheet.create({
   stickyHead: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: spacing.md },
   brandWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   wordmark: { flexDirection: 'row', alignItems: 'baseline' },
-  wordHeart: { fontFamily: 'BreeSerif_400Regular', color: colors.sidebarText },
+  // Ink, not sidebarText: that near-white was for the midnight bridge panel this
+  // replaced, and on the light panel it is invisible against the cream.
+  wordHeart: { fontFamily: 'BreeSerif_400Regular', color: colors.textPrimary },
   wordLink: { fontFamily: 'BreeSerif_400Regular', color: colors.primary },
   title: { ...type.h1, marginBottom: spacing.xs },
   subtitle: { ...type.bodyMuted, fontSize: 14, marginBottom: spacing.xl, maxWidth: 460 },

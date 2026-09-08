@@ -22,7 +22,7 @@ function DialogContent({
       <DialogPrimitive.Content
         className={cn(
           'fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2',
-          'rounded-[--radius-card] border border-line bg-surface-elevated p-6 shadow-[0_30px_70px_rgba(22,5,31,0.32)]',
+          'rounded-card border border-line bg-surface-elevated p-6 shadow-[0_30px_70px_rgba(22,5,31,0.32)]',
           'hl-anim-pop',
           className,
         )}

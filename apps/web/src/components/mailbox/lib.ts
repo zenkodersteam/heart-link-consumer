@@ -1,4 +1,4 @@
-import type { LetterEntitlement } from '@heartlink/consumer-api';
+import type { LetterEntitlement, MailboxThreadSummary } from '@heartlink/consumer-api';
 
 /**
  * Delivery states, in the member's words.
@@ -61,3 +61,16 @@ export const LETTER_PACKS: {
   { key: 'medium', letters: 7, price: '$9.99' },
   { key: 'large', letters: 20, price: '$19.99' },
 ];
+
+/**
+ * The line under a name in the thread list.
+ *
+ * An inbound letter is scanned paper, so it carries no typed text to quote —
+ * and "No letters yet" printed over a reply that has actually arrived reads as
+ * the app having lost it.
+ */
+export function threadPreview(thread: MailboxThreadSummary): string {
+  if (thread.lastMessagePreview) return thread.lastMessagePreview;
+  if (thread.lastDirection === 'inbound') return 'Scanned reply · open to read';
+  return 'No letters yet';
+}

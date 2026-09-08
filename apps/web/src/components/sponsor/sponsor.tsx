@@ -28,7 +28,7 @@ export function Sponsor() {
   if (!profileId) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-16">
-        <div className="flex flex-col items-center gap-4 rounded-[--radius-card] border border-line bg-surface-elevated p-10 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-card border border-line bg-surface-elevated p-10 text-center">
           <span className="grid size-16 place-items-center rounded-full border border-gold bg-gold-faint">
             <Gift className="size-7 text-gold" aria-hidden />
           </span>

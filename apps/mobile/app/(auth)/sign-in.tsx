@@ -1,33 +1,49 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import type { SignInResult } from '@heartlink/consumer-api';
 import { passwordProblem } from '@heartlink/domain';
 
 import { AuthShell } from '../../src/components/AuthShell';
 import { OtpBoxes } from '../../src/components/OtpBoxes';
 import { Button, Field } from '../../src/components/primitives';
 import { takePendingRoute } from '../../src/lib/pending-route';
+import {
+  clearPendingSignUp,
+  isPendingSignUp,
+  rememberPendingSignUp,
+} from '../../src/lib/pending-signup';
+import { useToast } from '../../src/components/Toast';
 import { useSession } from '../../src/lib/session';
 import { colors, spacing, type } from '../../src/theme';
 
 /**
- * Signing in, and signing up, in two steps.
+ * Signing in, and signing up.
  *
- * There is no password here at all, so there is no password to forget, no
- * reset flow, and no second factor bolted on — the code sent to the address is
- * the proof, and it is the same proof either way. The screen this replaced
- * carried four stages and a strategy enum for exactly those cases.
- *
- * Whether this opens an account or creates one is the server's decision, taken
- * from what is in the database. So there is one screen, and nobody can arrive
- * at the wrong door.
+ * One screen for both, because whether an address opens an account or creates
+ * one is the server's decision, taken from what is in the database — nobody can
+ * arrive at the wrong door. But `intent` decides the wording: someone who
+ * pressed "Create Account" should not be greeted with "Welcome back", and
+ * someone signing up is choosing a password rather than recalling one.
  */
 export default function SignInScreen() {
   const router = useRouter();
-  const { requestCode, signIn, signInWithPassword } = useSession();
+  const params = useLocalSearchParams<{ intent?: string }>();
+  const signingUp = params.intent === 'sign_up';
+  const {
+    requestCode,
+    register,
+    signIn,
+    signInWithPassword,
+    setPassword: savePassword,
+    verifyCodeOnly,
+    adoptSession,
+    setPasswordWithToken,
+  } = useSession();
+  const toast = useToast();
 
-  const [stage, setStage] = useState<'email' | 'code'>('email');
+  const [stage, setStage] = useState<'email' | 'code' | 'new-password'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   /**
@@ -37,35 +53,91 @@ export default function SignInScreen() {
    * so the code path stays reachable — it is also how someone gets back in to
    * set a new password.
    */
-  const [useCode, setUseCode] = useState(false);
+  /**
+   * Which door someone came through.
+   *
+   * `password` signs in with one. `code` is the fallback for accounts that have
+   * none. `reset` is the same emailed code, but it ends on "choose a new
+   * password" rather than dropping you into the app — a forgotten password
+   * needs replacing, not working around.
+   */
+  const [flow, setFlow] = useState<'password' | 'code' | 'reset'>('password');
+  const [newPassword, setNewPassword] = useState('');
+  /**
+   * A verified session held back on purpose during a reset.
+   *
+   * Adopting it here would flip `isSignedIn`, and the auth group redirects to
+   * the app the moment that happens — carrying someone out of the reset before
+   * they had chosen a new password. It is taken up once the password is saved.
+   */
+  const [heldSession, setHeldSession] = useState<SignInResult | null>(null);
+  const useCode = flow !== 'password';
   const [code, setCode] = useState('');
   const [expiresInMinutes, setExpiresInMinutes] = useState(10);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * Whether the last attempt failed, for the red border on the field and the
+   * code boxes.
+   *
+   * The message itself is not kept: it is announced in a toast, so holding it
+   * here as well would mean the same words in two places, and the older of the
+   * two going stale the moment anything else happens.
+   */
+  const [invalid, setInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function messageFrom(e: unknown, fallback: string): string {
     return e instanceof Error && e.message ? e.message : fallback;
   }
 
-  async function onSendCode(resend = false) {
+  /**
+   * Start the account, then send the code that confirms the address.
+   *
+   * The account is created now rather than when the code is entered, so
+   * abandoning this step no longer throws the chosen password away.
+   */
+  /** Flag the field and say what went wrong, in one place so they cannot drift. */
+  function fail(message: string) {
+    setInvalid(true);
+    toast.error(message);
+  }
+
+  async function onRegister() {
     const address = email.trim();
     if (!address) {
-      setError('Enter your email address.');
+      fail('Enter your email address.');
       return;
     }
     setSubmitting(true);
-    setError(null);
-    setNotice(null);
-    try {
+    setInvalid(false);
+        try {
+      setExpiresInMinutes(await register(address, password));
+      rememberPendingSignUp(address);
+      setStage('code');
+    } catch (e) {
+      fail(messageFrom(e, 'Could not start your account. Please try again.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onSendCode(resend = false) {
+    const address = email.trim();
+    if (!address) {
+      fail('Enter your email address.');
+      return;
+    }
+    setSubmitting(true);
+    setInvalid(false);
+        try {
       // The address is the only input: the server decides whether this code
       // opens an account, creates one, or confirms an address that has never
       // been confirmed.
       setExpiresInMinutes(await requestCode(address));
+      if (signingUp) rememberPendingSignUp(address);
       setStage('code');
-      if (resend) setNotice('Sent again — it can take a moment to arrive.');
+      if (resend) toast.show('Sent again', 'It can take a moment to arrive.');
     } catch (e) {
-      setError(messageFrom(e, 'Could not send a code. Check your email address and try again.'));
+      fail(messageFrom(e, 'Could not send a code. Check your email address and try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -74,23 +146,64 @@ export default function SignInScreen() {
   async function onPasswordSignIn() {
     const address = email.trim();
     if (!address) {
-      setError('Enter your email address.');
+      fail('Enter your email address.');
       return;
     }
     const problem = passwordProblem(password);
     if (problem) {
-      setError(problem);
+      fail(problem);
       return;
     }
     setSubmitting(true);
-    setError(null);
-    setNotice(null);
-    try {
+    setInvalid(false);
+        try {
       await signInWithPassword(address, password);
       const pending = takePendingRoute();
       router.replace((pending ?? '/(tabs)') as never);
     } catch (e) {
-      setError(messageFrom(e, 'That email or password is not right.'));
+      // The server cannot tell these apart on purpose, but this device knows it
+      // started a sign-up with this address and never finished it.
+      if (isPendingSignUp(address)) {
+        toast.error(
+          'Finish creating your account',
+          'We emailed you a code but it has not been entered yet. Your account is not set up until it has.',
+          { label: 'Send a new code', onPress: () => void onSendCode() },
+        );
+        setSubmitting(false);
+        return;
+      }
+      toast.error(
+        messageFrom(e, 'That email or password is not right'),
+        'Check the address and password, or sign in with a code instead.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function onSaveNewPassword() {
+    const problem = passwordProblem(newPassword);
+    if (problem) {
+      fail(problem);
+      return;
+    }
+    setSubmitting(true);
+    setInvalid(false);
+    try {
+      if (heldSession) {
+        // Set the password first, then take up the session — the other order
+        // signs you in and the auth group redirects away mid-reset.
+        await setPasswordWithToken(heldSession.accessToken, newPassword);
+        await adoptSession(heldSession);
+      } else {
+        await savePassword(newPassword);
+      }
+      toast.show('Password updated', 'You are signed in with your new password.');
+      const pending = takePendingRoute();
+      router.replace((pending ?? '/(tabs)') as never);
+    } catch (e) {
+      const message = messageFrom(e, 'We could not save that password. Please try again.');
+      fail(message);
     } finally {
       setSubmitting(false);
     }
@@ -98,10 +211,21 @@ export default function SignInScreen() {
 
   async function onVerify(value: string) {
     setSubmitting(true);
-    setError(null);
-    setNotice(null);
-    try {
+    setInvalid(false);
+        try {
+      if (flow === 'reset') {
+        // Verified but deliberately not adopted — see `heldSession`.
+        const held = await verifyCodeOnly(email.trim(), value);
+        clearPendingSignUp();
+        setHeldSession(held);
+        setStage('new-password');
+        setSubmitting(false);
+        return;
+      }
+
       const { created } = await signIn(email.trim(), value);
+      clearPendingSignUp();
+
       // A brand-new account has the questions to answer before anything else
       // expects a profile; an existing one resumes wherever it was headed.
       if (created) {
@@ -111,13 +235,42 @@ export default function SignInScreen() {
       const pending = takePendingRoute();
       router.replace((pending ?? '/(tabs)') as never);
     } catch (e) {
-      setError(messageFrom(e, 'That code is not right, or it has expired.'));
+      fail(messageFrom(e, 'That code is not right, or it has expired.'));
       // The code is spent either way; clearing it saves editing a dead one.
       // The field keeps focus, since nothing here blurs it.
       setCode('');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (stage === 'new-password') {
+    return (
+      <AuthShell
+        title="Choose a new password"
+        subtitle="Your address is confirmed. Pick something you have not used elsewhere."
+      >
+        <Field
+          label="New password"
+          value={newPassword}
+          onChangeText={(t) => {
+            setNewPassword(t);
+            setInvalid(false);
+          }}
+          secureTextEntry
+          autoCapitalize="none"
+          autoComplete="new-password"
+          placeholder="At least 8 characters"
+          onSubmitEditing={() => void onSaveNewPassword()}
+          returnKeyType="go"
+        />
+        <Button
+          label="Save password"
+          onPress={() => void onSaveNewPassword()}
+          loading={submitting}
+        />
+      </AuthShell>
+    );
   }
 
   if (stage === 'code') {
@@ -137,7 +290,7 @@ export default function SignInScreen() {
         <Text style={styles.codeLabel}>Your code</Text>
         <OtpBoxes
           value={code}
-          invalid={Boolean(error)}
+          invalid={invalid}
           disabled={submitting}
           autoFocus
           onChange={(digits) => {
@@ -147,8 +300,6 @@ export default function SignInScreen() {
             if (digits.length === 6) void onVerify(digits);
           }}
         />
-        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-        {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button
           label="Continue"
           onPress={() => void onVerify(code)}
@@ -161,10 +312,10 @@ export default function SignInScreen() {
           disabled={submitting}
           onPress={() => {
             setStage('email');
+            setFlow('password');
             setCode('');
-            setError(null);
-            setNotice(null);
-          }}
+            setInvalid(false);
+                      }}
         />
       </AuthShell>
     );
@@ -172,11 +323,13 @@ export default function SignInScreen() {
 
   return (
     <AuthShell
-      title="Welcome back"
+      title={signingUp ? 'Create your account' : 'Welcome back'}
       subtitle={
         useCode
           ? 'Enter your email and we will send you a code to sign in.'
-          : 'Enter your email and password.'
+          : signingUp
+            ? 'Choose a password. We will email you a code to confirm the address.'
+            : 'Enter your email and password.'
       }
     >
       <Field
@@ -196,28 +349,64 @@ export default function SignInScreen() {
           value={password}
           onChangeText={(t) => {
             setPassword(t);
-            setError(null);
+            setInvalid(false);
           }}
           secureTextEntry
+          revealable
           autoCapitalize="none"
-          autoComplete="current-password"
-          placeholder="Your password"
+          autoComplete={signingUp ? 'new-password' : 'current-password'}
+          placeholder={signingUp ? 'At least 8 characters' : 'Your password'}
           onSubmitEditing={() => void onPasswordSignIn()}
           returnKeyType="go"
         />
       ) : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {/* Only where it means something: there is nothing to forget while
+          creating an account, and the code flow is already the way in. */}
+      {!useCode && !signingUp ? (
+        <Pressable
+          onPress={() => {
+            const address = email.trim();
+            if (!address) {
+              fail('Enter your email address first.');
+              return;
+            }
+            setFlow('reset');
+            setInvalid(false);
+            void onSendCode();
+          }}
+        >
+          <Text style={styles.forgot}>Forgot your password?</Text>
+        </Pressable>
+      ) : null}
       <Button
-        label={useCode ? 'Send me a code' : 'Sign in'}
-        onPress={() => (useCode ? void onSendCode() : void onPasswordSignIn())}
+        label={useCode ? 'Send me a code' : signingUp ? 'Create account' : 'Sign in'}
+        onPress={() => {
+          if (useCode) {
+            void onSendCode();
+            return;
+          }
+          // Sign-up saves the account and password now and confirms the
+          // address with a code; sign-in checks the password straight away.
+          if (signingUp) {
+            const problem = passwordProblem(password);
+            if (problem) {
+              fail(problem);
+              return;
+            }
+            void onRegister();
+            return;
+          }
+          void onPasswordSignIn();
+        }}
         loading={submitting}
       />
       {/* Kept reachable on purpose: members who joined before passwords have
           none, and it is how someone who has forgotten theirs gets back in. */}
       <Pressable
         onPress={() => {
-          setUseCode((v) => !v);
-          setError(null);
+          setFlow((f: 'password' | 'code' | 'reset') => (f === 'password' ? 'code' : 'password'));
+          setInvalid(false);
         }}
       >
         <Text style={styles.altLink}>
@@ -231,9 +420,8 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   link: { ...type.button, color: colors.primary, fontSize: 14 },
-  error: { ...type.caption, color: colors.danger, marginBottom: spacing.sm },
   altLink: { ...type.button, color: colors.primary, fontSize: 14, textAlign: 'center', marginTop: spacing.md },
-  notice: { ...type.caption, color: colors.textSecondary, marginBottom: spacing.sm },
+  forgot: { ...type.button, color: colors.primary, fontSize: 13, textAlign: 'right', marginTop: -spacing.xs },
   codeLabel: {
     ...type.caption,
     color: colors.textMuted,

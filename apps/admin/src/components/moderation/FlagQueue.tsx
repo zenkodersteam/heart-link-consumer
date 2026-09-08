@@ -148,7 +148,7 @@ function FlagRow({ flag }: { flag: ModerationFlag }) {
               disabled={pending}
               onClick={() => act({ assignedToId: 'me', status: 'investigating' }, 'Assigned to you')}
             >
-              <UserPlus className="size-4" /> I'll take this
+              <UserPlus className="size-4" /> I&apos;ll take this
             </Button>
           ) : null}
           {flag.status !== 'escalated' && !isClosed ? (

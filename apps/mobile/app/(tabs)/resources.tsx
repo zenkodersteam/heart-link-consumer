@@ -56,7 +56,13 @@ interface Category {
   key: CatKey;
   title: string;
   blurb: string;
+  /** Short line for the row on the landing screen; `blurb` is the long one. */
+  summary: string;
   tags: string[];
+  /** Round pastel tile on the landing rows. */
+  icon: keyof typeof Feather.glyphMap;
+  tint: string;
+  ink: string;
   art: number;
 }
 
@@ -65,28 +71,44 @@ const CATEGORIES: Category[] = [
     key: 'awareness',
     title: 'Prison Awareness',
     blurb: 'Understand the system your person is living inside: education, advocacy, and the organizations doing the work.',
+    summary: 'Learn about the justice system and make a difference.',
     tags: ['Education', 'Advocacy', 'Awareness'],
+    icon: 'book-open',
+    tint: 'rgba(126, 87, 194, 0.14)',
+    ink: '#5E35B1',
     art: art.resAwareness,
   },
   {
     key: 'reentry',
     title: 'Reentry Support',
     blurb: 'Resources for successful reintegration: housing, employment, and life skills.',
+    summary: 'Resources for housing, employment, and life skills.',
     tags: ['Employment', 'Housing', 'Life Skills'],
+    icon: 'sun',
+    tint: 'rgba(230, 145, 56, 0.16)',
+    ink: '#C77800',
     art: art.resReentry,
   },
   {
     key: 'mental',
     title: 'Mental Health Support',
     blurb: 'Mental health resources, crisis support, and wellness tools for healing and growth.',
+    summary: 'Find mental health resources and wellness support.',
     tags: ['Counseling', 'Wellness', 'Crisis Support'],
+    icon: 'heart',
+    tint: 'rgba(149, 117, 205, 0.16)',
+    ink: '#6A4BA6',
     art: art.resMental,
   },
   {
     key: 'community',
     title: 'Community Support Groups',
     blurb: 'Connect with local and online groups that offer understanding and support.',
+    summary: 'Connect with groups that offer understanding.',
     tags: ['Peer Support', 'Groups', 'Mentorship'],
+    icon: 'users',
+    tint: 'rgba(219, 2, 82, 0.10)',
+    ink: '#DB0252',
     art: art.resCommunity,
   },
 ];
@@ -229,12 +251,17 @@ export default function ResourcesScreen() {
         />
       </View>
 
-      <View style={styles.rchips}>
-        <RChip label="All Resources" active onPress={() => setActive('all')} />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.rchipScroll}
+        contentContainerStyle={styles.rchips}
+      >
+        <RChip label="All" active onPress={() => setActive('all')} />
         {CATEGORIES.map((c) => (
           <RChip key={c.key} label={c.title} onPress={() => setActive(c.key)} />
         ))}
-      </View>
+      </ScrollView>
 
       {q.length > 0 ? (
         <Animated.View style={[styles.orgList, gridStyle]}>
@@ -257,25 +284,30 @@ export default function ResourcesScreen() {
         </Animated.View>
       ) : (
         <Animated.View style={[styles.grid, gridStyle]}>
+          {/* One per row on a phone; wider screens still take two, which is
+              what `cols` is for. */}
           {CATEGORIES.map((c) => (
-            <View key={c.key} style={[styles.col, { width: `${100 / cols}%` }]}>
+            <View key={c.key} style={cols > 1 ? { width: `${100 / cols}%` } : undefined}>
               <NCard category={c} onPress={() => setActive(c.key)} />
             </View>
           ))}
         </Animated.View>
       )}
 
+      {/* Light card with the headset mark, as the phone screens draw it. It
+          was a deep purple band, which on this warm page read as a different
+          product rather than the last card in the list. */}
       <View style={styles.supportBand}>
-        <View style={styles.supportCopy}>
-          <Text style={styles.supportTitle}>Need personalized support?</Text>
-          <Text style={styles.supportBody}>
-            Our support team is here to help you find the right resources for your unique situation.
-          </Text>
+        <View style={styles.supportTop}>
+          <View style={styles.supportIcon}>
+            <Feather name="headphones" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.supportCopy}>
+            <Text style={styles.supportTitle}>Need help finding resources?</Text>
+            <Text style={styles.supportBody}>Our support team is here for you.</Text>
+          </View>
         </View>
-        <View style={styles.supportAction}>
-          <Button label="Contact Support" onPress={() => router.push('/support')} />
-          <Text style={styles.supportNote}>We typically respond within 24 hours</Text>
-        </View>
+        <Button label="Contact Support" onPress={() => router.push('/support')} />
       </View>
     </ScrollView>
   );
@@ -339,7 +371,15 @@ function RChip({ label, active, onPress }: { label: string; active?: boolean; on
   );
 }
 
-/** Image-block category card with a white caption bar (Navan/Patreon tile). */
+/**
+ * A category on the landing screen: round icon tile, title, one line of what it
+ * is, its tags, and a chevron — the compact row the client screens draw.
+ *
+ * It used to be a full-bleed art block per category. Four of those is four
+ * screens of scrolling before you have seen what is on offer, and the art told
+ * you nothing the title did not. The art is still used, as the hero on the
+ * category screen you land on.
+ */
 function NCard({ category, onPress }: { category: Category; onPress: () => void }) {
   return (
     <Pressable
@@ -351,36 +391,27 @@ function NCard({ category, onPress }: { category: Category; onPress: () => void 
         pressed ? { transform: [{ scale: 0.995 }] } : null,
       ]}
     >
-      {({ hovered }: { hovered?: boolean }) => (
-        <>
-          <View style={styles.ncardArt}>
-            {/* Micro-interaction: tile art zooms, arrow slides on hover. */}
-            <Image
-              source={category.art}
-              style={[styles.ncardArtImg, hovered ? styles.ncardArtImgHover : null]}
-              contentFit="cover"
-            />
-          </View>
-          <View style={styles.ncardCap}>
-            <View style={styles.ncardTitleRow}>
-              <Text style={styles.ncardTitle}>{category.title}</Text>
-              <Feather
-                name="arrow-right"
-                size={16}
-                color={colors.primary}
-                style={[styles.ncardArr, hovered ? styles.ncardArrHover : null]}
-              />
+      <View style={[styles.ncardIcon, { backgroundColor: category.tint }]}>
+        <Feather name={category.icon} size={22} color={category.ink} />
+      </View>
+
+      <View style={styles.ncardBody}>
+        <Text style={styles.ncardTitle} numberOfLines={1}>
+          {category.title}
+        </Text>
+        <Text style={styles.ncardSummary} numberOfLines={2}>
+          {category.summary}
+        </Text>
+        <View style={styles.ncardTags}>
+          {category.tags.slice(0, 2).map((tag) => (
+            <View key={tag} style={styles.ncardTag}>
+              <Text style={styles.ncardTagText}>{tag}</Text>
             </View>
-            <View style={styles.tags}>
-              {category.tags.map((t) => (
-                <View key={t} style={styles.tag}>
-                  <Text style={styles.tagText}>{t}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </>
-      )}
+          ))}
+        </View>
+      </View>
+
+      <Feather name="chevron-right" size={20} color={colors.textMuted} />
     </Pressable>
   );
 }
@@ -462,14 +493,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
   },
 
-  rchips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, justifyContent: 'center', paddingVertical: spacing.lg },
+  rchipScroll: { flexGrow: 0, marginHorizontal: -spacing.lg },
+  rchips: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
   rchip: {
     backgroundColor: colors.bgElevated,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   rchipActive: {
     backgroundColor: colors.primary,
@@ -482,71 +519,68 @@ const styles = StyleSheet.create({
   rchipText: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.textSecondary },
   rchipTextActive: { color: colors.onPrimary },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
-  col: { padding: spacing.sm },
+  grid: { gap: spacing.md },
   ncard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     backgroundColor: colors.bgCard,
     borderWidth: 1,
     borderColor: 'rgba(46,18,64,0.05)',
-    borderRadius: 22,
-    overflow: 'hidden',
-    boxShadow:
-      '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06), 0 24px 48px rgba(46,18,64,0.10)',
+    borderRadius: 18,
+    boxShadow: '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06)',
   },
   ncardHover: {
-    transform: [{ translateY: -4 }],
-    boxShadow:
-      '0 2px 4px rgba(46,18,64,0.06), 0 14px 28px rgba(46,18,64,0.10), 0 34px 64px rgba(46,18,64,0.14)',
+    transform: [{ translateY: -2 }],
+    boxShadow: '0 2px 4px rgba(46,18,64,0.06), 0 14px 28px rgba(46,18,64,0.10)',
   },
-  ncardArt: { height: 130, overflow: 'hidden', backgroundColor: colors.midnight },
-  ncardArtImg: {
-    width: '100%',
-    height: '100%',
-    ...Platform.select({
-      web: { transitionProperty: 'transform', transitionDuration: '350ms' } as object,
-    }),
+  ncardIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ncardArtImgHover: { transform: [{ scale: 1.05 }] },
-  ncardArr: {
-    ...Platform.select({
-      web: { transitionProperty: 'transform', transitionDuration: '160ms' } as object,
-    }),
+  ncardBody: { flex: 1, gap: 3 },
+  ncardTitle: { fontFamily: fonts.heading, fontSize: 16, color: colors.textPrimary },
+  ncardSummary: { ...type.caption, color: colors.textSecondary, lineHeight: 17 },
+  ncardTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  ncardTag: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radii.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  ncardArrHover: { transform: [{ translateX: 4 }] },
-  ncardCap: { paddingVertical: 16, paddingHorizontal: 18, gap: 9 },
-  ncardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  ncardTitle: { fontFamily: fonts.heading, fontSize: 17, color: colors.textPrimary, flexShrink: 1 },
+  ncardTagText: { fontFamily: fonts.body, fontSize: 11, color: colors.textSecondary },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { backgroundColor: colors.surfaceMuted, borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 3 },
   tagText: { fontFamily: fonts.bodyMedium, fontSize: 11.5, color: colors.textSecondary },
 
   // Midnight support band
   supportBand: {
-    marginTop: 18,
-    borderRadius: 20,
-    paddingVertical: 24,
-    paddingHorizontal: 28,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 20,
+    marginTop: spacing.lg,
+    borderRadius: 18,
+    padding: spacing.lg,
+    gap: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(214,168,79,0.4)',
-    backgroundColor: colors.sidebar,
-    ...Platform.select({
-      web: {
-        backgroundImage:
-          'radial-gradient(300px 160px at 92% 10%, rgba(219, 2, 82,0.35), transparent 60%), linear-gradient(150deg, #1B0826, #2E1240 60%, #3A1550)',
-      } as object,
-    }),
+    borderColor: 'rgba(46,18,64,0.05)',
+    backgroundColor: colors.bgCard,
+    boxShadow: '0 1px 2px rgba(46,18,64,0.05), 0 8px 18px rgba(46,18,64,0.06)',
   },
-  supportCopy: { flex: 1, minWidth: 220, gap: 3 },
-  supportAction: { alignItems: 'center', gap: 6 },
-  supportNote: { ...type.caption, fontSize: 12, textAlign: 'center' },
-  supportTitle: { fontFamily: fonts.heading, fontSize: 18, color: colors.sidebarText },
-  supportBody: { fontFamily: fonts.body, fontSize: 13.5, color: colors.sidebarTextMuted },
-
-  // Level 2
+  supportTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  supportIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryFaint,
+  },
+  supportCopy: { flex: 1, gap: 2 },
+  supportTitle: { fontFamily: fonts.heading, fontSize: 15.5, color: colors.textPrimary },
+  supportBody: { ...type.caption, color: colors.textSecondary },
   crumb: { alignSelf: 'flex-start', marginBottom: 16 },
   crumbText: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.textMuted },
   crumbSep: { color: colors.textMuted },

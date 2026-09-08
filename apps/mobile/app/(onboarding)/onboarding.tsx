@@ -9,6 +9,7 @@ import { AuthShell } from '../../src/components/AuthShell';
 import { Button, Field } from '../../src/components/primitives';
 import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
 import { takePendingRoute } from '../../src/lib/pending-route';
+import { useToast } from '../../src/components/Toast';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { ProfilePhoto } from '../../src/components/ProfilePhoto';
@@ -210,12 +211,57 @@ function ageFromIso(iso: string): number {
   return age;
 }
 
-/** Auto-insert slashes while typing a date. */
+/**
+ * Auto-insert the slashes while a date is typed, and refuse a date that could
+ * never exist as it is being typed.
+ *
+ * Clamping matters more than it looks. Without it "32/06/44" sits on screen
+ * looking like a date until Continue answers "Enter your birth date as
+ * MM/DD/YYYY" — which is no help at all, because what you typed already looks
+ * like MM/DD/YYYY. Refusing the impossible digit as it arrives means the field
+ * can only ever show something that reads as a real date.
+ *
+ * A first month digit above 1 can only mean a single-digit month, so 3 becomes
+ * 03 and the field moves on — the behaviour every date mask has, and the one
+ * that lets someone type 3 1 1 9 9 0 for March 1990.
+ */
 function formatDobInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  const typed = raw.replace(/\D/g, '').slice(0, 8);
+  if (!typed) return '';
+
+  // How many of the typed digits the month actually used. A leading 2-9 can
+  // only mean a single-digit month, so it consumes one digit and becomes two
+  // characters — which is what lets someone type 3 1 1 9 9 0 for 1 March 1990.
+  let monthDigits = typed.slice(0, 2);
+  let used = monthDigits.length;
+  if (monthDigits.length >= 1 && monthDigits[0] > '1') {
+    monthDigits = `0${monthDigits[0]}`;
+    used = 1;
+  } else if (monthDigits.length === 2) {
+    const value = Number(monthDigits);
+    if (value === 0) monthDigits = '01';
+    else if (value > 12) monthDigits = '12';
+  }
+  if (monthDigits.length < 2) return monthDigits;
+
+  const afterMonth = typed.slice(used);
+  if (!afterMonth.length) return `${monthDigits}/`;
+
+  let dayDigits = afterMonth.slice(0, 2);
+  let usedDay = dayDigits.length;
+  // Likewise a leading 4-9 can only be a single-digit day.
+  if (dayDigits[0] > '3') {
+    dayDigits = `0${dayDigits[0]}`;
+    usedDay = 1;
+  } else if (dayDigits.length === 2) {
+    const value = Number(dayDigits);
+    if (value === 0) dayDigits = '01';
+    else if (value > 31) dayDigits = '31';
+  }
+  if (dayDigits.length < 2) return `${monthDigits}/${dayDigits}`;
+
+  const year = afterMonth.slice(usedDay, usedDay + 4);
+  return year.length ? `${monthDigits}/${dayDigits}/${year}` : `${monthDigits}/${dayDigits}/`;
 }
 
 function isoToDisplay(iso: string | null): string {
@@ -236,8 +282,7 @@ export default function OnboardingScreen() {
   const [bio, setBio] = useState<string | null>(null);
   const [lookingFor, setLookingFor] = useState<string | null>(null);
   const [preferences, setPreferences] = useState<PreferenceState>(() => initialPrefs(profile?.matchPreferences));
-  const [fieldError, setFieldError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   /**
    * Whether to actually show the button's loading state.
@@ -314,7 +359,6 @@ export default function OnboardingScreen() {
   }
 
   async function onPickPhoto(source: 'web' | 'library' | 'camera') {
-    setSaveError(null);
     try {
       const picked = source === 'web' ? await pickWebImage() : await pickNativeImage(source);
       // Cancelling the sheet is a normal outcome, not an error.
@@ -325,8 +369,12 @@ export default function OnboardingScreen() {
       apply(updated);
     } catch (e) {
       // A denied permission throws with copy worth showing verbatim.
-      setSaveError(
-        e instanceof ApiClientError ? e.message : e instanceof Error ? e.message : 'Could not upload the photo.',
+      toast.error(
+        e instanceof ApiClientError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Could not upload the photo.',
       );
     } finally {
       setUploadingPhoto(false);
@@ -356,11 +404,9 @@ export default function OnboardingScreen() {
   async function onNext() {
     const message = validateWithMessage();
     if (message) {
-      setFieldError(message);
+      toast.error(message);
       return;
     }
-    setFieldError(null);
-    setSaveError(null);
     setSaving(true);
     try {
       if (step.key === 'name') {
@@ -382,7 +428,7 @@ export default function OnboardingScreen() {
       }
       setStepIndex((i) => i + 1);
     } catch (e) {
-      setSaveError(e instanceof ApiClientError ? e.message : 'Could not save. Please try again.');
+      toast.error(e instanceof ApiClientError ? e.message : 'Could not save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -390,7 +436,13 @@ export default function OnboardingScreen() {
 
   if (loading) {
     return (
-      <AuthShell title="Preparing your profile" subtitle="Loading your saved onboarding answers.">
+      <AuthShell
+        title="Preparing your profile"
+        subtitle="Loading your saved onboarding answers."
+        compact
+        minimal
+        staticEntrance
+      >
         <View style={styles.loadingCard} accessibilityRole="progressbar">
           <ActivityIndicator color={colors.primary} />
           <Text style={type.caption}>One moment...</Text>
@@ -401,7 +453,13 @@ export default function OnboardingScreen() {
 
   if (profileLoadError) {
     return (
-      <AuthShell title="We couldn't load onboarding" subtitle="Your profile answers are safe. Try again when the connection settles.">
+      <AuthShell
+        title="We couldn't load onboarding"
+        subtitle="Your profile answers are safe. Try again when the connection settles."
+        compact
+        minimal
+        staticEntrance
+      >
         <View style={styles.errorCard} accessibilityRole="alert">
           <Feather name="wifi-off" size={22} color={colors.gold} />
           <Text style={styles.errorCardText}>{profileLoadError}</Text>
@@ -416,6 +474,9 @@ export default function OnboardingScreen() {
       <AuthShell
         title="You're all set"
         subtitle="Your profile is in review. You can start browsing now, and letters unlock the moment you're approved."
+        compact
+        minimal
+        staticEntrance
       >
         <View style={styles.doneBadge}>
           <Feather name="check-circle" size={40} color={colors.success} />
@@ -473,7 +534,6 @@ export default function OnboardingScreen() {
             value={name}
             onChangeText={(t) => {
               setDisplayName(t);
-              setFieldError(null);
             }}
             placeholder="First name and last initial, e.g. Maria C."
             autoComplete="name"
@@ -483,7 +543,6 @@ export default function OnboardingScreen() {
             value={dob}
             onChangeText={(t) => {
               setDobText(formatDobInput(t));
-              setFieldError(null);
             }}
             placeholder="MM/DD/YYYY"
             keyboardType="number-pad"
@@ -499,7 +558,6 @@ export default function OnboardingScreen() {
           value={loc}
           onChangeText={(t) => {
             setLocation(t);
-            setFieldError(null);
           }}
           placeholder="Atlanta, GA"
         />
@@ -550,7 +608,6 @@ export default function OnboardingScreen() {
             value={story}
             onChangeText={(t) => {
               setBio(t);
-              setFieldError(null);
             }}
             placeholder="What brings you here? What kind of connection are you hoping for?"
             multiline
@@ -568,7 +625,6 @@ export default function OnboardingScreen() {
             onChangeText={(t) => {
               setLookingFor(t);
               setPreferences((prev) => ({ ...prev, lookingFor: t }));
-              setFieldError(null);
             }}
             placeholder="What kind of correspondence or connection would feel meaningful to you?"
             multiline
@@ -668,9 +724,6 @@ export default function OnboardingScreen() {
           <ReviewRow label="What I'm looking for" value={looking} multiline />
         </View>
       ) : null}
-
-      {fieldError ? <Text style={styles.error} accessibilityRole="alert">{fieldError}</Text> : null}
-      {saveError ? <Text style={styles.error} accessibilityRole="alert">{saveError}</Text> : null}
 
       <Button
         label={step.key === 'review' ? 'Submit for review' : 'Continue'}
@@ -793,7 +846,6 @@ const styles = StyleSheet.create({
   },
   errorCardText: { ...type.body, flex: 1 },
   bioInput: { minHeight: 140, textAlignVertical: 'top', paddingTop: spacing.md },
-  error: { ...type.caption, color: colors.danger },
   back: {
     textAlign: 'center',
     fontFamily: 'Inter_600SemiBold',

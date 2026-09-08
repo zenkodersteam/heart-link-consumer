@@ -79,7 +79,7 @@ export function Resources() {
           <Spinner />
         </div>
       ) : isError ? (
-        <div className="rounded-[--radius-card] border border-line bg-surface-elevated p-8 text-center">
+        <div className="rounded-card border border-line bg-surface-elevated p-8 text-center">
           <p className="text-sm text-ink-soft">We could not load these resources.</p>
           <Button className="mt-4" variant="secondary" size="sm" onClick={() => void refetch()}>
             Try again
@@ -178,7 +178,7 @@ export function Resources() {
             </div>
           )}
 
-          <section className="mt-8 flex flex-col items-center gap-4 rounded-[--radius-card] border border-line bg-surface-elevated p-6 text-center sm:flex-row sm:text-left">
+          <section className="mt-8 flex flex-col items-center gap-4 rounded-card border border-line bg-surface-elevated p-6 text-center sm:flex-row sm:text-left">
             <span className="grid size-14 shrink-0 place-items-center rounded-full bg-primary-faint">
               <Headphones className="size-6 text-primary" aria-hidden />
             </span>
@@ -229,7 +229,7 @@ function SearchPill({
         aria-label={placeholder}
         autoCapitalize="none"
         autoCorrect="off"
-        className="h-12 w-full rounded-[--radius-pill] border border-line bg-surface-elevated pl-11 pr-11 text-[15px] text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 [&::-webkit-search-cancel-button]:appearance-none"
+        className="h-12 w-full rounded-pill border border-line bg-surface-elevated pl-11 pr-11 text-[15px] text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 [&::-webkit-search-cancel-button]:appearance-none"
       />
       {value.length > 0 ? (
         <button
@@ -260,7 +260,7 @@ function Chip({
       onClick={onSelect}
       aria-pressed={active}
       className={cn(
-        'rounded-[--radius-pill] border px-3.5 py-2 text-[13px] transition-colors',
+        'rounded-pill border px-3.5 py-2 text-[13px] transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         active
           ? 'border-primary bg-primary-faint font-semibold text-primary'
@@ -284,7 +284,7 @@ function CategoryCard({
     <button
       type="button"
       onClick={onSelect}
-      className="group flex h-full flex-col rounded-[--radius-card] border border-line bg-surface-elevated p-5 text-left transition-shadow hover:shadow-[0_12px_32px_rgba(46,18,64,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group flex h-full flex-col rounded-card border border-line bg-surface-elevated p-5 text-left transition-shadow hover:shadow-[0_12px_32px_rgba(46,18,64,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       <div className="flex items-start gap-3.5">
         <span className={cn('grid size-14 shrink-0 place-items-center rounded-full', badge)}>
@@ -303,7 +303,7 @@ function CategoryCard({
         {category.tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-[--radius-pill] bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-soft"
+            className="rounded-pill bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-soft"
           >
             {tag}
           </span>
@@ -347,7 +347,7 @@ function OrgCard({ item }: { item: ResourceItem }) {
           {item.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-[--radius-pill] bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-soft"
+              className="rounded-pill bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-soft"
             >
               {tag}
             </span>
