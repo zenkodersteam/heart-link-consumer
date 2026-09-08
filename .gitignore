@@ -1,5 +1,9 @@
 node_modules/
 .DS_Store
+
+# Local Claude Code state: dev-server launch config, scheduled-task locks.
+# Per-machine tooling, not project source.
+.claude/
 .env
 .env.local
 .expo/
