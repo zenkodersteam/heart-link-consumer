@@ -127,15 +127,12 @@ export function ReviewWorkspace({
 
       {/* Bottom action bar */}
       <div className="flex shrink-0 items-center gap-3 border-t border-border bg-background px-6 py-3">
+        {/* Saving field corrections lives in the field panel, next to the
+            fields and to the form state that knows whether anything actually
+            changed. This bar is for what happens to the application. Having
+            both meant two Save buttons on one screen, and the one here could
+            not grey itself out, so it answered "no changes to save". */}
         <div className="flex-1" />
-        <Button
-          size="sm"
-          variant="outline"
-          type="submit"
-          form="ocr-field-editor-form"
-        >
-          Save
-        </Button>
         <Button size="sm" variant="warning" onClick={() => setOpen('incomplete')}>
           Mark Incomplete
         </Button>

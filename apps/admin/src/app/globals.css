@@ -89,6 +89,18 @@
 /* Base resets + typography */
 html,
 body {
+  /*
+   * The portal is a fixed shell: the sidebar and the action bar stay put, and
+   * scrolling belongs to the panes inside them. Left to size itself, the page
+   * could grow past the viewport and take the whole shell with it - the
+   * sidebar sliding up, the action buttons leaving the screen, and a band of
+   * empty canvas below everything.
+   *
+   * Pinning the page to the viewport makes that impossible. Nothing here
+   * scrolls except the elements that ask to.
+   */
+  height: 100%;
+  overflow: hidden;
   font-family: var(--font-sans);
   color: var(--color-text);
   background: var(--color-canvas);

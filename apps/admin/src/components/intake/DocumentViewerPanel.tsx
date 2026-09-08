@@ -49,7 +49,7 @@ const ZOOM_LEVELS = [0.72, 0.86, 1, 1.18, 1.36, 1.6];
 export function DocumentViewerPanel({ application, document }: DocumentViewerPanelProps) {
   const [pdf, setPdf] = useState<PdfDocumentProxy | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<'missing' | 'render' | null>(null);
   const [activePage, setActivePage] = useState(1);
   const [zoomIndex, setZoomIndex] = useState(2);
   const [rotation, setRotation] = useState(0);
@@ -86,7 +86,13 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
       } catch (error) {
         if (!cancelled) {
           setPdf(null);
-          setLoadError(error instanceof Error ? error.message : 'Unable to render this PDF.');
+          // Classified, never passed through. pdf.js puts the whole request URL
+          // in its message, and for local-disk storage that URL carries the
+          // signature token - which then sat on screen for anyone walking past
+          // or screenshotting the page. The distinction that matters to a
+          // reviewer is not the stack, it is whether the file is there at all.
+          const raw = error instanceof Error ? error.message : '';
+          setLoadError(/\(404\)|MissingPDFException|Missing PDF/i.test(raw) ? 'missing' : 'render');
         }
       } finally {
         if (!cancelled) {
@@ -172,7 +178,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
             ))
           ) : (
             <div className="rounded-2xl border border-dashed border-border bg-background/70 p-4 text-center text-xs text-text-muted">
-              Pages appear after the document loads.
+              No pages to show yet.
             </div>
           )}
         </div>
@@ -238,7 +244,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-8">
+        <div className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4">
           {!document || !sourceUrl ? (
             <EmptyDocumentState />
           ) : isImage(document.mimeType) ? (
@@ -248,7 +254,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           ) : loadError || !pdf ? (
             <PdfFallbackState sourceUrl={sourceUrl} error={loadError} />
           ) : (
-            <div className="mx-auto flex w-fit min-w-[min(100%,680px)] flex-col gap-7 pb-8">
+            <div className="mx-auto flex w-fit min-w-full flex-col gap-7 pb-8">
               {pages.map((pageNumber) => (
                 <div
                   key={pageNumber}
@@ -408,24 +414,36 @@ function LoadingDocumentState() {
   );
 }
 
-function PdfFallbackState({ sourceUrl, error }: { sourceUrl: string; error: string | null }) {
+function PdfFallbackState({
+  sourceUrl,
+  error,
+}: {
+  sourceUrl: string;
+  error: 'missing' | 'render' | null;
+}) {
+  const missing = error === 'missing';
   return (
     <div className="mx-auto mt-16 flex max-w-lg flex-col items-center rounded-[28px] border border-warning/20 bg-background/88 p-8 text-center shadow-soft">
       <AlertTriangle className="size-9 text-warning" />
-      <h3 className="mt-4 font-serif text-2xl text-text">Custom render unavailable</h3>
+      <h3 className="mt-4 font-serif text-2xl text-text">
+        {missing ? 'Document not in storage' : 'Custom render unavailable'}
+      </h3>
       <p className="mt-2 text-sm leading-6 text-text-muted">
-        The original file is still available while the custom PDF canvas recovers.
+        {missing
+          ? 'This application has a document on record, but the file itself is not in storage. The extracted fields cannot be checked against it - upload the scan again before approving.'
+          : 'The page could not be drawn into the review canvas. The original file is still readable.'}
       </p>
-      {error && <p className="mt-3 rounded-2xl bg-warning-tint px-3 py-2 text-xs text-text-muted">{error}</p>}
-      <a
-        href={sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-      >
-        Open original PDF
-        <ExternalLink className="size-4" />
-      </a>
+      {!missing && (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-soft transition-all hover:bg-primary-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          Open original PDF
+          <ExternalLink className="size-4" />
+        </a>
+      )}
     </div>
   );
 }
@@ -434,6 +452,6 @@ function isImage(mime: string): boolean {
   return mime.startsWith('image/');
 }
 
-function resolveStorageUrl(_url: string): string {
-  return '/placeholder-application.pdf';
+function resolveStorageUrl(url: string): string {
+  return url;
 }

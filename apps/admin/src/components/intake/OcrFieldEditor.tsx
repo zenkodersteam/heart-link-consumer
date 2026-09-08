@@ -94,7 +94,7 @@ export function OcrFieldEditor({
     <form
       id="ocr-field-editor-form"
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex h-full flex-1 flex-col overflow-hidden bg-background"
+      className="flex h-full flex-[1.15] flex-col overflow-hidden bg-background"
     >
       {/* Form header strip */}
       <div className="flex shrink-0 items-center border-b border-border bg-surface px-5 py-3">
@@ -110,27 +110,35 @@ export function OcrFieldEditor({
       </div>
 
       {/* Scrollable field list, grouped by the PDF's printed sections */}
-      <div className="flex-1 overflow-auto py-2">
+      <div className="@container min-h-0 flex-1 overflow-auto pb-2">
         {groupFieldsBySection(ACTIVE_FORM_SCHEMA).map((group) => (
           <section key={group.title ?? 'fields'}>
             {group.title ? (
-              <div className="flex items-center gap-3 px-5 pb-1 pt-4">
+              // Sticky, because the section is the only thing telling a reviewer
+              // which part of the paper form they are looking at, and it used to
+              // scroll away within a few fields.
+              <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-1.5 backdrop-blur">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-gold">
                   {group.title}
                 </span>
                 <span className="h-px flex-1 bg-gradient-to-r from-accent-gold/30 to-transparent" />
               </div>
             ) : null}
-            {group.fields.map((field) => (
-              <FieldRow
-                key={field.key}
-                field={field}
-                confidence={scores[field.key] ?? null}
-                control={form.control}
-                register={form.register}
-                disabled={isPending || !document}
-              />
-            ))}
+            {/* Two columns once the pane is wide enough. Fifty-three fields in a
+                single column is roughly six screens of scrolling to check one
+                application; paired up it is close to three. */}
+            <div className="grid items-start gap-x-4 gap-y-2.5 px-4 pb-5 pt-2.5 @xl:grid-cols-2">
+              {group.fields.map((field) => (
+                <FieldRow
+                  key={field.key}
+                  field={field}
+                  confidence={scores[field.key] ?? null}
+                  control={form.control}
+                  register={form.register}
+                  disabled={isPending || !document}
+                />
+              ))}
+            </div>
           </section>
         ))}
       </div>
@@ -191,13 +199,14 @@ function FieldRow({
   const id = `ocr-field-${field.key}`;
   const name = field.key;
   const isMultiEnum = field.type === 'enum' && field.multi === true;
+  const wide = field.multiLine === true || isMultiEnum;
 
   return (
-    <div className="flex flex-col gap-1 border-b border-border px-5 py-2.5">
+    <div className={cn('flex min-w-0 flex-col gap-0.5', wide && '@xl:col-span-2')}>
       <div className="flex items-center gap-2">
         <label
           htmlFor={id}
-          className="text-xs font-medium leading-4 text-text-muted"
+          className="truncate text-[11px] font-medium leading-4 text-text-muted"
         >
           {field.label}
           {field.required && <span className="ml-0.5 text-danger">*</span>}
@@ -207,11 +216,16 @@ function FieldRow({
       </div>
 
       {field.multiLine ? (
+        // Sized to what is in it. Fixed rows gave every long-text field the same
+        // box whether it held nothing or six lines: the two empty ones ate a
+        // third of the section, while the bio - the one a reviewer actually has
+        // to read - was clipped mid-sentence behind an inner scrollbar. It
+        // grows to fit and only starts scrolling past a screenful.
         <Textarea
           id={id}
-          rows={3}
+          rows={2}
           disabled={disabled}
-          className={cn(borderCls)}
+          className={cn(borderCls, 'field-sizing-content max-h-72 min-h-[42px]')}
           {...register(name)}
         />
       ) : field.type === 'boolean' ? (
