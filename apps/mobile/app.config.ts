@@ -54,6 +54,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#FDF9F6',
     },
     package: 'com.zenkoders.heartlink',
+    // Resize the window rather than pan it. Panning slides the whole screen up
+    // — header and all — which is exactly the disruption the scroll-based
+    // handling avoids; resizing lets the scroll views take up the difference.
+    softwareKeyboardLayoutMode: 'resize',
   },
 
 

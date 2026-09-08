@@ -23,6 +23,7 @@ import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { colors, fonts, radii, spacing, type, inputReset } from '../../src/theme';
 import { ErrorState } from '../../src/components/ErrorState';
 import { ListSkeleton } from '../../src/components/Skeleton';
+import { KeyboardSafeScrollView } from '../../src/components/KeyboardSafeScrollView';
 
 /**
  * Resources (UI lift, Navan help-center pattern): serif hero + pill search,
@@ -190,7 +191,7 @@ export default function ResourcesScreen() {
   // ---- Level 2: category detail ----
   if (activeCategory) {
     return (
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <KeyboardSafeScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => { setActive('all'); setSearch(''); }} style={styles.crumb}>
           <Text style={styles.crumbText}>
             All Resources <Text style={styles.crumbSep}>›</Text>{' '}
@@ -231,13 +232,13 @@ export default function ResourcesScreen() {
             items.map((it) => <OrgCard key={it.id} item={it} />)
           )}
         </Animated.View>
-      </ScrollView>
+      </KeyboardSafeScrollView>
     );
   }
 
   // ---- Level 1: landing ----
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <KeyboardSafeScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <View style={styles.headerRow}>
           <Text style={styles.heading}>Resources &amp; Support</Text>
@@ -309,7 +310,7 @@ export default function ResourcesScreen() {
         </View>
         <Button label="Contact Support" onPress={() => router.push('/support')} />
       </View>
-    </ScrollView>
+    </KeyboardSafeScrollView>
   );
 }
 

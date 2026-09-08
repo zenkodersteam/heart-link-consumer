@@ -163,8 +163,15 @@ export default function EditProfileScreen() {
       )}
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
+        {/*
+          `behavior` is set on both platforms now. It was iOS-only, so on
+          Android this sheet sat under the keyboard with the field it exists to
+          edit hidden behind it. "height" rather than "padding" because the
+          sheet is centred in the backdrop: padding would pad a container that
+          is already the full screen and move nothing.
+        */}
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.backdrop}
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => (saving ? null : setEditing(null))} />

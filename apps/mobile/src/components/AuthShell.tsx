@@ -3,9 +3,7 @@ import { Image } from 'expo-image';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
-  KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -21,6 +19,7 @@ import {
 } from '@heartlink/consumer-content';
 
 import { BrandDecor } from './BrandDecor';
+import { KeyboardSafeScrollView } from './KeyboardSafeScrollView';
 import { auth, colors, fonts, radii, spacing, type } from '../theme';
 
 const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
@@ -222,15 +221,12 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
             <ArtPanel />
           </Animated.View>
           <Animated.View style={[styles.formCol, revealStyle(formReveal)]}>
-            <KeyboardAvoidingView style={styles.flex} behavior={undefined}>
-              <ScrollView
-                contentContainerStyle={styles.scrollDesktop}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.contentClamp}>{formContent}</View>
-              </ScrollView>
-            </KeyboardAvoidingView>
+            <KeyboardSafeScrollView
+              contentContainerStyle={styles.scrollDesktop}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.contentClamp}>{formContent}</View>
+            </KeyboardSafeScrollView>
           </Animated.View>
         </View>
       </View>
@@ -249,19 +245,21 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
           <ArtPanel mobile height={artHeight} />
         )}
         <Animated.View style={[styles.sheet, revealStyle(formReveal)]}>
-          <KeyboardAvoidingView
-            style={styles.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          {/*
+            Was a KeyboardAvoidingView with behavior="padding" on iOS and
+            nothing at all on Android. Padding shrinks this sheet as the
+            keyboard rises, so the rounded top edge slid up over the artwork and
+            every field re-flowed mid-animation — and Android users simply had
+            fields under the keyboard with no way to reach them. Scrolling the
+            content instead leaves the sheet exactly where it is.
+          */}
+          {stickyHeader ? <View style={styles.stickyHead}>{headBlock}</View> : null}
+          <KeyboardSafeScrollView
+            contentContainerStyle={[styles.scrollMobile, { paddingBottom: 24 + insets.bottom }]}
+            showsVerticalScrollIndicator={false}
           >
-            {stickyHeader ? <View style={styles.stickyHead}>{headBlock}</View> : null}
-            <ScrollView
-              contentContainerStyle={[styles.scrollMobile, { paddingBottom: 24 + insets.bottom }]}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {formContent}
-            </ScrollView>
-          </KeyboardAvoidingView>
+            {formContent}
+          </KeyboardSafeScrollView>
         </Animated.View>
       </SafeAreaView>
     </View>

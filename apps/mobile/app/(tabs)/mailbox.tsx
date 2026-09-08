@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -1024,7 +1025,12 @@ function ThreadView({
   }
 
   return (
-    <View style={[styles.readInner, flush ? styles.readInnerFlush : null]}>
+    // Same reason as the compose screen: the reply box sits at the bottom of
+    // the thread, which is precisely where the keyboard lands on top of it.
+    <KeyboardAvoidingView
+      style={[styles.readInner, flush ? styles.readInnerFlush : null]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* Who this is, and the way out of the thread — the shape the client
           screens draw: portrait, name over a line of detail, overflow on the
           far right. Tapping the person opens their profile, which is where
@@ -1175,7 +1181,7 @@ function ThreadView({
           Checked by our team, then printed and posted. Replies are scanned back here.
         </Text>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1282,7 +1288,14 @@ function ComposePane({
   }
 
   return (
-    <View style={styles.readInner}>
+    // The letter sheet autofocuses, so the keyboard is up before this screen
+    // has finished appearing. Without avoidance the writing area and the send
+    // button both sat underneath it, on the one screen in the product whose
+    // entire purpose is typing.
+    <KeyboardAvoidingView
+      style={styles.readInner}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.readHeader}>
         <View style={styles.readSender}>
           <Avatar name={target.name} size={40} />
@@ -1349,7 +1362,7 @@ function ComposePane({
           </Pressable>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

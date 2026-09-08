@@ -16,6 +16,7 @@ import {
 
 import { art } from '../../src/art';
 import { Button } from '../../src/components/primitives';
+import { KeyboardSafeScrollView } from '../../src/components/KeyboardSafeScrollView';
 import {
   POPULAR_QUESTIONS,
   SUPPORT_TOPICS,
@@ -65,7 +66,7 @@ export default function SupportScreen() {
     : [];
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <KeyboardSafeScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
         <Image source={art.supportHero} style={styles.heroArt} contentFit="cover" />
         <View style={styles.heroVeil} />
@@ -147,7 +148,7 @@ export default function SupportScreen() {
           </Pressable>
         </>
       )}
-    </ScrollView>
+    </KeyboardSafeScrollView>
   );
 }
 
@@ -155,7 +156,7 @@ function TopicPage({ topic, onBack }: { topic: SupportTopic; onBack: () => void 
   const [open, setOpen] = useState(0);
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <KeyboardSafeScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
       <Pressable onPress={onBack} style={styles.crumb}>
         <Text style={styles.crumbText}>
           Support <Text style={styles.crumbSep}>›</Text> <Text style={styles.crumbActive}>{topic.title}</Text>
@@ -202,7 +203,7 @@ function TopicPage({ topic, onBack }: { topic: SupportTopic; onBack: () => void 
         </View>
         <Button label="Contact Support" onPress={contactSupport} disabled={!SUPPORT_EMAIL} />
       </View>
-    </ScrollView>
+    </KeyboardSafeScrollView>
   );
 }
 
