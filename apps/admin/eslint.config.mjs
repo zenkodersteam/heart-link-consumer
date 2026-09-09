@@ -10,6 +10,18 @@ const eslintConfig = [
   ...coreWebVitals,
   ...typescript,
   {
+    // Build tooling that Node loads directly, before any module transform: it
+    // has to be CommonJS, so `require` is correct rather than a lapse.
+    files: ['next.config.js', 'scripts/**/*.js'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
+  {
+    // `public/` is served verbatim, and pdf.worker.min.mjs is a minified
+    // vendor build copied in during the build — linting it reports thousands
+    // of problems in code nobody here wrote or can fix.
+    ignores: ['public/**'],
+  },
+  {
     rules: {
       // react-hooks v7 flags any setState in an effect body as an error. A few
       // of our effects use guarded reset-on-open / count-up-on-value patterns
