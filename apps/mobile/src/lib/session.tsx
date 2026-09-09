@@ -1,6 +1,7 @@
 import type { AuthUser, SignInResult } from '@heartlink/consumer-api';
 import {
   endSession,
+  forgetPushDevice,
   refreshSession,
   requestSignInCode,
   setAccountPassword,
@@ -9,6 +10,8 @@ import {
   verifySignInCode,
 } from '@heartlink/consumer-api';
 import * as SecureStore from 'expo-secure-store';
+
+import { getFcmToken } from './use-push-registration';
 import {
   createContext,
   useCallback,
@@ -220,10 +223,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const current = refreshToken.current;
+
+    // Before clearing, because this call needs the credentials it is about to
+    // discard. Without it the device stayed registered to the person who just
+    // signed out and kept receiving their letters — private correspondence
+    // arriving on a phone they had deliberately left.
+    try {
+      const access = await getToken();
+      const device = await getFcmToken();
+      await forgetPushDevice(API_BASE_URL, access, device);
+    } catch {
+      // Never block a sign-out on this. The token is reassigned the moment
+      // anyone signs in on this device, and FCM retires it if it goes stale.
+    }
+
     await clear();
     // After clearing, so the app is already signed out even if the call hangs.
     await endSession(API_BASE_URL, current);
-  }, [clear]);
+  }, [clear, getToken]);
 
   const value = useMemo<SessionValue>(
     () => ({

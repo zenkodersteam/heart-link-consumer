@@ -1,3 +1,4 @@
+import { ToggleBadge } from '../ui/ToggleBadge';
 import Link from 'next/link';
 import type { Facility, Profile } from '@heartlink/api-contract';
 import { ProfileStatusBadge } from './ProfileStatusBadge';
@@ -66,7 +67,9 @@ export function ProfilesTable({
               <ProfileStatusBadge status={row.status} />
             </div>
             <div className="w-[80px] tabular-nums">{x.approvedPhotoCount}</div>
-            <div className="w-[80px]">{x.hasPrimary ? 'Yes' : 'No'}</div>
+            <div className="w-[80px]">
+              <ToggleBadge on={x.hasPrimary} onLabel="Set" offLabel="Missing" />
+            </div>
             <div className="flex-1 min-w-0 truncate">{x.paymentLabel}</div>
             <div className="flex-[1.3] min-w-0 truncate">{x.blockerSummary}</div>
             <div className="w-[110px]">{formatShortDate(row.createdAt)}</div>

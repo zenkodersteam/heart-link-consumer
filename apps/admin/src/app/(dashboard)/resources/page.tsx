@@ -1,3 +1,4 @@
+import { ToggleBadge } from '../../../components/ui/ToggleBadge';
 import type { AdminResource, AdminResourceCategory } from '@heartlink/api-contract';
 import { Button } from '../../../components/ui/button';
 import { Card, CardBody, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -100,7 +101,9 @@ export default async function ResourcesPage() {
                         >
                           <td className="px-5 py-3 font-medium text-text">{category.title}</td>
                           <td className="px-5 py-3 text-text-muted">{category.slug}</td>
-                          <td className="px-5 py-3 text-text-muted">{category.isActive ? 'Active' : 'Inactive'}</td>
+                          <td className="px-5 py-3">
+                            <ToggleBadge on={category.isActive} onLabel="Active" offLabel="Inactive" />
+                          </td>
                           <td className="px-5 py-3 text-text-muted">
                             <span className="line-clamp-2 max-w-[420px]">{category.description ?? '—'}</span>
                           </td>
@@ -170,7 +173,9 @@ export default async function ResourcesPage() {
                               </div>
                             </td>
                             <td className="px-5 py-3 text-text-muted">{category?.title ?? resource.categorySlug}</td>
-                            <td className="px-5 py-3 text-text-muted">{resource.isPublished ? 'Yes' : 'Draft'}</td>
+                            <td className="px-5 py-3">
+                              <ToggleBadge on={resource.isPublished} onLabel="Published" offLabel="Draft" />
+                            </td>
                             <td className="px-5 py-3 text-text-muted">
                               <div>{resource.organization ?? '—'}</div>
                               <div className="text-xs">{resource.phone ?? resource.url ?? '—'}</div>

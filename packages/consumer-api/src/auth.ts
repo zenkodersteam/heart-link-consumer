@@ -197,6 +197,35 @@ export function refreshSession(baseUrl: string, refreshToken: string): Promise<S
   return post<SessionTokens>(baseUrl, '/auth/refresh', { refreshToken });
 }
 
+/**
+ * Stop this device receiving notifications for the account signing out.
+ *
+ * Sign-out revoked the session but left the push token pointing at the person
+ * who had just left, so their letters kept arriving on a phone they had signed
+ * out of — and correspondence here is private. Scoped to the one device token
+ * rather than the account: signing out on a phone must not silence the same
+ * person's tablet, where they are still signed in.
+ *
+ * Best effort, and deliberately before the credentials are discarded, since the
+ * call needs them. A failure is not worth blocking a sign-out over — the token
+ * is reassigned anyway the moment anyone signs in on this device.
+ */
+export async function forgetPushDevice(
+  baseUrl: string,
+  accessToken: string | null,
+  deviceToken: string | null,
+): Promise<void> {
+  if (!accessToken || !deviceToken) return;
+  try {
+    await fetch(`${baseUrl}/api/push/tokens?token=${encodeURIComponent(deviceToken)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch {
+    // See above: signing out must succeed regardless.
+  }
+}
+
 /** Best effort: a session the server has already forgotten is still signed out. */
 export async function endSession(baseUrl: string, refreshToken?: string | null): Promise<void> {
   try {

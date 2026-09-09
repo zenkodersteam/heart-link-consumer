@@ -53,7 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   // Letters sit above the post queue because they come first: a letter is
   // approved here, then appears there to be sent.
   { label: 'Letters', href: '/letters', icon: MailCheck, badgeKey: 'letters' },
-  { label: 'Outbound Mail', href: '/outbound-mail', icon: Mail },
+  { label: 'Outbound Mail', href: '/outbound-mail', icon: Mail, badgeKey: 'outboundMail' },
   { label: 'Inbound Mail', href: '/inbound-mail', icon: MailOpen },
   { label: 'Moderation', href: '/moderation', icon: ShieldCheck, badgeKey: 'moderation' },
   { label: 'Facilities', href: '/facilities', icon: Building2 },

@@ -318,6 +318,10 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         return;
       }
 
+      // Read before the marker is cleared: this browser knows it started a
+      // sign-up with this address even when the server does not call it new.
+      const finishingSignUp = intent === 'sign_up' || isPendingSignUp(email);
+
       clearPendingSignUp();
 
       // A reset ends on "choose a new password", so the app is not told about
@@ -336,7 +340,15 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
 
       // A brand-new account has a profile to fill in before anything else
       // expects one; an existing one goes where they were headed.
-      const destination = data.created ? AFTER_SIGN_UP : (redirectTo ?? AFTER_SIGN_IN);
+      //
+      // `data.created` alone is not enough. The account is made at the register
+      // step now, so that abandoning the code screen no longer throws away the
+      // password — which means by the time the code is checked the account
+      // already exists and the server reports `created: false`. Sending those
+      // people to the app was what made the dashboard flash past on the way to
+      // onboarding, and the redirect they saw was the gate correcting it.
+      const destination =
+        data.created || finishingSignUp ? AFTER_SIGN_UP : (redirectTo ?? AFTER_SIGN_IN);
       router.push(destination);
       // The signed-in layout is a server component and would otherwise still
       // be rendering the anonymous version from cache.

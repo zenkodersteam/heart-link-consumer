@@ -105,10 +105,13 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
 
       try {
         const pdfjs = (await import('pdfjs-dist')) as PdfJsModule;
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          'pdfjs-dist/build/pdf.worker.mjs',
-          import.meta.url,
-        ).toString();
+        // Served from `public/`, copied there at build time by
+        // scripts/copy-pdf-worker.mjs so it always matches the installed
+        // pdfjs-dist. The previous `new URL('pdfjs-dist/…', import.meta.url)`
+        // looked right but bundlers only rewrite that for relative specifiers -
+        // a bare package name resolved against the chunk's own URL and 404'd,
+        // which is what "could not load PDF viewer" was.
+        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
         const task = pdfjs.getDocument(sourceUrl!);
         loaded = (await task.promise) as PdfDocumentProxy;
         if (!cancelled) {

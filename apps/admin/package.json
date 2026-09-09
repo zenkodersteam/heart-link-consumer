@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
-    "build": "next build",
+    "dev": "node scripts/copy-pdf-worker.mjs && next dev --port 3001",
+    "build": "node scripts/copy-pdf-worker.mjs && next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test src/**/*.test.ts",

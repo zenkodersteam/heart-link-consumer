@@ -94,9 +94,6 @@ export function usePushRegistration(): void {
       }
       return;
     }
-    if (__DEV__ && !Device.isDevice) {
-      console.log('[push] simulator: no push tokens are issued here, use a real device');
-    }
 
     let cancelled = false;
 
@@ -174,9 +171,15 @@ export function usePushRegistration(): void {
  * Null is an ordinary outcome — a simulator, or a refusal — and is not an error
  * worth surfacing.
  */
-async function getFcmToken(): Promise<string | null> {
-  // Simulators cannot receive pushes; asking produces a confusing failure.
-  if (!Device.isDevice) return null;
+export async function getFcmToken(): Promise<string | null> {
+  // An iOS simulator has no APNs connection at all, so asking produces a
+  // confusing failure. An Android emulator with Play services does receive
+  // FCM perfectly well — the old check blocked both, and rejecting a device
+  // that works is how Android came to look broken.
+  if (Platform.OS === 'ios' && !Device.isDevice) {
+    if (__DEV__) console.log('[push] iOS simulator: no push tokens are issued here');
+    return null;
+  }
 
   const service = fcm();
   if (!service) return null;

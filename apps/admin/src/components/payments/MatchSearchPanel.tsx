@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, Search } from 'lucide-react';
 import type { MatchSuggestion } from '@heartlink/api-contract';
+import { GenericStatusBadge } from '../ui/GenericStatusBadge';
 import { Button } from '../ui/button';
 import {
   matchPayment,
@@ -144,7 +145,9 @@ export function MatchSearchPanel({
                   {s.profileDisplayName ?? '-'}
                 </div>
                 <div className="flex-1 min-w-0 truncate">{s.facilityName ?? '-'}</div>
-                <div className="w-[110px] capitalize text-text-muted">{s.status}</div>
+                <div className="w-[110px]">
+                  <GenericStatusBadge status={s.status} />
+                </div>
                 <div className="w-[100px] tabular-nums">
                   {s.expectedAmountCents != null
                     ? `$${(s.expectedAmountCents / 100).toFixed(2)}`

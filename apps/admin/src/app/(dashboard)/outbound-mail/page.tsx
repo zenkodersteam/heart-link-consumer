@@ -1,3 +1,5 @@
+import { MarkSectionSeen } from '../../../components/shell/MarkSectionSeen';
+import { GenericStatusBadge } from '../../../components/ui/GenericStatusBadge';
 import {
   Mail,
   Truck,
@@ -79,6 +81,7 @@ export default async function OutboundMailPage() {
 
   return (
     <div className="flex w-full flex-col gap-6 p-8">
+      <MarkSectionSeen section="outboundMail" />
       {/* Hand-rolled heading and a hand-rolled button, so this screen sat at a
           different size, radius and disabled treatment from the rest. */}
       <PageHero
@@ -194,7 +197,9 @@ export default async function OutboundMailPage() {
                       <td className="px-4 py-3">
                         <StageBadge stage={item.stage} />
                       </td>
-                      <td className="px-4 py-3 text-text-muted">{item.deliveryStatus || 'queued'}</td>
+                      <td className="px-4 py-3">
+                        <GenericStatusBadge status={item.deliveryStatus || 'queued'} />
+                      </td>
                       <td className="px-4 py-3 text-text-muted">{formatDate(item.createdAt)}</td>
                       <td className="px-4 py-3 text-right">
                         {/* Only for letters that failed or came back. One still

@@ -805,6 +805,19 @@ export interface NavCounts {
   moderation: number;
   /** Letters written by members and waiting to be approved before posting. */
   letters: number;
+  /**
+   * Outbound post: every letter on its way out, new since this section was
+   * last opened.
+   *
+   * Overlaps `letters` on purpose. A letter awaiting approval is counted by
+   * both, because it is genuinely in both places - the approval queue and the
+   * post pipeline - and the Outbound Mail page lists it either way. A badge
+   * that disagreed with the page under it would be the worse of the two.
+   *
+   * There is no inbound counterpart: inbound mail is a scan-upload form with a
+   * single POST endpoint, not a queue, so it has nothing waiting to count.
+   */
+  outboundMail: number;
 }
 
 // =============================================================================
