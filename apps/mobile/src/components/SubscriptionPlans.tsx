@@ -205,7 +205,114 @@ interface SubscriptionPlansProps {
   onReturnFromWeb?: () => void;
 }
 
+/**
+ * The hand-off shown in place of the plan list on a phone.
+ *
+ * Memberships are bought and managed on the website, and only there — so the
+ * app does not list prices it cannot sell. Showing the full catalogue and then
+ * sending someone to a browser the moment they chose one was the worst of both:
+ * it read as a shop, and behaved as a leaflet.
+ */
+function PlansOnTheWeb({
+  profileId,
+  forName,
+  onReturnFromWeb,
+}: SubscriptionPlansProps) {
+  const [opening, setOpening] = useState(false);
+
+  const open = useCallback(async () => {
+    setOpening(true);
+    try {
+      await openOnWeb(webAppUrl('/plans', profileId ? { profile: profileId } : {}));
+      // Back from the website: anything bought there is already recorded
+      // against the account, so tell the screen to reload rather than leaving
+      // a stale plan on display.
+      onReturnFromWeb?.();
+    } finally {
+      setOpening(false);
+    }
+  }, [profileId, onReturnFromWeb]);
+
+  return (
+    <View style={handoffStyles.card}>
+      <View style={handoffStyles.iconWrap}>
+        <Feather name="external-link" size={18} color={colors.primary} />
+      </View>
+      <Text style={handoffStyles.title}>
+        {profileId
+          ? `Sponsor ${forName ?? 'this listing'} on the web`
+          : 'Memberships are managed on the web'}
+      </Text>
+      <Text style={handoffStyles.body}>
+        {profileId
+          ? 'Choosing and paying for a listing happens on the HeartLink website. It opens signed in, and anything you buy shows up here straight away.'
+          : 'Choosing a plan, paying and cancelling all happen on the HeartLink website. It opens signed in, and any change shows up here straight away.'}
+      </Text>
+      <Pressable
+        onPress={() => void open()}
+        disabled={opening}
+        style={({ pressed }: { pressed: boolean }) => [
+          handoffStyles.button,
+          pressed ? { opacity: 0.9, transform: [{ scale: 0.99 }] } : null,
+          opening ? { opacity: 0.7 } : null,
+        ]}
+      >
+        {opening ? (
+          <ActivityIndicator size="small" color={colors.onPrimary} />
+        ) : (
+          <Feather name="external-link" size={15} color={colors.onPrimary} />
+        )}
+        <Text style={handoffStyles.buttonText}>Open the website</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const handoffStyles = StyleSheet.create({
+  card: {
+    gap: spacing.sm,
+    padding: spacing.xl,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryFaint,
+    marginBottom: spacing.xs,
+  },
+  title: { ...type.h2, fontSize: 17 },
+  body: { ...type.bodyMuted, fontSize: 14, lineHeight: 21 },
+  button: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: colors.primary,
+  },
+  buttonText: { ...type.button, color: colors.onPrimary, fontSize: 14 },
+});
+
 export function SubscriptionPlans({ profileId, forName, onReturnFromWeb }: SubscriptionPlansProps = {}) {
+  // The phone never lists plans. Everything below this line is the website's
+  // own rendering of them, kept for the web build.
+  if (Platform.OS !== 'web') {
+    return (
+      <PlansOnTheWeb profileId={profileId} forName={forName} onReturnFromWeb={onReturnFromWeb} />
+    );
+  }
+  return <PlansList profileId={profileId} forName={forName} onReturnFromWeb={onReturnFromWeb} />;
+}
+
+function PlansList({ profileId, forName, onReturnFromWeb }: SubscriptionPlansProps) {
   const apiFactory = useApiClientFactory();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;

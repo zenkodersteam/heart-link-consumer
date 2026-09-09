@@ -6,6 +6,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { Image } from 'expo-image';
 
 import { AuthShell } from '../../src/components/AuthShell';
+import { DateField } from '../../src/components/DateField';
 import { Button, Field } from '../../src/components/primitives';
 import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
 import { takePendingRoute } from '../../src/lib/pending-route';
@@ -213,59 +214,6 @@ function ageFromIso(iso: string): number {
     (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
   if (beforeBirthday) age -= 1;
   return age;
-}
-
-/**
- * Auto-insert the slashes while a date is typed, and refuse a date that could
- * never exist as it is being typed.
- *
- * Clamping matters more than it looks. Without it "32/06/44" sits on screen
- * looking like a date until Continue answers "Enter your birth date as
- * MM/DD/YYYY" — which is no help at all, because what you typed already looks
- * like MM/DD/YYYY. Refusing the impossible digit as it arrives means the field
- * can only ever show something that reads as a real date.
- *
- * A first month digit above 1 can only mean a single-digit month, so 3 becomes
- * 03 and the field moves on — the behaviour every date mask has, and the one
- * that lets someone type 3 1 1 9 9 0 for March 1990.
- */
-function formatDobInput(raw: string): string {
-  const typed = raw.replace(/\D/g, '').slice(0, 8);
-  if (!typed) return '';
-
-  // How many of the typed digits the month actually used. A leading 2-9 can
-  // only mean a single-digit month, so it consumes one digit and becomes two
-  // characters — which is what lets someone type 3 1 1 9 9 0 for 1 March 1990.
-  let monthDigits = typed.slice(0, 2);
-  let used = monthDigits.length;
-  if (monthDigits.length >= 1 && monthDigits[0] > '1') {
-    monthDigits = `0${monthDigits[0]}`;
-    used = 1;
-  } else if (monthDigits.length === 2) {
-    const value = Number(monthDigits);
-    if (value === 0) monthDigits = '01';
-    else if (value > 12) monthDigits = '12';
-  }
-  if (monthDigits.length < 2) return monthDigits;
-
-  const afterMonth = typed.slice(used);
-  if (!afterMonth.length) return `${monthDigits}/`;
-
-  let dayDigits = afterMonth.slice(0, 2);
-  let usedDay = dayDigits.length;
-  // Likewise a leading 4-9 can only be a single-digit day.
-  if (dayDigits[0] > '3') {
-    dayDigits = `0${dayDigits[0]}`;
-    usedDay = 1;
-  } else if (dayDigits.length === 2) {
-    const value = Number(dayDigits);
-    if (value === 0) dayDigits = '01';
-    else if (value > 31) dayDigits = '31';
-  }
-  if (dayDigits.length < 2) return `${monthDigits}/${dayDigits}`;
-
-  const year = afterMonth.slice(usedDay, usedDay + 4);
-  return year.length ? `${monthDigits}/${dayDigits}/${year}` : `${monthDigits}/${dayDigits}/`;
 }
 
 function isoToDisplay(iso: string | null): string {
@@ -536,19 +484,16 @@ export default function OnboardingScreen() {
             placeholder="First name and last initial, e.g. Maria C."
             autoComplete="name"
           />
-          <Field
+          <DateField
             label="Date of birth"
             error={fieldErrors.dob}
             value={dob}
-            onChangeText={(t) => {
-              setDobText(formatDobInput(t));
+            onChange={(next) => {
+              setDobText(next);
               clearField('dob');
             }}
-            placeholder="MM/DD/YYYY"
-            keyboardType="number-pad"
-            maxLength={10}
+            hint="You must be 18 or older. Your birth date is never shown to anyone."
           />
-          <Text style={type.caption}>You must be 18 or older. Your birth date is never shown to anyone.</Text>
         </>
       ) : null}
 

@@ -277,11 +277,57 @@ export function ageFromIso(iso: string): number {
 }
 
 /** Auto-insert slashes while someone types a date. */
+/**
+ * Auto-insert the slashes while a date is typed, and refuse a date that could
+ * never exist as it is being typed.
+ *
+ * Clamping matters more than it looks. Without it "32/06/44" sits on screen
+ * looking like a date until Continue answers "Enter your birth date as
+ * MM/DD/YYYY" — which is no help at all, because what you typed already looks
+ * like MM/DD/YYYY. Refusing the impossible digit as it arrives means the field
+ * can only ever show something that reads as a real date.
+ *
+ * A first month digit above 1 can only mean a single-digit month, so 3 becomes
+ * 03 and the field moves on — the behaviour every date mask has, and the one
+ * that lets someone type 3 1 1 9 9 0 for March 1990.
+ */
 export function formatDobInput(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  const typed = raw.replace(/\D/g, '').slice(0, 8);
+  if (!typed) return '';
+
+  // How many of the typed digits the month actually used. A leading 2-9 can
+  // only mean a single-digit month, so it consumes one digit and becomes two
+  // characters — which is what lets someone type 3 1 1 9 9 0 for 1 March 1990.
+  let monthDigits = typed.slice(0, 2);
+  let used = monthDigits.length;
+  if (monthDigits.length >= 1 && monthDigits[0] > '1') {
+    monthDigits = `0${monthDigits[0]}`;
+    used = 1;
+  } else if (monthDigits.length === 2) {
+    const value = Number(monthDigits);
+    if (value === 0) monthDigits = '01';
+    else if (value > 12) monthDigits = '12';
+  }
+  if (monthDigits.length < 2) return monthDigits;
+
+  const afterMonth = typed.slice(used);
+  if (!afterMonth.length) return `${monthDigits}/`;
+
+  let dayDigits = afterMonth.slice(0, 2);
+  let usedDay = dayDigits.length;
+  // Likewise a leading 4-9 can only be a single-digit day.
+  if (dayDigits[0] > '3') {
+    dayDigits = `0${dayDigits[0]}`;
+    usedDay = 1;
+  } else if (dayDigits.length === 2) {
+    const value = Number(dayDigits);
+    if (value === 0) dayDigits = '01';
+    else if (value > 31) dayDigits = '31';
+  }
+  if (dayDigits.length < 2) return `${monthDigits}/${dayDigits}`;
+
+  const year = afterMonth.slice(usedDay, usedDay + 4);
+  return year.length ? `${monthDigits}/${dayDigits}/${year}` : `${monthDigits}/${dayDigits}/`;
 }
 
 export function isoToDisplay(iso: string | null): string {
@@ -380,3 +426,84 @@ export const REVIEW_PREF_GROUPS: { label: string; keys: PrefKey[] }[] = [
     keys: ['communicationChannels', 'communicationPace', 'emotionalIntentions', 'loveLanguage'],
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Calendar
+// ---------------------------------------------------------------------------
+
+/**
+ * The month grid behind the date pickers, shared so the phone and the website
+ * cannot disagree about what a month looks like.
+ *
+ * Deliberately plain arithmetic on local dates. A birth date has no time and no
+ * zone — it is the day printed on a document — and running it through UTC is
+ * how a date picker hands back yesterday for anyone west of Greenwich.
+ */
+export const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** Sunday first, matching the calendars both platforms draw by default. */
+export const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
+
+export function daysInMonth(year: number, month: number): number {
+  // Day 0 of the next month is the last day of this one.
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/**
+ * A month as six weeks of cells, `null` where the grid runs past the month.
+ *
+ * Fixed at six rows on purpose: a grid that changes height as you page through
+ * the months makes the buttons underneath jump around, and a birth date is
+ * usually several months of paging away.
+ */
+export function monthGrid(year: number, month: number): Array<number | null> {
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const total = daysInMonth(year, month);
+  const cells: Array<number | null> = Array.from({ length: firstWeekday }, () => null);
+  for (let day = 1; day <= total; day += 1) cells.push(day);
+  while (cells.length < 42) cells.push(null);
+  return cells;
+}
+
+/** The years a birth date may fall in, newest first. */
+export function birthYears(): number[] {
+  const thisYear = new Date().getFullYear();
+  const newest = thisYear - MIN_AGE;
+  return Array.from({ length: 100 }, (_, i) => newest - i);
+}
+
+/** `MM/DD/YYYY`, the one format the fields and `parseDob` agree on. */
+export function toDisplayDate(year: number, month: number, day: number): string {
+  const mm = String(month + 1).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${mm}/${dd}/${year}`;
+}
+
+/**
+ * Where a calendar should open.
+ *
+ * Whatever has already been typed, if it is a real date; otherwise the year
+ * someone turning eighteen today was born, which is far nearer any real answer
+ * than today's date is.
+ */
+export function calendarStart(text: string): { year: number; month: number; day: number | null } {
+  const iso = parseDob(text);
+  if (iso) {
+    const [y, m, d] = iso.split('-').map(Number);
+    return { year: y, month: m - 1, day: d };
+  }
+  return { year: new Date().getFullYear() - MIN_AGE, month: 0, day: null };
+}

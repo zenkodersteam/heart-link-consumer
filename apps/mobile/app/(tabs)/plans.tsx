@@ -27,7 +27,7 @@ export default function PlansScreen() {
   const [syncKey, setSyncKey] = useState(0);
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <ScreenHeader title="Plans" subtitle="Choose what suits you" />
+      <ScreenHeader title="Membership" subtitle="What you are on, and where to change it" />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         <View style={styles.inner}>
           <CurrentPlan key={syncKey} />

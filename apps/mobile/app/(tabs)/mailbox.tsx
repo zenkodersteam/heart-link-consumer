@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -37,6 +36,7 @@ import { ProfilePhoto } from '../../src/components/ProfilePhoto';
 import { ProfileReviewOverlay } from '../../src/components/ProfileReviewOverlay';
 import { art } from '../../src/art';
 import { EmptyState } from '../../src/components/EmptyState';
+import { openOnWeb, webAppUrl } from '../../src/components/SubscriptionPlans';
 import { useToast } from '../../src/components/Toast';
 import { colors, fonts, cta, radii, spacing, type, inputReset } from '../../src/theme';
 import {
@@ -202,16 +202,6 @@ function deliveryLabel(status: string | null): string {
   return DELIVERY_LABEL[status] ?? status;
 }
 
-/**
- * Letter top-up packs. Mirrors the server's catalogue; the server is
- * authoritative on price and credits, this is only what the member is shown.
- */
-const LETTER_PACKS: { key: 'small' | 'medium' | 'large'; letters: number; price: string }[] = [
-  { key: 'small', letters: 3, price: '$4.99' },
-  { key: 'medium', letters: 7, price: '$9.99' },
-  { key: 'large', letters: 20, price: '$19.99' },
-];
-
 function checkoutOrigin(): string {
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
   return 'https://heart-link-consumer.vercel.app';
@@ -274,8 +264,6 @@ export default function MailboxScreen() {
   // Pull to refresh. What is on this screen changes because of things that
   // happen off the device -- staff approving a letter, a reply being scanned
   // in -- so asking again without leaving the screen matters here.
-  const [showPacks, setShowPacks] = useState(false);
-  const [buying, setBuying] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   // The caught value, not a message: ErrorState decides the wording.
   const [error, setError] = useState<unknown>(null);
@@ -548,35 +536,6 @@ export default function MailboxScreen() {
     };
   }, [limitProfileId]);
 
-  // Buy more letters. The API returns a hosted checkout link, or configured:false
-  // when the payment processor is not wired up in this environment.
-  const buyLetters = useCallback(
-    async (pack: 'small' | 'medium' | 'large') => {
-      setBuying(pack);
-      try {
-        const client = await factoryRef.current();
-        const origin = checkoutOrigin();
-        const res = await client.purchaseLetters({
-          pack,
-          processor: 'stripe',
-          successUrl: `${origin}/mailbox?purchase=success`,
-          cancelUrl: `${origin}/mailbox?purchase=cancel`,
-        });
-        if (res.configured && res.url) {
-          await Linking.openURL(res.url);
-        } else {
-          toast.show('Not available yet', 'Buying letters is coming soon.');
-        }
-      } catch {
-        toast.show('Could not start checkout', 'Please try again in a moment.');
-      } finally {
-        setBuying(null);
-        setShowPacks(false);
-      }
-    },
-    [toast],
-  );
-
   // Returning from checkout: credits are granted by the payment webhook, so
   // refresh the balance rather than assuming it changed.
   useEffect(() => {
@@ -741,46 +700,21 @@ export default function MailboxScreen() {
         ) : null}
 
         {entitlement?.totalRemaining !== null ? (
-          showPacks ? (
-            <View style={styles.packList}>
-              {LETTER_PACKS.map((pk) => (
-                <Pressable
-                  key={pk.key}
-                  onPress={() => void buyLetters(pk.key)}
-                  disabled={buying !== null}
-                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-                    styles.packBtn,
-                    webTransition,
-                    hovered ? { borderColor: colors.primary } : null,
-                    pressed ? { transform: [{ scale: 0.98 }] } : null,
-                    buying !== null && buying !== pk.key ? { opacity: 0.5 } : null,
-                  ]}
-                >
-                  {buying === pk.key ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <>
-                      <Text style={styles.packLetters}>{pk.letters} letters</Text>
-                      <Text style={styles.packPrice}>{pk.price}</Text>
-                    </>
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => setShowPacks(true)}
-              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-                styles.buyBtn,
-                webTransition,
-                hovered ? { opacity: 0.9 } : null,
-                pressed ? { transform: [{ scale: 0.98 }] } : null,
-              ]}
-            >
-              <Feather name="plus-circle" size={13} color={colors.primary} />
-              <Text style={styles.buyBtnText}>Buy more letters</Text>
-            </Pressable>
-          )
+          // Bought on the website, not here. Memberships and letter packs are
+          // sold in one place so there is a single record of what someone has
+          // paid for — and the phone app has no checkout of its own.
+          <Pressable
+            onPress={() => void openOnWeb(webAppUrl('/mailbox'))}
+            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+              styles.buyBtn,
+              webTransition,
+              hovered ? { opacity: 0.9 } : null,
+              pressed ? { transform: [{ scale: 0.98 }] } : null,
+            ]}
+          >
+            <Feather name="external-link" size={13} color={colors.primary} />
+            <Text style={styles.buyBtnText}>Buy more letters on the web</Text>
+          </Pressable>
         ) : null}
       </View>
     );
@@ -1033,6 +967,21 @@ function ThreadView({
   flush?: boolean;
   limit: LetterLengthLimit | null;
 }) {
+  /**
+   * Why this correspondent cannot be written to, if they cannot.
+   *
+   * Taken from the peer the header already loaded, so the box agrees with the
+   * banner above it. Checked before anything about the sender: being able to
+   * write letters does not help when the person at the other end no longer has
+   * a listing to receive them.
+   */
+  const blockedReason =
+    peerState === 'unavailable'
+      ? 'This listing is no longer active, so letters can no longer be delivered.'
+      : peer && !peer.acceptsMail
+        ? `${detail.profileDisplayName} is not accepting letters at the moment.`
+        : null;
+
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const overLimit = limit?.wordLimit != null && countWords(reply) > limit.wordLimit;
@@ -1064,12 +1013,10 @@ function ThreadView({
   }
 
   return (
-    // Same reason as the compose screen: the reply box sits at the bottom of
-    // the thread, which is precisely where the keyboard lands on top of it.
-    <KeyboardAvoidingView
-      style={[styles.readInner, flush ? styles.readInnerFlush : null]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    // A plain View: the tab shell now gives back the height the keyboard takes,
+    // so the reply box is already above it. A KeyboardAvoidingView here would
+    // measure the same space a second time and lift the thread twice.
+    <View style={[styles.readInner, flush ? styles.readInnerFlush : null]}>
       {/* Who this is, and the way out of the thread — the shape the client
           screens draw: portrait, name over a line of detail, overflow on the
           far right. Tapping the person opens their profile, which is where
@@ -1186,23 +1133,31 @@ function ThreadView({
       <View style={styles.replyBox}>
         <TextInput
           style={[styles.replyInput, inputReset]}
-          placeholder="Write a letter…"
+          placeholder={blockedReason ? 'Letters cannot be sent to this listing' : 'Write a letter…'}
           placeholderTextColor={colors.textMuted}
           multiline
+          editable={!blockedReason}
           value={reply}
           onChangeText={setReply}
         />
         {/* Counter and button share one row. They were stacked, which left a
             band of empty box between the words and the way to send them. */}
         <View style={styles.replyFooter}>
-          <WordCount text={reply} limit={limit} />
+          {/* Closed boxes say why. Counting words nobody can send tells the
+              reader nothing, and pressing Send used to answer with the
+              server's own "Profile <uuid> not found". */}
+          {blockedReason ? (
+            <Text style={styles.replyBlocked}>{blockedReason}</Text>
+          ) : (
+            <WordCount text={reply} limit={limit} />
+          )}
           <Pressable
             onPress={submit}
-            disabled={sending || reply.trim().length === 0 || overLimit}
+            disabled={Boolean(blockedReason) || sending || reply.trim().length === 0 || overLimit}
             style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
               styles.sendBtn,
               webTransition,
-              reply.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
+              blockedReason || reply.trim().length === 0 || overLimit ? { opacity: 0.5 } : null,
               hovered ? { opacity: 0.92 } : null,
               pressed ? { transform: [{ scale: 0.97 }] } : null,
             ]}
@@ -1225,7 +1180,7 @@ function ThreadView({
           Checked by our team, then printed and posted. Replies are scanned back here.
         </Text>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1332,14 +1287,9 @@ function ComposePane({
   }
 
   return (
-    // The letter sheet autofocuses, so the keyboard is up before this screen
-    // has finished appearing. Without avoidance the writing area and the send
-    // button both sat underneath it, on the one screen in the product whose
-    // entire purpose is typing.
-    <KeyboardAvoidingView
-      style={styles.readInner}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    // As in ThreadView: the shell has already made room for the keyboard, so
+    // this is a plain View rather than a second layer of avoidance.
+    <View style={styles.readInner}>
       <View style={styles.readHeader}>
         <View style={styles.readSender}>
           <Avatar name={target.name} size={40} />
@@ -1406,7 +1356,7 @@ function ComposePane({
           </Pressable>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -1599,6 +1549,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.bgElevated,
   },
+  replyBlocked: { ...type.caption, color: colors.gold, flex: 1, marginRight: spacing.sm },
   replyFooter: {
     flexDirection: 'row',
     alignItems: 'center',

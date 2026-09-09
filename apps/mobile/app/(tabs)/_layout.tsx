@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomTabBar, MobileTopBar, Sidebar } from '../../src/components/AppNav';
 import { OfflineBanner } from '../../src/components/ErrorState';
+import { useKeyboard } from '../../src/lib/use-keyboard';
 import { savePendingRoute } from '../../src/lib/pending-route';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
 import { useIsOffline } from '@heartlink/consumer-api';
@@ -36,6 +37,7 @@ export default function TabLayout() {
   const params = useGlobalSearchParams();
   const { profile, loading: profileLoading, error: profileError } = useMyProfile();
   const offline = useIsOffline();
+  const keyboard = useKeyboard();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
@@ -112,13 +114,31 @@ export default function TabLayout() {
     // its own padding, so its surface runs under the home indicator the way a
     // native tab bar does - insetting the whole screen instead left a strip of
     // page background below the bar, which is what made it look stuck on.
-    <SafeAreaView style={[styles.mobileSafe, { height }]} edges={['top']}>
+    // The shell is given the height the keyboard leaves behind, rather than
+    // every screen defending itself with its own KeyboardAvoidingView.
+    //
+    // Those did not work here and could not: this shell is a fixed-height,
+    // overflow-hidden box, so a view nested three levels inside it measures its
+    // own frame against a parent that never moves. The reply box in a letter
+    // thread sat under the keyboard along with its send button, and there was
+    // no scrolling to it. Shrinking the window everything is laid out in fixes
+    // that screen and every other one at once.
+    //
+    // Android is already resized by the OS, so `overlap` is 0 there and this
+    // is simply the window height.
+    <SafeAreaView
+      style={[styles.mobileSafe, { height: Math.max(0, height - keyboard.overlap) }]}
+      edges={['top']}
+    >
       <MobileTopBar />
       {/* Between the bar and the content so it never covers either, and is
           equally visible on whichever screen the member is on. */}
       {offline ? <OfflineBanner /> : null}
       <View style={styles.content}>{content}</View>
-      <BottomTabBar />
+      {/* The keyboard takes the tab bar's place while it is open. Keeping it
+          would perch five navigation items on top of the keyboard and steal
+          50pt from the one thing being typed into. */}
+      {keyboard.visible ? null : <BottomTabBar />}
     </SafeAreaView>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import type { LetterLengthLimit } from '@heartlink/consumer-api';
-import { Send } from 'lucide-react';
+import { Info, Send } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -82,15 +82,25 @@ export function LetterComposer({
       {/* The count and the way to send share one row above a rule, so the box
           reads as a sheet with a footer rather than a field with strays. */}
       <div className="mt-1 flex items-center justify-between gap-3 border-t border-line px-2 pt-3">
-        <span
-          className={cn('text-xs', overLimit ? 'font-semibold text-danger' : 'text-ink-faint')}
-        >
-          {wordLimit === null
-            ? words > 0
-              ? `${words} words`
-              : ''
-            : `${words} / ${wordLimit} words${overLimit ? ` · ${words - wordLimit} over` : ''}`}
-        </span>
+        {/* When the box is closed, the footer says why rather than counting
+            words nobody can send. It used to live only in a `title`, which no
+            touch device shows and no reader looks for. */}
+        {disabled && disabledReason ? (
+          <span className="flex items-center gap-1.5 text-xs text-gold" role="status">
+            <Info className="size-3.5 shrink-0" aria-hidden />
+            {disabledReason}
+          </span>
+        ) : (
+          <span
+            className={cn('text-xs', overLimit ? 'font-semibold text-danger' : 'text-ink-faint')}
+          >
+            {wordLimit === null
+              ? words > 0
+                ? `${words} words`
+                : ''
+              : `${words} / ${wordLimit} words${overLimit ? ` · ${words - wordLimit} over` : ''}`}
+          </span>
+        )}
         <Button
           size="sm"
           onClick={() => void submit()}

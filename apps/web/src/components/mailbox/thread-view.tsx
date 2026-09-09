@@ -59,6 +59,25 @@ export function ThreadView({
     );
   }
 
+  /**
+   * Why this particular correspondent cannot be written to, if they cannot.
+   *
+   * Checked before the sender's own state because it is the more specific
+   * answer: being approved to write letters does not help when the person at
+   * the other end no longer has a listing. Without this the box stayed live,
+   * and pressing Send returned the server's own words - "Profile <uuid> not
+   * found" - which names a thing the reader has never seen and offers nothing
+   * to do about it.
+   */
+  const peerBlockedReason = peerUnavailable
+    ? 'This listing is no longer active, so letters can no longer be delivered.'
+    : peer && !peer.acceptsMail
+      ? `${data.profileDisplayName} is not accepting letters at the moment.`
+      : null;
+
+  const composerDisabled = peerBlockedReason !== null || !canSend;
+  const composerReason = peerBlockedReason ?? (canSend ? undefined : cannotSendReason);
+
   const peerMeta = [
     peer?.age != null ? String(peer.age) : null,
     peer?.facility?.state ? stateName(peer.facility.state) : null,
@@ -109,8 +128,8 @@ export function ThreadView({
         <LetterComposer
           placeholder={`Write to ${data.profileDisplayName}…`}
           limit={limit}
-          disabled={!canSend}
-          disabledReason={cannotSendReason}
+          disabled={composerDisabled}
+          disabledReason={composerReason}
           onSend={(body) => onSend(data.profileId, body)}
         />
         {/* Said where it matters: this is not a message that arrives in a

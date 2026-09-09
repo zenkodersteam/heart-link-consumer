@@ -6,7 +6,6 @@ import {
   ONBOARDING_STEPS,
   MIN_BIO_CHARS,
   REVIEW_PREF_GROUPS,
-  formatDobInput,
   isoToDisplay,
   parseDob,
   summarizePrefs,
@@ -22,6 +21,7 @@ import { AuthShell } from '@/components/auth/auth-shell';
 import { OptionGroup } from '@/components/onboarding/option-group';
 import { ProfilePhoto } from '@/components/profiles/profile-photo';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { Field, TextareaField } from '@/components/ui/field';
 import { PageSpinner } from '@/components/ui/spinner';
 import { AFTER_SIGN_IN } from '@/lib/routes';
@@ -308,17 +308,14 @@ export function Onboarding() {
               placeholder="First name and last initial, e.g. Maria C."
               autoComplete="name"
             />
-            <Field
+            <DateField
               label="Date of birth"
               value={dob}
               error={fieldErrors.dob}
-              onChange={(e) => {
-                setDobText(formatDobInput(e.target.value));
+              onChange={(next) => {
+                setDobText(next);
                 clearField('dob');
               }}
-              placeholder="MM/DD/YYYY"
-              inputMode="numeric"
-              maxLength={10}
               hint="You must be 18 or older. Your birth date is never shown to anyone."
             />
           </>
@@ -591,7 +588,11 @@ export function Onboarding() {
           onClick={() => void onNext()}
           // The review step submits whatever the earlier steps accepted, so it
           // is never itself blocked.
-          disabled={saving || (!isLastStep && blocker !== null)}
+          //
+          // `stepReady`, not `blocker !== null`: `validateStep` returns a map of
+          // problems, and an object is never null — so that test was true on
+          // every step and Continue stayed disabled no matter what was typed.
+          disabled={saving || (!isLastStep && !stepReady)}
         >
           {saving ? 'Saving…' : isLastStep ? 'Submit for review' : 'Continue'}
         </Button>
