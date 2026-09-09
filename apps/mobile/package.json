@@ -19,7 +19,9 @@
     "prebuild:clean": "LANG=en_US.UTF-8 expo prebuild --platform ios --clean",
     "pods": "cd ios && LANG=en_US.UTF-8 pod install",
     "typecheck": "tsc --noEmit",
-    "deps:check": "expo install --check"
+    "deps:check": "expo install --check",
+    "aps:dev": "node scripts/aps-environment.mjs development",
+    "aps:prod": "node scripts/aps-environment.mjs production"
   },
   "dependencies": {
     "@babel/runtime": "^7.24.0",

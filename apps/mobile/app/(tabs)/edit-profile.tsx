@@ -16,10 +16,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import { ListSkeleton } from '../../src/components/Skeleton';
 import { humanError } from '../../src/lib/errors';
 import { useToast } from '../../src/components/Toast';
+import { pickPhoto } from '../../src/lib/pick-photo';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
 import { useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, radii, spacing, type, inputReset } from '../../src/theme';
@@ -67,7 +69,35 @@ export default function EditProfileScreen() {
   const [editing, setEditing] = useState<FieldKey | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
   const toast = useToast();
+
+  /**
+   * Replace the profile photo.
+   *
+   * This screen showed the picture and said what it was for, and offered no way
+   * to change it — the only upload in the whole app was a step of the sign-up
+   * questions, so changing a photo afterwards meant walking those again.
+   */
+  async function onPickPhoto(source: 'web' | 'library' | 'camera') {
+    setSourceOpen(false);
+    try {
+      const picked = await pickPhoto(source);
+      // Closing the picker is a normal outcome, not a failure.
+      if (!picked) return;
+      setUploading(true);
+      const api = await apiFactory();
+      await api.uploadMyProfilePhoto(picked.blob, picked.name);
+      await refresh();
+      toast.show('Photo updated', 'It is visible to the people you write to.');
+    } catch (e) {
+      // A refused permission throws with wording worth showing as it is.
+      toast.error(humanError(e, 'Could not upload that photo.'));
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function open(key: FieldKey) {
     setDraft((profile?.[key] as string | null) ?? '');
@@ -125,6 +155,26 @@ export default function EditProfileScreen() {
                 {profile?.primaryPhotoUrl ? 'Visible to people you write to.' : 'No photo yet.'}
               </Text>
             </View>
+            <Pressable
+              onPress={() =>
+                Platform.OS === 'web' ? void onPickPhoto('web') : setSourceOpen(true)
+              }
+              disabled={uploading}
+              accessibilityRole="button"
+              style={({ pressed }: { pressed: boolean }) => [
+                styles.photoBtn,
+                pressed ? { opacity: 0.85 } : null,
+                uploading ? { opacity: 0.6 } : null,
+              ]}
+            >
+              {uploading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={styles.photoBtnText}>
+                  {profile?.primaryPhotoUrl ? 'Change' : 'Add'}
+                </Text>
+              )}
+            </Pressable>
           </View>
 
           <Text style={styles.groupLabel}>DETAILS</Text>
@@ -161,6 +211,18 @@ export default function EditProfileScreen() {
           </Text>
         </ScrollView>
       )}
+
+      <ConfirmDialog
+        open={sourceOpen}
+        icon="camera"
+        title="Profile photo"
+        message="A clear photo of your face builds trust with the people you write to."
+        actions={[
+          { label: 'Choose from library', onPress: () => void onPickPhoto('library') },
+          { label: 'Take a photo', onPress: () => void onPickPhoto('camera') },
+        ]}
+        onCancel={() => setSourceOpen(false)}
+      />
 
       <Modal visible={editing !== null} transparent animationType="fade" onRequestClose={() => setEditing(null)}>
         {/*
@@ -232,6 +294,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(46,18,64,0.05)',
   },
   photo: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surfaceMuted },
+  photoBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+    minWidth: 78,
+    alignItems: 'center',
+  },
+  photoBtnText: { ...type.button, fontSize: 13, color: colors.primary },
   photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sidebar },
   photoInitial: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: colors.sidebarText },
   photoTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14.5, color: colors.textPrimary },

@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -7,6 +6,7 @@ import { Image } from 'expo-image';
 
 import { AuthShell } from '../../src/components/AuthShell';
 import { DateField } from '../../src/components/DateField';
+import { pickPhoto } from '../../src/lib/pick-photo';
 import { Button, Field } from '../../src/components/primitives';
 import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
 import { takePendingRoute } from '../../src/lib/pending-route';
@@ -80,63 +80,6 @@ const STEPS: { key: StepKey; title: string; subtitle: string }[] = [
       'Our team reviews every new member profile, usually within a day. You can browse right away.',
   },
 ];
-
-type PickedPhoto = { blob: Blob; name: string };
-
-/** Hidden file input, the only way to reach the file system on web. */
-function pickWebImage(): Promise<PickedPhoto | null> {
-  if (typeof document === 'undefined') return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/webp';
-    input.onchange = () => {
-      const f = input.files?.[0];
-      resolve(f ? { blob: f, name: f.name } : null);
-    };
-    input.oncancel = () => resolve(null);
-    input.click();
-  });
-}
-
-/**
- * Camera / library picker for iOS and Android.
- *
- * This used to return null on native, with the UI saying upload was web-only —
- * a leftover from when native was going to be a separate Flutter app. The
- * upload endpoint wants multipart form data, so the picked asset's `file://`
- * uri is fetched into a real Blob. Permissions are asked for at the moment of
- * use, so the OS prompt arrives with the reason on screen.
- */
-async function pickNativeImage(source: 'library' | 'camera'): Promise<PickedPhoto | null> {
-  const perm =
-    source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) {
-    throw new Error(
-      source === 'camera'
-        ? 'Camera access is off. Turn it on in Settings to take a photo.'
-        : 'Photo access is off. Turn it on in Settings to choose a photo.',
-    );
-  }
-
-  const options: ImagePicker.ImagePickerOptions = {
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    aspect: [4, 5],
-    quality: 0.85,
-  };
-  const result =
-    source === 'camera'
-      ? await ImagePicker.launchCameraAsync(options)
-      : await ImagePicker.launchImageLibraryAsync(options);
-
-  const asset = result.canceled ? null : result.assets?.[0];
-  if (!asset) return null;
-  const res = await fetch(asset.uri);
-  return { blob: await res.blob(), name: asset.fileName ?? `photo-${Date.now()}.jpg` };
-}
 
 const MIN_BIO_CHARS = 40;
 
@@ -303,7 +246,7 @@ export default function OnboardingScreen() {
 
   async function onPickPhoto(source: 'web' | 'library' | 'camera') {
     try {
-      const picked = source === 'web' ? await pickWebImage() : await pickNativeImage(source);
+      const picked = await pickPhoto(source);
       // Cancelling the sheet is a normal outcome, not an error.
       if (!picked) return;
       setUploadingPhoto(true);

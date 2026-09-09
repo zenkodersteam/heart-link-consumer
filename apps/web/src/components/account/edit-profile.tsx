@@ -2,7 +2,8 @@
 
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { ProfilePhoto } from '@/components/profiles/profile-photo';
 import { SettingsCard, SettingsGroupLabel } from '@/components/account/settings-row';
@@ -14,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { useMyProfile, useUpdateMyProfile } from '@/lib/queries';
+import { useMyProfile, useUpdateMyProfile, useUploadMyProfilePhoto } from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
 /**
@@ -62,6 +63,21 @@ const STATUS_LABEL: Record<string, string> = {
 export function EditProfile() {
   const { data: profile, isPending } = useMyProfile();
   const updateProfile = useUpdateMyProfile();
+  const uploadPhoto = useUploadMyProfilePhoto();
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function onPickPhoto(file: File) {
+    try {
+      await uploadPhoto.mutateAsync(file);
+      toast.success('Photo updated', {
+        description: 'It is visible to the people you write to.',
+      });
+    } catch (err) {
+      toast.error('Could not upload that photo', {
+        description: err instanceof Error ? err.message : 'Please try again in a moment.',
+      });
+    }
+  }
 
   const [editing, setEditing] = useState<FieldKey | null>(null);
   const [draft, setDraft] = useState('');
@@ -126,8 +142,33 @@ export function EditProfile() {
                   : 'No photo yet.'}
               </p>
             </div>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/onboarding">{profile?.primaryPhotoUrl ? 'Change' : 'Add'}</Link>
+            {/*
+              A real upload, not a link to `/onboarding`.
+              Changing a photo used to mean walking the nine sign-up questions
+              again — and for an approved member the gate sends them straight
+              back out, so the button did nothing at all.
+            */}
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                // Cleared here so choosing the same file twice still fires a
+                // change event; without it a failed upload cannot be retried.
+                event.target.value = '';
+                if (file) void onPickPhoto(file);
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={uploadPhoto.isPending}
+              onClick={() => fileInput.current?.click()}
+            >
+              {uploadPhoto.isPending ? <Spinner size="sm" /> : null}
+              {profile?.primaryPhotoUrl ? 'Change' : 'Add'}
             </Button>
           </div>
 

@@ -20,11 +20,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // Downloaded from the Firebase console (iOS app, this bundle id). Not in
     // git: it names the project every push for this app goes through.
     googleServicesFile: './GoogleService-Info.plist',
-    // Said here rather than left to a plugin: this is what makes iOS issue a
-    // device token at all, and push would fail silently without it.
-    entitlements: {
-      'aps-environment': 'production',
-    },
+    // No `entitlements` here on purpose.
+    //
+    // `aps-environment` lives in ios/HeartLink/HeartLink.entitlements, which is
+    // checked in. Declaring it here as well makes the "[Expo] Configure
+    // project" phase rewrite that file while Xcode is building, and Xcode
+    // refuses to sign a target whose entitlements changed mid-build:
+    //   error: Entitlements file "HeartLink.entitlements" was modified during
+    //   the build, which is not supported.
+    //
+    // The value has to match the provisioning profile — `development` for a
+    // build run on a device, `production` for an archive — so it is switched
+    // with `npm run aps:dev` / `npm run aps:prod` rather than computed here.
     // Bumped by hand alongside ios/HeartLink/Info.plist and the Xcode
     // project's CURRENT_PROJECT_VERSION: the native project is checked in, so
     // an archive reads those rather than this file. App Store Connect refuses
