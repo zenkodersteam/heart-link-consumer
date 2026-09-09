@@ -452,8 +452,16 @@ export function createApiClient(options: ApiClientOptions) {
       const msg =
         (body as ApiError | null)?.message ??
         (typeof body === 'string' ? body : `HTTP ${res.status}`);
+      // warn, not error, for anything the caller can reasonably handle.
+      //
+      // In React Native a console.error raises the fullscreen LogBox overlay,
+      // so a 404 that the calling screen already catches and degrades from —
+      // the mailbox header falling back to just the name, say — looked exactly
+      // like a crash. A 5xx is a genuine fault nobody asked for, so that keeps
+      // the louder channel.
       // eslint-disable-next-line no-console
-      console.error('[api] error body', res.status, body);
+      const log = res.status >= 500 ? console.error : console.warn;
+      log('[api] error body', res.status, body);
       const bodyCode = (body as { code?: string } | null)?.code;
       if (res.status === 401 || (res.status === 403 && bodyCode === 'ROLE_NOT_AUTHORIZED')) {
         options.onSessionExpired?.();

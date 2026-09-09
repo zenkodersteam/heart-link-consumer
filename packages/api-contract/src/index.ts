@@ -508,14 +508,104 @@ export interface AdminUserLookupItem {
   email: string;
 }
 
+/**
+ * A member as the staff directory lists them.
+ *
+ * Extends the picker's shape rather than replacing it: the inbound-mail
+ * combobox reads only name and email out of the same endpoint, and carries on
+ * doing so.
+ */
+export interface AdminUserRow extends AdminUserLookupItem {
+  createdAt: string;
+  emailVerifiedAt: string | null;
+  /** Whether they have set a password, not what it is. */
+  hasPassword: boolean;
+  /** Null when they have not started their own profile. */
+  profileStatus: OutsideProfileStatus | null;
+}
+
 export interface ListAdminUsersQuery {
   q?: string;
   limit?: number;
+  offset?: number;
+  /** 'none' finds members who have not begun a profile. */
+  status?: OutsideProfileStatus | 'none';
 }
 
 export interface ListAdminUsersResponse {
-  items: AdminUserLookupItem[];
+  items: AdminUserRow[];
   total: number;
+  limit: number;
+  offset: number;
+}
+
+/** A phone or tablet registered for notifications. */
+export interface AdminUserDevice {
+  id: string;
+  platform: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  /** Set when the push service reported the device as gone. */
+  disabledAt: string | null;
+}
+
+export interface AdminUserPayment {
+  id: string;
+  /** Null until staff assign one, which happens on matching. */
+  paymentNumber: string | null;
+  amountCents: number;
+  status: PaymentStatus;
+  purpose: PaymentPurpose | null;
+  receivedDate: string | null;
+}
+
+/**
+ * Everything staff need about one member on a single screen.
+ *
+ * Deliberately no password field of any kind, not even a hash: nothing on an
+ * admin screen ever needs one, and a value that is never displayed is a value
+ * that should never be sent. `hasPassword` and when it was set is the whole of
+ * what support actually asks.
+ */
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: string;
+  onboardingStatus: string | null;
+  emailVerifiedAt: string | null;
+  hasPassword: boolean;
+  passwordSetAt: string | null;
+  termsAcceptedAt: string | null;
+  privacyAcceptedAt: string | null;
+  createdAt: string;
+  profile: {
+    status: OutsideProfileStatus;
+    displayName: string | null;
+    primaryPhotoUrl: string | null;
+    moderationNotes: string | null;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+  } | null;
+  subscription: {
+    status: SubscriptionStatus;
+    planName: string | null;
+    currentPeriodEnd: string | null;
+    renewalDate: string | null;
+  } | null;
+  letters: {
+    creditBalance: number;
+    sentTotal: number;
+    sentThisMonth: number;
+  };
+  activity: {
+    threadCount: number;
+    savedProfileCount: number;
+    paymentTotalCents: number;
+  };
+  devices: AdminUserDevice[];
+  payments: AdminUserPayment[];
 }
 
 export interface UpdateProfileInput {

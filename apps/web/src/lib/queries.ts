@@ -69,6 +69,11 @@ export function usePublicProfile(id: string | undefined) {
     queryKey: qk.profile(id ?? ''),
     queryFn: async () => (await factory()).getPublicProfile(id!) as Promise<PublicProfileDetail>,
     enabled: Boolean(id),
+    // A 404 here means the listing is no longer public, which no amount of
+    // asking again will change. Retrying it three times only delays the notice
+    // the mailbox shows in its place; everything else keeps the usual retries.
+    retry: (attempt, error) =>
+      (error as { status?: number } | null)?.status === 404 ? false : attempt < 3,
   });
 }
 

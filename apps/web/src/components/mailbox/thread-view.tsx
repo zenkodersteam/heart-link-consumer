@@ -31,7 +31,11 @@ export function ThreadView({
   const { data: limit } = useLetterLimit(data?.profileId);
   // Age and state for the header. The facility name is deliberately not shown
   // on any member-facing screen, so it is not part of this line.
-  const { data: peer } = usePublicProfile(data?.profileId);
+  // The error matters as much as the data here: a 404 means the listing has
+  // stopped being public — a lapsed plan, or staff withdrawing it — which is
+  // something the person still writing letters to them needs to be told.
+  const { data: peer, error: peerError } = usePublicProfile(data?.profileId);
+  const peerUnavailable = (peerError as { status?: number } | null)?.status === 404;
   const scroller = useRef<HTMLDivElement>(null);
 
   // Open on the newest letter, the way you would pick up a pile of post.
@@ -81,7 +85,11 @@ export function ThreadView({
             <span className="block truncate font-[family-name:var(--font-bree)] text-lg text-ink">
               {data.profileDisplayName}
             </span>
-            {peerMeta ? (
+            {peerUnavailable ? (
+              <span className="block truncate text-[13px] text-gold">
+                This listing is no longer active
+              </span>
+            ) : peerMeta ? (
               <span className="block truncate text-[13px] text-ink-soft">{peerMeta}</span>
             ) : null}
           </span>

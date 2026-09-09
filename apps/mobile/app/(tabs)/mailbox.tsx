@@ -45,6 +45,7 @@ import {
   ThreadListSkeleton,
 } from '../../src/components/Skeleton';
 import { ErrorState } from '../../src/components/ErrorState';
+import { MailboxLocked } from '../../src/components/MailboxLocked';
 
 /**
  * Secure Mailbox - PostGrid letter correspondence (real backend).
@@ -278,6 +279,10 @@ export default function MailboxScreen() {
   const [loading, setLoading] = useState(true);
   // The caught value, not a message: ErrorState decides the wording.
   const [error, setError] = useState<unknown>(null);
+  // Free members are refused the mailbox by the API. That is a membership
+  // state, not a failure, so it is tracked apart from `error` and gets its own
+  // screen instead of "something went wrong" with a retry that cannot work.
+  const [locked, setLocked] = useState(false);
   const [folder, setFolder] = useState<MailFolder>('inbox');
   const [search, setSearch] = useState('');
   // Debounced so filtering does not run on every keystroke.
@@ -310,6 +315,7 @@ export default function MailboxScreen() {
   const loadThreads = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLocked(false);
     try {
       if (PREVIEW_BYPASS_AUTH) {
         setThreads(PREVIEW_MAILBOX_THREADS);
@@ -325,6 +331,9 @@ export default function MailboxScreen() {
         setThreads(PREVIEW_MAILBOX_THREADS);
         setEntitlement(PREVIEW_LETTER_ENTITLEMENT);
         setError(null);
+      } else if ((err as { status?: number })?.status === 403) {
+        // The one 403 this screen can get: no membership, no mailbox.
+        setLocked(true);
       } else {
         setError(err);
       }
@@ -420,10 +429,21 @@ export default function MailboxScreen() {
    * anywhere in the app.
    */
   const [peer, setPeer] = useState<PublicProfileDetail | null>(null);
+  /**
+   * Why the profile is missing, when it is.
+   *
+   * A 404 here is not an error to hide: it means the listing has stopped being
+   * public — the plan lapsed, or staff withdrew it. That happens to real
+   * correspondence, and saying nothing left the thread looking identical to one
+   * whose profile simply had no photo, so a member could keep writing to
+   * someone who can no longer receive it and never be told why.
+   */
+  const [peerState, setPeerState] = useState<'loading' | 'ok' | 'unavailable' | 'error'>('loading');
   useEffect(() => {
     const id = detail?.profileId;
     if (!id) {
       setPeer(null);
+      setPeerState('loading');
       return;
     }
     let cancelled = false;
@@ -431,11 +451,17 @@ export default function MailboxScreen() {
       try {
         const client = await factoryRef.current();
         const p = await client.getPublicProfile(id);
-        if (!cancelled) setPeer(p);
-      } catch {
-        // Decorative: without it the header just shows the name, which is
-        // what it showed before.
-        if (!cancelled) setPeer(null);
+        if (!cancelled) {
+          setPeer(p);
+          setPeerState('ok');
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setPeer(null);
+        // 404 is "no longer listed" and is worth saying. Anything else is a
+        // failure to reach us, which is ours to fix and not theirs to read
+        // about — the header just shows the name, as it did before.
+        setPeerState((e as { status?: number })?.status === 404 ? 'unavailable' : 'error');
       }
     })();
     return () => {
@@ -608,6 +634,14 @@ export default function MailboxScreen() {
   }, [threads, folder, debouncedSearch]);
 
   const totalUnread = threads.reduce((n, t) => n + t.unreadCount, 0);
+
+  // Replaces the whole screen, not just the thread list: on a free membership
+  // there is no mailbox to frame — no folders, no search, no letter count — so
+  // showing the chrome around an explanation would only suggest the contents
+  // are loading. Placed after every hook so the early return is safe.
+  if (locked) {
+    return <MailboxLocked onSeePlans={() => router.push('/plans')} />;
+  }
 
   // ----- shared sub-views -------------------------------------------------
 
@@ -820,6 +854,7 @@ export default function MailboxScreen() {
             <ThreadView
               detail={detail}
               peer={peer}
+              peerState={peerState}
               onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
               onOpenProfile={() => router.push({ pathname: '/(tabs)/profile', params: { id: detail.profileId } })}
               onBlock={() => void blockPeer(detail.profileId)}
@@ -872,6 +907,7 @@ export default function MailboxScreen() {
           <ThreadView
             detail={detail}
             peer={peer}
+            peerState={peerState}
             onReply={(body) => sendLetter(detail.profileId, body, detail.threadId)}
             onOpenProfile={() => router.push({ pathname: '/(tabs)/profile', params: { id: detail.profileId } })}
             onBlock={() => void blockPeer(detail.profileId)}
@@ -968,6 +1004,7 @@ export default function MailboxScreen() {
 function ThreadView({
   detail,
   peer,
+  peerState,
   onReply,
   onOpenProfile,
   onBlock,
@@ -978,6 +1015,8 @@ function ThreadView({
   detail: MailboxThreadDetail;
   /** The public profile behind the thread, once it has loaded. */
   peer: PublicProfileDetail | null;
+  /** Why `peer` is null, so the header can say when a listing has ended. */
+  peerState: 'loading' | 'ok' | 'unavailable' | 'error';
   onReply: (body: string) => Promise<boolean>;
   onOpenProfile: () => void;
   onBlock: () => void;
@@ -1069,6 +1108,11 @@ function ThreadView({
             {peerMeta ? (
               <Text style={styles.readSenderMeta} numberOfLines={1}>
                 {peerMeta}
+              </Text>
+            ) : null}
+            {peerState === 'unavailable' ? (
+              <Text style={styles.readSenderGone} numberOfLines={1}>
+                This listing is no longer active
               </Text>
             ) : null}
           </View>
@@ -1438,6 +1482,9 @@ const styles = StyleSheet.create({
   },
   readBackBtn: { marginLeft: -spacing.xs, marginRight: -spacing.xs },
   readSenderText: { flex: 1, minWidth: 0, gap: 1 },
+  // Gold rather than red: the listing ending is not the member's mistake and
+  // not a failure of the app, so it should read as a notice, not an alarm.
+  readSenderGone: { ...type.caption, color: colors.gold, marginTop: 1 },
   readSenderName: { ...type.body, fontSize: 16, fontFamily: 'Inter_600SemiBold' },
   readSenderMeta: { ...type.caption, fontSize: 12 },
   readMenuBtn: {

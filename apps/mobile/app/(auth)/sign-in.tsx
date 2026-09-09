@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SignInResult } from '@heartlink/consumer-api';
-import { passwordProblem } from '@heartlink/domain';
+import { emailProblem, passwordProblem } from '@heartlink/domain';
 
 import { AuthShell } from '../../src/components/AuthShell';
 import { OtpBoxes } from '../../src/components/OtpBoxes';
@@ -16,7 +16,7 @@ import {
 } from '../../src/lib/pending-signup';
 import { useToast } from '../../src/components/Toast';
 import { useSession } from '../../src/lib/session';
-import { colors, spacing, type } from '../../src/theme';
+import { colors, radii, spacing, type } from '../../src/theme';
 
 /**
  * Signing in, and signing up.
@@ -43,7 +43,17 @@ export default function SignInScreen() {
   } = useSession();
   const toast = useToast();
 
-  const [stage, setStage] = useState<'email' | 'code' | 'new-password'>('email');
+  /**
+   * Which step is on screen.
+   *
+   * `forgot` is its own step rather than a flag on the sign-in form: tapping
+   * "Forgot your password?" used to fire a code off the address already typed
+   * and jump straight to the boxes, so someone who had typed nothing got only
+   * an error, and someone who had mistyped got a code sent somewhere they
+   * could not read. Asking for the address first is one screen, and it is the
+   * screen people expect.
+   */
+  const [stage, setStage] = useState<'email' | 'forgot' | 'code' | 'new-password'>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   /**
@@ -83,6 +93,16 @@ export default function SignInScreen() {
    * two going stale the moment anything else happens.
    */
   const [invalid, setInvalid] = useState(false);
+  /**
+   * What is wrong with a particular field, shown under that field.
+   *
+   * Kept apart from `invalid` because the two are different kinds of news. "Use
+   * at least eight characters" is about the box it sits under and can be fixed
+   * there; "that email or password is not right" is the server's verdict on the
+   * whole attempt. A toast for the first kind pulled the eye away from the very
+   * field that needed correcting, and was gone by the time it came back.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   function messageFrom(e: unknown, fallback: string): string {
@@ -95,18 +115,42 @@ export default function SignInScreen() {
    * The account is created now rather than when the code is entered, so
    * abandoning this step no longer throws the chosen password away.
    */
-  /** Flag the field and say what went wrong, in one place so they cannot drift. */
+  /** The server refused the attempt: colour the fields, announce the reason. */
   function fail(message: string) {
     setInvalid(true);
     toast.error(message);
   }
 
+  /** Drop a field's message as soon as it is being retyped. */
+  function clearField(field: string) {
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  /**
+   * Check every field at once and report all of them.
+   *
+   * Stopping at the first problem makes someone fix one thing, submit, and be
+   * told about the next - so the whole set is checked and shown together.
+   */
+  function validate(checks: Array<[field: string, problem: string | null]>): boolean {
+    const found = checks.filter(([, problem]) => problem !== null);
+    if (found.length === 0) return true;
+    setFieldErrors((current) => {
+      const next = { ...current };
+      for (const [field, problem] of found) next[field] = problem as string;
+      return next;
+    });
+    return false;
+  }
+
   async function onRegister() {
     const address = email.trim();
-    if (!address) {
-      fail('Enter your email address.');
-      return;
-    }
+    if (!validate([['email', emailProblem(email)]])) return;
     setSubmitting(true);
     setInvalid(false);
         try {
@@ -122,10 +166,7 @@ export default function SignInScreen() {
 
   async function onSendCode(resend = false) {
     const address = email.trim();
-    if (!address) {
-      fail('Enter your email address.');
-      return;
-    }
+    if (!validate([['email', emailProblem(email)]])) return;
     setSubmitting(true);
     setInvalid(false);
         try {
@@ -145,18 +186,17 @@ export default function SignInScreen() {
 
   async function onPasswordSignIn() {
     const address = email.trim();
-    if (!address) {
-      fail('Enter your email address.');
-      return;
-    }
-    const problem = passwordProblem(password);
-    if (problem) {
-      fail(problem);
+    if (
+      !validate([
+        ['email', emailProblem(email)],
+        ['password', passwordProblem(password)],
+      ])
+    ) {
       return;
     }
     setSubmitting(true);
     setInvalid(false);
-        try {
+    try {
       await signInWithPassword(address, password);
       const pending = takePendingRoute();
       router.replace((pending ?? '/(tabs)') as never);
@@ -182,11 +222,7 @@ export default function SignInScreen() {
   }
 
   async function onSaveNewPassword() {
-    const problem = passwordProblem(newPassword);
-    if (problem) {
-      fail(problem);
-      return;
-    }
+    if (!validate([['newPassword', passwordProblem(newPassword)]])) return;
     setSubmitting(true);
     setInvalid(false);
     try {
@@ -252,10 +288,12 @@ export default function SignInScreen() {
       >
         <Field
           label="New password"
+          error={fieldErrors.newPassword}
           value={newPassword}
           onChangeText={(t) => {
             setNewPassword(t);
             setInvalid(false);
+            clearField('newPassword');
           }}
           secureTextEntry
           autoCapitalize="none"
@@ -268,6 +306,68 @@ export default function SignInScreen() {
           label="Save password"
           onPress={() => void onSaveNewPassword()}
           loading={submitting}
+        />
+      </AuthShell>
+    );
+  }
+
+  if (stage === 'forgot') {
+    return (
+      <AuthShell
+        title="Reset your password"
+        subtitle="Tell us the address on your account and we will email you a code. You will choose a new password straight after."
+      >
+        <Field
+          label="Email"
+          error={fieldErrors.email}
+          value={email}
+          onChangeText={(t) => {
+            setEmail(t);
+            setInvalid(false);
+            clearField('email');
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          placeholder="you@example.com"
+          autoFocus
+          onSubmitEditing={() => void onSendCode()}
+          returnKeyType="send"
+        />
+
+        {/* What happens next, before it happens. A reset is three screens and
+            people abandon it halfway when they cannot see the shape of it. */}
+        <View style={styles.stepsCard}>
+          {[
+            'We email you a six-digit code',
+            'Enter the code to prove the address is yours',
+            'Choose a new password',
+          ].map((step, index) => (
+            <View key={step} style={styles.stepRow}>
+              <View style={styles.stepNum}>
+                <Text style={styles.stepNumText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.stepText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Button
+          label="Email me a code"
+          onPress={() => void onSendCode()}
+          loading={submitting}
+          disabled={!email.trim()}
+        />
+        <Button
+          label="Back to sign in"
+          variant="ghost"
+          disabled={submitting}
+          onPress={() => {
+            setStage('email');
+            setFlow('password');
+            setInvalid(false);
+          }}
         />
       </AuthShell>
     );
@@ -312,11 +412,14 @@ export default function SignInScreen() {
           variant="ghost"
           disabled={submitting}
           onPress={() => {
-            setStage('email');
-            setFlow('password');
+            // Back to the step this came from: a reset returns to the reset
+            // form rather than dumping someone on sign-in, where they would
+            // have to find "Forgot your password?" all over again.
+            setStage(flow === 'reset' ? 'forgot' : 'email');
+            if (flow !== 'reset') setFlow('password');
             setCode('');
             setInvalid(false);
-                      }}
+          }}
         />
       </AuthShell>
     );
@@ -335,8 +438,12 @@ export default function SignInScreen() {
     >
       <Field
         label="Email"
+        error={fieldErrors.email}
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(t) => {
+          setEmail(t);
+          clearField('email');
+        }}
         autoCapitalize="none"
         autoComplete="email"
         keyboardType="email-address"
@@ -347,10 +454,12 @@ export default function SignInScreen() {
       {!useCode ? (
         <Field
           label="Password"
+          error={fieldErrors.password}
           value={password}
           onChangeText={(t) => {
             setPassword(t);
             setInvalid(false);
+            clearField('password');
           }}
           secureTextEntry
           revealable
@@ -367,15 +476,15 @@ export default function SignInScreen() {
       {!useCode && !signingUp ? (
         <Pressable
           onPress={() => {
-            const address = email.trim();
-            if (!address) {
-              fail('Enter your email address first.');
-              return;
-            }
+            // Nothing is sent from here. The next screen asks for the address
+            // and sends the code itself, so what is typed on this form is only
+            // a starting point.
             setFlow('reset');
             setInvalid(false);
-            void onSendCode();
+            setStage('forgot');
           }}
+          hitSlop={8}
+          accessibilityRole="button"
         >
           <Text style={styles.forgot}>Forgot your password?</Text>
         </Pressable>
@@ -390,9 +499,12 @@ export default function SignInScreen() {
           // Sign-up saves the account and password now and confirms the
           // address with a code; sign-in checks the password straight away.
           if (signingUp) {
-            const problem = passwordProblem(password);
-            if (problem) {
-              fail(problem);
+            if (
+              !validate([
+                ['email', emailProblem(email)],
+                ['password', passwordProblem(password)],
+              ])
+            ) {
               return;
             }
             void onRegister();
@@ -422,6 +534,27 @@ const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   link: { ...type.button, color: colors.primary, fontSize: 14 },
   altLink: { ...type.button, color: colors.primary, fontSize: 14, textAlign: 'center', marginTop: spacing.md },
+  stepsCard: {
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+    marginBottom: spacing.lg,
+  },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  stepNum: {
+    width: 22,
+    height: 22,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryFaint,
+  },
+  stepNumText: { ...type.caption, fontSize: 11, color: colors.primary, fontFamily: 'Inter_700Bold' },
+  // flexShrink so a long line wraps instead of running off the card.
+  stepText: { ...type.caption, flexShrink: 1 },
   forgot: { ...type.button, color: colors.primary, fontSize: 13, textAlign: 'right', marginTop: -spacing.xs },
   codeLabel: {
     ...type.caption,

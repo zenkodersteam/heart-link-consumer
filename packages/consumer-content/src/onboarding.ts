@@ -309,30 +309,43 @@ export interface OnboardingDraft {
  * enabled state from it, so what blocks the button is always what explains
  * itself — the two cannot drift apart.
  */
+/**
+ * What is wrong on this step, keyed by the field each problem belongs under.
+ *
+ * A record rather than one sentence, because the message is shown beneath the
+ * field it is about. Returning only the first problem meant someone with an
+ * empty name and an unreadable date fixed the name, pressed Continue, and only
+ * then heard about the date; every problem on the step is reported at once.
+ *
+ * An empty object means the step is ready.
+ */
 export function validateStep(
   step: OnboardingStepKey,
   draft: OnboardingDraft,
-): string | null {
+): Record<string, string> {
+  const problems: Record<string, string> = {};
   if (step === 'name') {
-    if (draft.name.trim().length < 2) return 'Please enter your name.';
+    if (draft.name.trim().length < 2) problems.name = 'Please enter your name.';
     const iso = parseDob(draft.dob);
-    if (!iso) return 'Enter your birth date as MM/DD/YYYY.';
-    if (ageFromIso(iso) < MIN_AGE) return `You must be ${MIN_AGE} or older to join HeartLink.`;
+    if (!iso) problems.dob = 'Enter your birth date as MM/DD/YYYY.';
+    else if (ageFromIso(iso) < MIN_AGE) {
+      problems.dob = `You must be ${MIN_AGE} or older to join HeartLink.`;
+    }
   }
   if (step === 'location' && draft.location.trim().length < 2) {
-    return 'Please enter your city and state.';
+    problems.location = 'Please enter your city and state.';
   }
   if (step === 'story') {
     const story = draft.story.trim();
     if (story.length < MIN_BIO_CHARS) {
-      return `Tell us a little more, about ${MIN_BIO_CHARS - story.length} more characters.`;
+      problems.story = `Tell us a little more, about ${MIN_BIO_CHARS - story.length} more characters.`;
     }
     const looking = draft.lookingFor.trim();
     if (looking.length < MIN_BIO_CHARS) {
-      return `Tell us what you're looking for, about ${MIN_BIO_CHARS - looking.length} more characters.`;
+      problems.lookingFor = `Tell us what you're looking for, about ${MIN_BIO_CHARS - looking.length} more characters.`;
     }
   }
-  return null;
+  return problems;
 }
 
 /** Flattens the chosen preferences for a set of keys into one review line. */

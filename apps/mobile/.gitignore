@@ -1,0 +1,7 @@
+
+# Firebase config, downloaded per environment from the console. Not secret in
+# the password sense, but they name the project every push goes through and
+# differ between staging and production, so they are fetched rather than
+# committed.
+GoogleService-Info.plist
+google-services.json

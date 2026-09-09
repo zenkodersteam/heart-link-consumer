@@ -17,6 +17,13 @@ const fieldStyles =
   'focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 ' +
   'disabled:cursor-not-allowed disabled:opacity-60';
 
+/**
+ * The border a field wears while its message is showing, matching what the
+ * phone app already draws. `aria-invalid` alone told a screen reader something
+ * was wrong and left everyone else to notice the sentence underneath.
+ */
+const errorStyles = 'border-danger focus:border-danger focus:ring-danger/25';
+
 function FieldShell({
   label,
   hint,
@@ -62,7 +69,7 @@ export function Field({
       <input
         id={fieldId}
         aria-invalid={error ? true : undefined}
-        className={cn(fieldStyles, 'h-12', className)}
+        className={cn(fieldStyles, error && errorStyles, 'h-12', className)}
         {...props}
       />
     </FieldShell>
@@ -84,7 +91,7 @@ export function TextareaField({
       <textarea
         id={fieldId}
         aria-invalid={error ? true : undefined}
-        className={cn(fieldStyles, 'resize-y py-3 leading-relaxed', className)}
+        className={cn(fieldStyles, error && errorStyles, 'resize-y py-3 leading-relaxed', className)}
         {...props}
       />
     </FieldShell>

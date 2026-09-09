@@ -57,8 +57,23 @@ export function Onboarding() {
   const [bio, setBio] = useState<string | null>(null);
   const [lookingFor, setLookingFor] = useState<string | null>(null);
   const [prefEdits, setPrefEdits] = useState<PreferenceState | null>(null);
-  const [fieldError, setFieldError] = useState<string | null>(null);
+  /**
+   * Per-field problems for the step on screen, shown under the field each is
+   * about. It used to be one sentence under the whole form, which meant looking
+   * away from the box that needed fixing to find out what was wrong with it.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  /** Drop a field's message as soon as it is being retyped. */
+  function clearField(field: string) {
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
   const [done, setDone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -94,6 +109,7 @@ export function Onboarding() {
   const step = ONBOARDING_STEPS[stepIndex];
   const draft = { name, dob, location: loc, story, lookingFor: looking };
   const blocker = validateStep(step.key, draft);
+  const stepReady = Object.keys(blocker).length === 0;
   const isLastStep = step.key === 'review';
   const saving = updateProfile.isPending || submitProfile.isPending;
 
@@ -137,11 +153,11 @@ export function Onboarding() {
   }
 
   async function onNext() {
-    if (blocker) {
-      setFieldError(blocker);
+    if (!stepReady) {
+      setFieldErrors(blocker);
       return;
     }
-    setFieldError(null);
+    setFieldErrors({});
     setSaveError(null);
 
     const save = (input: UpdateOutsideProfileInput) => updateProfile.mutateAsync(input);
@@ -284,9 +300,10 @@ export function Onboarding() {
             <Field
               label="Your name"
               value={name}
+              error={fieldErrors.name}
               onChange={(e) => {
                 setDisplayName(e.target.value);
-                setFieldError(null);
+                clearField('name');
               }}
               placeholder="First name and last initial, e.g. Maria C."
               autoComplete="name"
@@ -294,9 +311,10 @@ export function Onboarding() {
             <Field
               label="Date of birth"
               value={dob}
+              error={fieldErrors.dob}
               onChange={(e) => {
                 setDobText(formatDobInput(e.target.value));
-                setFieldError(null);
+                clearField('dob');
               }}
               placeholder="MM/DD/YYYY"
               inputMode="numeric"
@@ -310,9 +328,10 @@ export function Onboarding() {
           <Field
             label="City and state"
             value={loc}
+            error={fieldErrors.location}
             onChange={(e) => {
               setLocation(e.target.value);
-              setFieldError(null);
+              clearField('location');
             }}
             placeholder="Atlanta, GA"
             autoComplete="address-level2"
@@ -459,10 +478,11 @@ export function Onboarding() {
             <TextareaField
               label="About you"
               value={story}
+              error={fieldErrors.story}
               rows={6}
               onChange={(e) => {
                 setBio(e.target.value);
-                setFieldError(null);
+                clearField('story');
               }}
               placeholder="What brings you here? What kind of connection are you hoping for?"
               hint={
@@ -474,12 +494,13 @@ export function Onboarding() {
             <TextareaField
               label="What I'm looking for"
               value={looking}
+              error={fieldErrors.lookingFor}
               rows={5}
               onChange={(e) => {
                 const next = e.target.value;
                 setLookingFor(next);
                 editPrefs((prev) => ({ ...prev, lookingFor: next }));
-                setFieldError(null);
+                clearField('lookingFor');
               }}
               placeholder="What kind of correspondence or connection would feel meaningful to you?"
               hint={
@@ -559,11 +580,6 @@ export function Onboarding() {
         ) : null}
       </div>
 
-      {fieldError ? (
-        <p className="mt-5 text-[13px] text-danger" role="alert">
-          {fieldError}
-        </p>
-      ) : null}
       {saveError ? (
         <p className="mt-5 text-[13px] text-danger" role="alert">
           {saveError}
@@ -584,7 +600,7 @@ export function Onboarding() {
             variant="ghost"
             disabled={saving}
             onClick={() => {
-              setFieldError(null);
+              setFieldErrors({});
               setSaveError(null);
               setStepIndex((i) => i - 1);
             }}

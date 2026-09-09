@@ -30,6 +30,8 @@
     "@heartlink/consumer-content": "*",
     "@heartlink/design-tokens": "*",
     "@heartlink/domain": "*",
+    "@react-native-firebase/app": "^21.14.0",
+    "@react-native-firebase/messaging": "^21.14.0",
     "expo": "~52.0.0",
     "expo-application": "~6.0.0",
     "expo-asset": "~11.0.0",

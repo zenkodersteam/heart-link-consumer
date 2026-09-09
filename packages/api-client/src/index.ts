@@ -25,6 +25,7 @@ import type {
   ListApplicationsResponse,
   ListAdminUsersQuery,
   ListAdminUsersResponse,
+  AdminUserDetail,
   ListMailboxThreadsResponse,
   ListOutboundMailQuery,
   ListOutboundMailResponse,
@@ -278,6 +279,9 @@ export function createApiClient(options: ApiClientOptions) {
       return request<ListAdminUsersResponse>(
         `/admin/users${buildQuery(query as Record<string, unknown>)}`,
       );
+    },
+    async getAdminUser(id: string): Promise<AdminUserDetail> {
+      return request<AdminUserDetail>(`/admin/users/${encodeURIComponent(id)}`);
     },
     async getProfile(id: string): Promise<ProfileDetail> {
       return request(`/admin/profiles/${id}`);

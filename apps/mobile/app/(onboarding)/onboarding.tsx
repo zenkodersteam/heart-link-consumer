@@ -22,6 +22,10 @@ import { colors, fonts, radii, spacing, type } from '../../src/theme';
  * (draft -> pending -> approved), mirroring how inmate profiles are reviewed.
  */
 
+// The step rule is the website's, imported rather than copied. It was written
+// out again here, so the two drifted apart every time either was touched.
+import { validateStep } from '@heartlink/consumer-content';
+
 type StepKey = 'name' | 'location' | 'identity' | 'connection' | 'lifestyle' | 'communication' | 'story' | 'photo' | 'review';
 
 const STEPS: { key: StepKey; title: string; subtitle: string }[] = [
@@ -284,6 +288,8 @@ export default function OnboardingScreen() {
   const [preferences, setPreferences] = useState<PreferenceState>(() => initialPrefs(profile?.matchPreferences));
   const toast = useToast();
   const [saving, setSaving] = useState(false);
+  /** Per-field problems for the step on screen, cleared as each is retyped. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   /**
    * Whether to actually show the button's loading state.
    *
@@ -337,25 +343,14 @@ export default function OnboardingScreen() {
     }
   }, [step.key, name, dob, loc, story, looking]);
 
-  function validateWithMessage(): string | null {
-    if (step.key === 'name') {
-      if (name.trim().length < 2) return 'Please enter your name.';
-      const iso = parseDob(dob);
-      if (!iso) return 'Enter your birth date as MM/DD/YYYY.';
-      if (ageFromIso(iso) < 18) return 'You must be 18 or older to join HeartLink.';
-    }
-    if (step.key === 'location' && loc.trim().length < 2) {
-      return 'Please enter your city and state.';
-    }
-    if (step.key === 'story' && story.trim().length < MIN_BIO_CHARS) {
-      const remaining = MIN_BIO_CHARS - story.trim().length;
-      return `Tell us a little more, about ${remaining} more characters.`;
-    }
-    if (step.key === 'story' && looking.trim().length < MIN_BIO_CHARS) {
-      const remaining = MIN_BIO_CHARS - looking.trim().length;
-      return `Tell us what you're looking for, about ${remaining} more characters.`;
-    }
-    return null;
+  /** Drop a field's message as soon as it is being retyped. */
+  function clearField(field: string) {
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
   }
 
   async function onPickPhoto(source: 'web' | 'library' | 'camera') {
@@ -402,11 +397,12 @@ export default function OnboardingScreen() {
   }
 
   async function onNext() {
-    const message = validateWithMessage();
-    if (message) {
-      toast.error(message);
+    const problems = validateStep(step.key, { name, dob, location: loc, story, lookingFor: looking });
+    if (Object.keys(problems).length > 0) {
+      setFieldErrors(problems);
       return;
     }
+    setFieldErrors({});
     setSaving(true);
     try {
       if (step.key === 'name') {
@@ -531,18 +527,22 @@ export default function OnboardingScreen() {
         <>
           <Field
             label="Your name"
+            error={fieldErrors.name}
             value={name}
             onChangeText={(t) => {
               setDisplayName(t);
+              clearField('name');
             }}
             placeholder="First name and last initial, e.g. Maria C."
             autoComplete="name"
           />
           <Field
             label="Date of birth"
+            error={fieldErrors.dob}
             value={dob}
             onChangeText={(t) => {
               setDobText(formatDobInput(t));
+              clearField('dob');
             }}
             placeholder="MM/DD/YYYY"
             keyboardType="number-pad"
@@ -555,9 +555,11 @@ export default function OnboardingScreen() {
       {step.key === 'location' ? (
         <Field
           label="City and state"
+          error={fieldErrors.location}
           value={loc}
           onChangeText={(t) => {
             setLocation(t);
+            clearField('location');
           }}
           placeholder="Atlanta, GA"
         />
@@ -605,9 +607,11 @@ export default function OnboardingScreen() {
         <>
           <Field
             label="About you"
+            error={fieldErrors.story}
             value={story}
             onChangeText={(t) => {
               setBio(t);
+              clearField('story');
             }}
             placeholder="What brings you here? What kind of connection are you hoping for?"
             multiline
@@ -621,10 +625,12 @@ export default function OnboardingScreen() {
           </Text>
           <Field
             label="What I'm looking for"
+            error={fieldErrors.lookingFor}
             value={looking}
             onChangeText={(t) => {
               setLookingFor(t);
               setPreferences((prev) => ({ ...prev, lookingFor: t }));
+              clearField('lookingFor');
             }}
             placeholder="What kind of correspondence or connection would feel meaningful to you?"
             multiline

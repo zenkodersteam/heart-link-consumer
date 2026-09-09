@@ -17,6 +17,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.zenkoders.heartlink',
+    // Downloaded from the Firebase console (iOS app, this bundle id). Not in
+    // git: it names the project every push for this app goes through.
+    googleServicesFile: './GoogleService-Info.plist',
+    // Said here rather than left to a plugin: this is what makes iOS issue a
+    // device token at all, and push would fail silently without it.
+    entitlements: {
+      'aps-environment': 'production',
+    },
     // Bumped by hand alongside ios/HeartLink/Info.plist and the Xcode
     // project's CURRENT_PROJECT_VERSION: the native project is checked in, so
     // an archive reads those rather than this file. App Store Connect refuses
@@ -54,6 +62,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#FDF9F6',
     },
     package: 'com.zenkoders.heartlink',
+    googleServicesFile: './google-services.json',
     // Resize the window rather than pan it. Panning slides the whole screen up
     // — header and all — which is exactly the disruption the scroll-based
     // handling avoids; resizing lets the scroll views take up the difference.
@@ -82,11 +91,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         android: {
           kotlinVersion: '1.9.24',
         },
+        ios: {
+          // The Firebase iOS SDK ships as static frameworks, and CocoaPods
+          // refuses to mix those with the dynamic ones the rest of the pods
+          // build as. Without this the build fails at link time on the first
+          // Firebase symbol.
+          useFrameworks: 'static',
+        },
       },
     ],
+    // Reads the two google-services files above and writes the native config
+    // the Firebase SDKs read at launch.
+    '@react-native-firebase/app',
+    '@react-native-firebase/messaging',
     [
-      // Sets the Android notification icon/colour and, on iOS, the push
-      // entitlement the OS requires before it will issue a device token.
+      // Kept for its config plugin alone — nothing imports the library any
+      // more, since messages come through @react-native-firebase/messaging.
+      // The plugin still owns the Android notification icon and colour, which
+      // Firebase's own plugin does not set; without it Android falls back to
+      // the full-colour app icon and draws it as a white blob.
       'expo-notifications',
       {
         // Android keeps only the alpha of a notification icon, so this is a

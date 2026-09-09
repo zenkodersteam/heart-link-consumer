@@ -1,7 +1,7 @@
 'use client';
 
 import type { AuthUser } from '@heartlink/consumer-api';
-import { PASSWORD_MIN_LENGTH, passwordProblem } from '@heartlink/domain';
+import { PASSWORD_MIN_LENGTH, emailProblem, passwordProblem } from '@heartlink/domain';
 import { ArrowLeft, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -21,7 +21,17 @@ import { cn } from '@/lib/utils';
 
 import { useSession } from './session-provider';
 
-type Step = 'email' | 'code' | 'new-password';
+/**
+ * Which step is on screen.
+ *
+ * `forgot` is a step of its own rather than a flag on the sign-in form:
+ * "Forgot your password?" used to send a code to whatever was already in the
+ * email box and jump straight to the digits, so an empty box produced only an
+ * error and a mistyped one sent the code somewhere unreadable. Asking for the
+ * address on its own screen is what people expect, and it is where the reset
+ * is explained.
+ */
+type Step = 'email' | 'forgot' | 'code' | 'new-password';
 
 /**
  * Which door someone came through.
@@ -80,13 +90,23 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
   const useCode = flow !== 'password';
   const [expiresInMinutes, setExpiresInMinutes] = useState(10);
   /**
-   * Whether the last attempt failed, for the red border and `aria-invalid`.
+   * Whether the server rejected the last attempt, for the red border.
    *
-   * The message itself is not kept: it is announced in a toast, so holding it
-   * here as well would mean the same words in two places, and the older of the
-   * two going stale the moment anything else happens.
+   * Its message is not kept here: the server's answer is about the attempt, not
+   * about one field, so it is announced in a toast and this only colours the
+   * inputs that attempt used.
    */
   const [invalid, setInvalid] = useState(false);
+  /**
+   * What is wrong with a particular field, shown under that field.
+   *
+   * Separate from `invalid` because the two are different kinds of news. "Use
+   * at least eight characters" is about the box it sits under and can be fixed
+   * there; "that email or password is not right" is about the attempt as a
+   * whole. Putting the first in a toast made people look away from the field
+   * they had to correct, and the message was gone by the time they looked back.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [passwordShown, setPasswordShown] = useState(false);
 
@@ -103,10 +123,37 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
    * The account is created now rather than when the code is entered, so
    * abandoning this step no longer throws the password away.
    */
-  /** Flag the field and say what went wrong, in one place so they cannot drift. */
+  /** The server refused the attempt: colour the inputs, announce the reason. */
   function fail(message: string) {
     setInvalid(true);
     toast.error(message);
+  }
+
+  /** Drop a field's message as soon as it is being retyped. */
+  function clearField(field: string) {
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  /**
+   * Check every field at once and report all of them.
+   *
+   * Stopping at the first problem makes someone fix one thing, submit, and be
+   * told about the next - so the whole set is checked and shown together.
+   */
+  function validate(checks: Array<[field: string, problem: string | null]>): boolean {
+    const found = checks.filter(([, problem]) => problem !== null);
+    if (found.length === 0) return true;
+    setFieldErrors((current) => {
+      const next = { ...current };
+      for (const [field, problem] of found) next[field] = problem as string;
+      return next;
+    });
+    return false;
   }
 
   async function register() {
@@ -207,11 +254,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
   }
 
   async function saveNewPassword() {
-    const problem = passwordProblem(newPassword);
-    if (problem) {
-      fail(problem);
-      return;
-    }
+    if (!validate([['newPassword', passwordProblem(newPassword)]])) return;
     setBusy(true);
     setInvalid(false);
     try {
@@ -331,19 +374,23 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
           <div
             className={cn(
               'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
-              invalid ? 'border-danger' : 'border-line focus-within:border-primary',
+              invalid || fieldErrors.newPassword
+                ? 'border-danger'
+                : 'border-line focus-within:border-primary',
             )}
           >
             <Lock className="size-4 shrink-0 text-ink-faint" />
             <input
               id="new-password"
               type="password"
-              required
               autoFocus
               value={newPassword}
+              aria-invalid={fieldErrors.newPassword ? true : undefined}
+              aria-describedby={fieldErrors.newPassword ? 'new-password-error' : undefined}
               onChange={(event) => {
                 setNewPassword(event.target.value);
                 setInvalid(false);
+                clearField('newPassword');
               }}
               autoComplete="new-password"
               minLength={PASSWORD_MIN_LENGTH}
@@ -351,10 +398,103 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
               className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
             />
           </div>
+          <FieldError id="new-password-error" message={fieldErrors.newPassword} />
 
-          <Button type="submit" className="mt-5 w-full" disabled={busy || !newPassword}>
+          <Button type="submit" className="mt-5 w-full" disabled={busy}>
             {busy ? <Spinner size="sm" className="border-white/40 border-t-white" /> : null}
             Save password
+          </Button>
+        </form>
+      </div>
+    );
+  }
+
+  if (step === 'forgot') {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            setStep('email');
+            setFlow('password');
+            setInvalid(false);
+          }}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        >
+          <ArrowLeft className="size-4" />
+          Back to sign in
+        </button>
+
+        <h1 className="mt-5 font-[family-name:var(--font-bree)] text-2xl text-ink">
+          Reset your password
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+          Tell us the address on your account and we will email you a code. You will choose a
+          new password straight after.
+        </p>
+
+        <form
+          className="mt-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!validate([['email', emailProblem(email)]])) return;
+            void sendCode();
+          }}
+        >
+          <label
+            htmlFor="reset-email"
+            className="mb-2 block text-[11px] font-bold uppercase tracking-[1.2px] text-ink-faint"
+          >
+            Email address
+          </label>
+          <div
+            className={cn(
+              'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
+              invalid || fieldErrors.email
+                ? 'border-danger'
+                : 'border-line focus-within:border-primary',
+            )}
+          >
+            <Mail className="size-4 shrink-0 text-ink-faint" />
+            <input
+              id="reset-email"
+              type="email"
+              autoFocus
+              value={email}
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? 'reset-email-error' : undefined}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setInvalid(false);
+                clearField('email');
+              }}
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
+            />
+          </div>
+          <FieldError id="reset-email-error" message={fieldErrors.email} />
+
+          {/* What happens next, before it happens. A reset is three screens,
+              and people abandon it halfway when they cannot see its shape. */}
+          <ol className="mt-5 space-y-3 rounded-2xl border border-line bg-surface-elevated p-4">
+            {[
+              'We email you a six-digit code',
+              'Enter the code to prove the address is yours',
+              'Choose a new password',
+            ].map((stepText, index) => (
+              <li key={stepText} className="flex items-center gap-3">
+                <span className="grid size-5.5 shrink-0 place-items-center rounded-full bg-primary-faint text-[11px] font-bold text-primary">
+                  {index + 1}
+                </span>
+                <span className="text-[13px] leading-snug text-ink-soft">{stepText}</span>
+              </li>
+            ))}
+          </ol>
+
+          <Button type="submit" className="mt-5 w-full" disabled={busy || !email.trim()}>
+            {busy ? <Spinner size="sm" className="border-white/40 border-t-white" /> : null}
+            Email me a code
           </Button>
         </form>
       </div>
@@ -367,12 +507,13 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         <button
           type="button"
           onClick={() => {
-            setStep('email');
+            // Back to the step this came from: a reset returns to the reset
+            // form rather than dropping someone on sign-in, where they would
+            // have to find "Forgot your password?" again.
+            setStep(flow === 'reset' ? 'forgot' : 'email');
+            if (flow !== 'reset') setFlow('password');
             setCode('');
             setInvalid(false);
-            // Going back abandons a reset; the form returns to ordinary sign-in
-            // rather than silently staying in a flow they stepped out of.
-            setFlow('password');
           }}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
         >
@@ -475,12 +616,16 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         onSubmit={(event) => {
           event.preventDefault();
           if (useCode) {
+            if (!validate([['email', emailProblem(email)]])) return;
             void sendCode();
             return;
           }
-          const problem = passwordProblem(password);
-          if (problem) {
-            fail(problem);
+          if (
+            !validate([
+              ['email', emailProblem(email)],
+              ['password', passwordProblem(password)],
+            ])
+          ) {
             return;
           }
           // Sign-up saves the account and password now and confirms the
@@ -498,21 +643,28 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         <div
           className={cn(
             'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
-            invalid ? 'border-danger' : 'border-line focus-within:border-primary',
+            invalid || fieldErrors.email
+              ? 'border-danger'
+              : 'border-line focus-within:border-primary',
           )}
         >
           <Mail className="size-4 shrink-0 text-ink-faint" />
           <input
             id="email"
             type="email"
-            required
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              clearField('email');
+            }}
+            aria-invalid={fieldErrors.email ? true : undefined}
+            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
             autoComplete="email"
             placeholder="you@example.com"
             className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
           />
         </div>
+        <FieldError id="email-error" message={fieldErrors.email} />
 
         {!useCode ? (
           <>
@@ -527,13 +679,12 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!email.trim()) {
-                      fail('Enter your email address first.');
-                      return;
-                    }
+                    // Nothing is sent from here: the next screen asks for the
+                    // address and sends the code itself, so what is in this
+                    // form is only a starting point.
                     setFlow('reset');
                     setInvalid(false);
-                    void sendCode();
+                    setStep('forgot');
                   }}
                   className="text-[12.5px] font-semibold text-primary hover:underline"
                 >
@@ -544,18 +695,22 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             <div
               className={cn(
                 'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
-                invalid ? 'border-danger' : 'border-line focus-within:border-primary',
+                invalid || fieldErrors.password
+                  ? 'border-danger'
+                  : 'border-line focus-within:border-primary',
               )}
             >
               <Lock className="size-4 shrink-0 text-ink-faint" />
               <input
                 id="password"
                 type={passwordShown ? 'text' : 'password'}
-                required
                 value={password}
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? 'password-error' : undefined}
                 onChange={(event) => {
                   setPassword(event.target.value);
                   setInvalid(false);
+                  clearField('password');
                 }}
                 autoComplete={intent === 'sign_up' ? 'new-password' : 'current-password'}
                 minLength={PASSWORD_MIN_LENGTH}
@@ -578,13 +733,14 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 {passwordShown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
+            <FieldError id="password-error" message={fieldErrors.password} />
           </>
         ) : null}
 
         <Button
           type="submit"
           className="mt-5 w-full"
-          disabled={busy || !email.trim() || (!useCode && !password)}
+          disabled={busy}
         >
           {busy ? <Spinner size="sm" className="border-white/40 border-t-white" /> : null}
           {useCode ? 'Send me a code' : intent === 'sign_up' ? 'Create account' : 'Sign in'}
@@ -635,5 +791,21 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         .
       </p>
     </div>
+  );
+}
+
+/**
+ * The sentence under a field saying why its value cannot be sent.
+ *
+ * `role="alert"` so it is announced when it appears, and its id is what the
+ * input points `aria-describedby` at, so the reason is read out with the field
+ * rather than floating loose on the page.
+ */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={id} role="alert" className="mt-1.5 text-[13px] text-danger">
+      {message}
+    </p>
   );
 }

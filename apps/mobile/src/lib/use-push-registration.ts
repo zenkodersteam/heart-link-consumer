@@ -1,12 +1,66 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
 import { useSession } from './session';
 import { router } from 'expo-router';
 
 import { useApiClientFactory } from './use-api-client';
+
+/**
+ * Firebase messaging, or null where there is no native module behind it.
+ *
+ * Null is an ordinary state, not a failure: the web build has no Firebase
+ * messaging, and neither does Expo Go, which is where most day-to-day work
+ * happens. Calling `messaging()` there throws — and because the notification
+ * handler is registered while the root layout module is still evaluating, that
+ * throw took the whole provider tree with it and every screen came up with
+ * "useSession must be used inside a SessionProvider".
+ */
+type MessagingModule = FirebaseMessagingTypes.Module;
+type MessagingExport = (() => MessagingModule) & {
+  AuthorizationStatus: { AUTHORIZED: number; PROVISIONAL: number };
+};
+
+/** Resolved once. `undefined` means "not looked yet", `null` means "not here". */
+let cached: MessagingModule | null | undefined;
+let cachedExport: MessagingExport | null = null;
+
+function fcm(): MessagingModule | null {
+  if (cached !== undefined) return cached;
+  cached = null;
+
+  if (Platform.OS !== 'ios' && Platform.OS !== 'android') return cached;
+  try {
+    // `require`, not a static import: @react-native-firebase throws while the
+    // module is being *imported* when there is no native module behind it, and
+    // this file is loaded from the root layout at module scope. A static import
+    // therefore took the whole provider tree down before React rendered
+    // anything — every screen came up saying "useSession must be used inside a
+    // SessionProvider", which was never the real fault.
+    //
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('@react-native-firebase/messaging') as { default: MessagingExport };
+    cachedExport = mod.default;
+    cached = mod.default();
+  } catch {
+    cached = null;
+  }
+  return cached;
+}
+
+/**
+ * Where a notification wants to send us, if anywhere.
+ *
+ * Firebase hands every custom field through as a string in `data`, so the
+ * route arrives as one — and anything that is not an in-app path is ignored
+ * rather than followed. A push is remote input; a payload that could send
+ * someone to an arbitrary URL is a payload that could be abused.
+ */
+function routeFrom(message: FirebaseMessagingTypes.RemoteMessage | null): string | null {
+  const url = message?.data?.url;
+  return typeof url === 'string' && url.startsWith('/') ? url : null;
+}
 
 /**
  * Registers this device for notifications, and acts on one being opened.
@@ -28,23 +82,62 @@ export function usePushRegistration(): void {
   useEffect(() => {
     if (!isSignedIn || registered.current) return;
 
-    let cancelled = false;
-    void (async () => {
-      const token = await getExpoPushToken();
-      if (!token || cancelled) return;
+    // Each way out says so, once. A silent early return here was the whole
+    // difficulty in telling "push is broken" from "push cannot run in this
+    // build" — the log lived further down a path neither case ever reached.
+    const service = fcm();
+    if (!service) {
+      if (__DEV__) {
+        console.log(
+          '[push] no native Firebase messaging in this build — Expo Go and the web build have none. Use `npx expo run:ios --device`.',
+        );
+      }
+      return;
+    }
+    if (__DEV__ && !Device.isDevice) {
+      console.log('[push] simulator: no push tokens are issued here, use a real device');
+    }
 
+    let cancelled = false;
+
+    const send = async (token: string) => {
       try {
         const api = await factory();
         await api.registerPushToken(token, Platform.OS);
         registered.current = true;
-      } catch {
+        // Only in development, and only the ends of the token: the whole thing
+        // in a log is enough to push to somebody's phone.
+        if (__DEV__) {
+          console.log(
+            `[push] registered ${Platform.OS} token ${token.slice(0, 12)}…${token.slice(-6)} (${token.length} chars)`,
+          );
+        }
+      } catch (err) {
         // Left unregistered so the next launch tries again, rather than being
-        // marked done and never retried.
+        // marked done and never retried. Silent in production — a phone that
+        // cannot be reached must never interrupt anyone — but saying nothing at
+        // all while testing is how a broken registration goes unnoticed.
+        if (__DEV__) console.warn('[push] could not register this device:', err);
       }
+    };
+
+    void (async () => {
+      const token = await getFcmToken();
+      if (!token || cancelled) return;
+      await send(token);
     })();
+
+    // FCM rotates a token on its own — a restore to a new device, a reinstall,
+    // clearing app data. Without this the server keeps pushing at an address
+    // nobody is listening to any more.
+    const unsubscribe = service.onTokenRefresh((token) => {
+      registered.current = false;
+      void send(token);
+    });
 
     return () => {
       cancelled = true;
+      unsubscribe();
     };
   }, [isSignedIn, factory]);
 
@@ -52,54 +145,65 @@ export function usePushRegistration(): void {
   // screen — being told a letter arrived and then having to go and find it is
   // most of the value gone.
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const url = response.notification.request.content.data?.url;
-      if (typeof url === 'string' && url.startsWith('/')) {
-        router.push(url as never);
-      }
+    const service = fcm();
+    if (!service) return;
+
+    // The app was already running, in the background.
+    const unsubscribe = service.onNotificationOpenedApp((message) => {
+      const url = routeFrom(message);
+      if (url) router.push(url as never);
     });
-    return () => sub.remove();
+
+    // The app was not running at all: the notification is what started it, and
+    // is reported once, here, rather than through the listener above.
+    void service
+      .getInitialNotification()
+      .then((message) => {
+        const url = routeFrom(message);
+        if (url) router.push(url as never);
+      })
+      .catch(() => undefined);
+
+    return unsubscribe;
   }, []);
 }
 
 /**
- * This device's push token, or null when we cannot have one.
+ * This device's FCM token, or null when we cannot have one.
  *
  * Null is an ordinary outcome — a simulator, or a refusal — and is not an error
  * worth surfacing.
  */
-async function getExpoPushToken(): Promise<string | null> {
+async function getFcmToken(): Promise<string | null> {
   // Simulators cannot receive pushes; asking produces a confusing failure.
   if (!Device.isDevice) return null;
 
+  const service = fcm();
+  if (!service) return null;
+
   try {
-    const existing = await Notifications.getPermissionsAsync();
-    let status = existing.status;
-
-    if (status !== 'granted') {
-      // iOS only ever asks once, so this is the single chance.
-      status = (await Notifications.requestPermissionsAsync()).status;
-    }
-    if (status !== 'granted') return null;
-
-    // Android delivers nothing without a channel, and silently: no error, no
-    // notification.
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'HeartLink',
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
+    const status = await service.requestPermission();
+    const granted =
+      status === cachedExport?.AuthorizationStatus.AUTHORIZED ||
+      status === cachedExport?.AuthorizationStatus.PROVISIONAL;
+    if (!granted) {
+      if (__DEV__) console.log('[push] notifications were not permitted');
+      return null;
     }
 
-    const projectId =
-      Constants.expoConfig?.extra?.eas?.projectId ??
-      (Constants as { easConfig?: { projectId?: string } }).easConfig?.projectId;
+    // iOS hands out an APNs token first, and Firebase cannot mint an FCM token
+    // until it has one. It is normally registered automatically, but saying so
+    // explicitly removes the race on a first launch, where the token was
+    // sometimes asked for before APNs had answered.
+    if (Platform.OS === 'ios' && !service.isDeviceRegisteredForRemoteMessages) {
+      await service.registerDeviceForRemoteMessages();
+    }
 
-    const result = await Notifications.getExpoPushTokenAsync(
-      projectId ? { projectId } : undefined,
-    );
-    return result.data ?? null;
-  } catch {
+    const token = (await service.getToken()) || null;
+    if (__DEV__ && !token) console.warn('[push] Firebase returned no token');
+    return token;
+  } catch (err) {
+    if (__DEV__) console.warn('[push] could not get a token:', err);
     return null;
   }
 }
@@ -107,17 +211,21 @@ async function getExpoPushToken(): Promise<string | null> {
 /**
  * How a notification behaves while the app is open.
  *
- * Shown rather than swallowed: someone reading one thread should still be told
- * a letter landed in another.
+ * The OS shows nothing for a message that arrives in the foreground, which is
+ * correct — the banner would cover the screen someone is already looking at —
+ * but a letter landing in another thread is still worth knowing about. The
+ * handler is registered here and the app decides what to draw.
+ *
+ * Registered at module scope, alongside the background handler, because
+ * Firebase requires both to be set before the app finishes starting.
  */
 export function configureNotificationHandler(): void {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: false,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
+  // A data-only message delivered while the app is in the background or
+  // killed. Nothing is drawn from here; the OS has already shown the
+  // notification, and this exists so the SDK does not warn on every delivery.
+  //
+  // This runs at module scope, before React has rendered anything, so it must
+  // never throw: an exception here is not a broken notification, it is a blank
+  // app.
+  fcm()?.setBackgroundMessageHandler(async () => undefined);
 }
