@@ -9,6 +9,7 @@ import { serverApi } from '../../../../lib/api';
 import { ProfileInfoForm } from '../../../../components/profiles/ProfileInfoForm';
 import { PhotosCard } from '../../../../components/profiles/PhotosCard';
 import { ActivationChecklist } from '../../../../components/profiles/ActivationChecklist';
+import { ProfileDocumentsCard } from '../../../../components/profiles/ProfileDocumentsCard';
 import { ProfileActions } from '../../../../components/profiles/ProfileActions';
 import { ProfileActivityTimeline } from '../../../../components/profiles/ProfileActivityTimeline';
 
@@ -37,6 +38,13 @@ export default async function ProfileDetailPage({
     api.checkProfileActivation(id),
     api.getProfileHistory(id),
   ]);
+
+  // Scans hang off the application, not the profile. Fetched separately and
+  // tolerantly: a profile with no readable scan is exactly the case this card
+  // exists to fix, so a failure here must not take the whole page down with it.
+  const documents = await api
+    .listApplicationDocuments(detail.applicationId)
+    .catch(() => [] as Awaited<ReturnType<typeof api.listApplicationDocuments>>);
 
   // Inmate ID lives in the application's OCR fields when present. We don't
   // re-pull the application document here; show the linked application id
@@ -112,6 +120,7 @@ export default async function ProfileDetailPage({
             requiredCount={activation.details.requiredPhotoCount}
           />
           <ActivationChecklist profileId={id} result={activation} />
+          <ProfileDocumentsCard applicationId={detail.applicationId} documents={documents} />
         </div>
       </div>
     </div>

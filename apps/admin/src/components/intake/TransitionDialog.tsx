@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
+import { isRedirectError } from '../../lib/redirect-error';
 import { transitionApplicationStatus } from '../../lib/actions';
 import type { ApplicationStatus, ReviewOutcome } from '@heartlink/api-contract';
 
@@ -51,6 +52,12 @@ export function TransitionDialog(props: TransitionDialogProps) {
   const handleConfirm = () => {
     if (!valid) return;
     startTransition(async () => {
+      const settled = () => {
+        toast.success(`Application ${reviewOutcome}`);
+        onOpenChange(false);
+        setNotes('');
+      };
+
       try {
         await transitionApplicationStatus({
           id: applicationId,
@@ -59,10 +66,15 @@ export function TransitionDialog(props: TransitionDialogProps) {
           reviewNotes: notes.trim(),
           nextPath,
         });
-        toast.success(`Application ${reviewOutcome}`);
-        onOpenChange(false);
-        setNotes('');
+        settled();
       } catch (err) {
+        // A redirect is what success looks like when `nextPath` is set: the
+        // action moves the reviewer to the next packet, and says so by
+        // throwing. Rethrown, because that throw is the navigation.
+        if (isRedirectError(err)) {
+          settled();
+          throw err;
+        }
         const msg = err instanceof Error ? err.message : String(err);
         toast.error(`Failed to ${reviewOutcome}: ${msg}`);
       }

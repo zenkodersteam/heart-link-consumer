@@ -13,7 +13,7 @@ import {
   type PrefKey,
   type PreferenceState,
 } from '@heartlink/consumer-content';
-import { AlertCircle, CheckCircle2, Pencil, Plus, User, WifiOff } from 'lucide-react';
+import { AlertCircle, CheckCircle2, LogOut, Pencil, Plus, User, WifiOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
@@ -21,6 +21,7 @@ import { AuthShell } from '@/components/auth/auth-shell';
 import { OptionGroup } from '@/components/onboarding/option-group';
 import { ProfilePhoto } from '@/components/profiles/profile-photo';
 import { Button } from '@/components/ui/button';
+import { useSession } from '@/components/auth/session-provider';
 import { DateField } from '@/components/ui/date-field';
 import { Field, TextareaField } from '@/components/ui/field';
 import { PageSpinner } from '@/components/ui/spinner';
@@ -45,6 +46,7 @@ import {
  */
 export function Onboarding() {
   const router = useRouter();
+  const { signOut } = useSession();
   const { data: profile, isPending, isError, error, refetch } = useMyProfile();
   const updateProfile = useUpdateMyProfile();
   const submitProfile = useSubmitMyProfile();
@@ -252,11 +254,24 @@ export function Onboarding() {
   return (
     <Shell>
       <div className="sticky top-0 z-10 -mx-6 mb-7 bg-surface-elevated px-6 pb-3 pt-1">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <span className="text-[12px] font-semibold tracking-wide text-ink-soft">
             Step {stepIndex + 1} of {ONBOARDING_STEPS.length}
           </span>
-          <span className="text-[12px] font-semibold text-primary">{Math.round(progress)}%</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[12px] font-semibold text-primary">{Math.round(progress)}%</span>
+            {/* The only control on these screens was Continue. Someone who
+                signed in as the wrong person, or simply wants to stop, had no
+                way out short of clearing the session by hand. */}
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="inline-flex items-center gap-1.5 rounded-pill px-2 py-1 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-surface-muted hover:text-ink"
+            >
+              <LogOut className="size-3.5" />
+              Sign out
+            </button>
+          </div>
         </div>
         <div
           className="h-1.5 overflow-hidden rounded-full bg-surface-muted"
@@ -607,6 +622,16 @@ export function Onboarding() {
             }}
           >
             Back
+          </Button>
+        ) : null}
+        {/* A way out for someone who has been through this before — landing
+            back on step one after editing a finished profile left no exit but
+            re-answering nine screens. Only offered once the profile has been
+            submitted: a genuine first-timer skipping would enter the app with
+            nothing filled in, which is what the gate is there to prevent. */}
+        {profile?.onboardingComplete ? (
+          <Button variant="ghost" disabled={saving} onClick={() => router.push(AFTER_SIGN_IN)}>
+            Skip — I&apos;ve done this already
           </Button>
         ) : null}
       </div>

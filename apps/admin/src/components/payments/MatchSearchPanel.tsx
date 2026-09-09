@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { AlertTriangle, Search } from 'lucide-react';
 import type { MatchSuggestion } from '@heartlink/api-contract';
 import { GenericStatusBadge } from '../ui/GenericStatusBadge';
+import { isRedirectError } from '../../lib/redirect-error';
 import { Button } from '../ui/button';
 import {
   matchPayment,
@@ -25,16 +26,6 @@ import { Textarea } from '../ui/textarea';
 // A server action that calls redirect() throws NEXT_REDIRECT by design; inside a
 // client try/catch that surfaces as a fake error. Let redirect errors propagate
 // so navigation proceeds instead of showing a false "failed" toast (PAY-02).
-function isRedirectError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'digest' in err &&
-    typeof (err as { digest?: unknown }).digest === 'string' &&
-    (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
-  );
-}
-
 export function MatchSearchPanel({
   paymentId,
   initialSuggestions,

@@ -33,8 +33,16 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   // Held rather than rendered: showing the app for the moment before the
   // redirect lands is how someone sees a screen they are not meant to have.
+  //
+  // This now holds the whole shell, so it fills the window rather than sitting
+  // in a content area with navigation drawn around it — the navigation is
+  // exactly what should not be on screen yet.
   if (isPending || unfinished) {
-    return <PageSpinner label="Getting your profile…" />;
+    return (
+      <div className="grid min-h-dvh place-items-center bg-surface">
+        <PageSpinner label="Getting your profile…" />
+      </div>
+    );
   }
 
   // Deliberately not gated on a failure to load. The profile is fetched over

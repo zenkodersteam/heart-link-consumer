@@ -83,13 +83,28 @@ export default function TabLayout() {
     return <Redirect href="/onboarding" />;
   }
 
-  const content = profileGateLoading ? (
-    <View style={styles.booting}>
-      <ActivityIndicator color={colors.primary} />
-    </View>
-  ) : (
-    <Slot />
-  );
+  // Nothing of the shell until the answer is in.
+  //
+  // The rail, the top bar and the tab bar used to draw around a spinner while
+  // the profile was still loading, so someone arriving from the sign-up code
+  // watched the whole app appear and then vanish as the redirect landed on
+  // onboarding, which has no shell. Holding it all is one transition instead of
+  // two — and the navigation is precisely what should not be on screen for
+  // someone who is about to be sent away from it.
+  if (profileGateLoading) {
+    return (
+      <SafeAreaView
+        style={[styles.mobileSafe, !isDesktop ? { height } : null]}
+        edges={['top', 'bottom']}
+      >
+        <View style={styles.booting}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const content = <Slot />;
 
   if (isDesktop) {
     // SafeAreaView (not a plain View) so the flex chain fills the viewport height
@@ -134,7 +149,13 @@ export default function TabLayout() {
       {/* Between the bar and the content so it never covers either, and is
           equally visible on whichever screen the member is on. */}
       {offline ? <OfflineBanner /> : null}
-      <View style={styles.content}>{content}</View>
+      {/* The keyboard's height is taken out of the content area rather than
+          off the shell itself. Setting it on the SafeAreaView did nothing:
+          that element also carries `flex: 1`, which expands to
+          `flexBasis: 0; flexGrow: 1` and beats a `height` on the same node
+          inside a flex parent — so the shell went on filling the window and
+          the reply box stayed under the keyboard. Padding has no such fight. */}
+      <View style={[styles.content, { paddingBottom: keyboard.overlap }]}>{content}</View>
       {/* The keyboard takes the tab bar's place while it is open. Keeping it
           would perch five navigation items on top of the keyboard and steal
           50pt from the one thing being typed into. */}

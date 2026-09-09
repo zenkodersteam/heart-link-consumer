@@ -13,6 +13,22 @@ import {
 // sent to be cleared, and requiring auth to reach it would be circular.
 const PUBLIC_PATHS = /^\/(sign-in|sign-out)(\/.*)?$/;
 
+/** Only `/sign-in`; `/sign-out` has to stay reachable while signed in. */
+const SIGN_IN_PATH = /^\/sign-in(\/.*)?$/;
+
+/**
+ * Where a `redirect_url` may actually send someone.
+ *
+ * Only a path on this site: it must start with a single slash and no scheme.
+ * `//evil.example` and `https://evil.example` are both browser-valid redirect
+ * targets, so a param copied straight into a redirect is an open redirect.
+ */
+function safeRedirect(target: string | null): string | null {
+  if (!target) return null;
+  if (!target.startsWith('/') || target.startsWith('//')) return null;
+  return target;
+}
+
 /** Refresh a minute early, so a page never renders with a token about to die. */
 const REFRESH_MARGIN_MS = 60 * 1000;
 
@@ -45,6 +61,16 @@ export default async function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
 
   const isPublic = pathname === '/' || PUBLIC_PATHS.test(pathname);
+
+  // Someone who already has a session has no use for the sign-in form. Without
+  // this, following a bounced link like `/sign-in?redirect_url=/settings` after
+  // signing in elsewhere showed the login form again, with no way through but
+  // to type a password that was not needed.
+  if (isPublic && SIGN_IN_PATH.test(pathname) && request.cookies.get(REFRESH_COOKIE)?.value) {
+    const wanted = safeRedirect(request.nextUrl.searchParams.get('redirect_url'));
+    return NextResponse.redirect(new URL(wanted ?? '/dashboard', request.url));
+  }
+
   if (isPublic) return NextResponse.next();
 
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;

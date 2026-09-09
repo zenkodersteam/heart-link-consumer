@@ -129,7 +129,10 @@ export function LikedList() {
       {/* Three across on a desktop, as the screens draw it; two, then one, as
           the room runs out. On a phone the designs switch to a compact row,
           which is what the card collapses to below `sm`. */}
-      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {/* `items-start`: grid items stretch to the tallest in their row by
+          default, so one card with a long name padded every other card in the
+          row with empty space between the location and the buttons. */}
+      <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((profile) => (
           <li key={profile.id}>
             <LikedCard
@@ -155,7 +158,7 @@ function LikedCard({
   const place = stateName(profile.facility?.state);
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-card border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
+    <article className="flex flex-col overflow-hidden rounded-card border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
       <Link href={`/profiles/${profile.id}`} className="relative block aspect-[4/3] shrink-0">
         <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
 
@@ -184,7 +187,7 @@ function LikedCard({
         ) : null}
       </Link>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+      <div className="flex min-w-0 flex-col gap-3 p-4">
         <div>
           <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-[17px] text-ink">
             <span className="truncate">{profile.displayName}</span>
@@ -201,7 +204,7 @@ function LikedCard({
           {place ? <p className="mt-1 text-[12.5px] text-ink-soft">{place}</p> : null}
         </div>
 
-        <div className="mt-auto grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={`/profiles/${profile.id}`}>View Profile</Link>
           </Button>

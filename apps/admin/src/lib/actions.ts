@@ -10,6 +10,8 @@ import type {
   UpdateModerationFlagInput,
 } from '@heartlink/api-contract';
 import {
+
+
   TransitionSchema,
   FieldsSchema,
   UpdateProfileSchema,
@@ -50,10 +52,32 @@ import {
   type UpdateResourceInput,
 } from './schemas';
 
+/**
+ * Validate an action's input and fail with something a person can read.
+ *
+ * `schema.parse()` throws a ZodError whose `.message` is the JSON-encoded array
+ * of issues. Every form here shows `err.message` in a toast, so a single empty
+ * field surfaced as
+ *
+ *   [ { "origin": "string", "code": "too_small", "minimum": 2, ... } ]
+ *
+ * on screen, which tells the person nothing and looks like a crash. The issue
+ * messages are already written for humans - this just uses them.
+ */
+function parseInput<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> {
+  const result = schema.safeParse(input);
+  if (result.success) return result.data;
+  const message = result.error.issues
+    .map((issue) => issue.message)
+    .filter(Boolean)
+    .join(' ');
+  throw new Error(message || 'Some of those details are not valid.');
+}
+
 export async function transitionApplicationStatus(
   input: TransitionInput,
 ): Promise<void> {
-  const data = TransitionSchema.parse(input);
+  const data = parseInput(TransitionSchema, input);
   const api = await serverApi();
   await api.transitionApplication(data.id, {
     status: data.status,
@@ -69,7 +93,7 @@ export async function transitionApplicationStatus(
 export async function createApplication(
   input: CreateApplicationInput,
 ): Promise<{ id: string; applicationNumber: string }> {
-  const data = CreateApplicationSchema.parse(input);
+  const data = parseInput(CreateApplicationSchema, input);
   const api = await serverApi();
   const created = await api.createApplication({
     facilityId: data.facilityId,
@@ -113,7 +137,7 @@ export async function uploadApplicationScan(
 }
 
 export async function updateDocumentFields(input: FieldsInput): Promise<{ ok: true }> {
-  const data = FieldsSchema.parse(input);
+  const data = parseInput(FieldsSchema, input);
   const api = await serverApi();
   await api.updateDocumentFields(data.documentId, { fields: data.fields });
   revalidatePath(`/intake/${data.applicationId}`);
@@ -126,7 +150,7 @@ export async function updateDocumentFields(input: FieldsInput): Promise<{ ok: tr
 // =============================================================================
 
 export async function updateProfile(input: UpdateProfileInput): Promise<void> {
-  const data = UpdateProfileSchema.parse(input);
+  const data = parseInput(UpdateProfileSchema, input);
   const api = await serverApi();
   const { id, ...rest } = data;
   await api.updateProfile(id, rest);
@@ -137,7 +161,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<void> {
 export async function transitionProfile(
   input: TransitionProfileInput,
 ): Promise<void> {
-  const data = TransitionProfileSchema.parse(input);
+  const data = parseInput(TransitionProfileSchema, input);
   const api = await serverApi();
   await api.transitionProfile(data.id, {
     status: data.status,
@@ -156,7 +180,7 @@ export async function activateProfile(profileId: string): Promise<void> {
 }
 
 export async function moderatePhoto(input: ModeratePhotoInput): Promise<void> {
-  const data = ModeratePhotoSchema.parse(input);
+  const data = parseInput(ModeratePhotoSchema, input);
   const api = await serverApi();
   await api.moderateProfilePhoto(data.profileId, data.photoId, {
     status: data.status,
@@ -168,14 +192,14 @@ export async function moderatePhoto(input: ModeratePhotoInput): Promise<void> {
 }
 
 export async function setPrimaryPhoto(input: SetPrimaryPhotoInput): Promise<void> {
-  const data = SetPrimaryPhotoSchema.parse(input);
+  const data = parseInput(SetPrimaryPhotoSchema, input);
   const api = await serverApi();
   await api.setPrimaryProfilePhoto(data.profileId, data.photoId);
   revalidatePath(`/profiles/${data.profileId}`);
 }
 
 export async function deletePhoto(input: DeletePhotoInput): Promise<void> {
-  const data = DeletePhotoSchema.parse(input);
+  const data = parseInput(DeletePhotoSchema, input);
   const api = await serverApi();
   await api.deleteProfilePhoto(data.profileId, data.photoId);
   revalidatePath(`/profiles/${data.profileId}`);
@@ -221,7 +245,7 @@ export async function uploadPhoto(formData: FormData): Promise<void> {
 export async function bulkModeratePhotos(
   input: BulkModeratePhotosInput,
 ): Promise<{ updated: number }> {
-  const data = BulkModeratePhotosSchema.parse(input);
+  const data = parseInput(BulkModeratePhotosSchema, input);
   const api = await serverApi();
   const result = await api.bulkModeratePhotos(data);
   revalidatePath('/profiles/photo-review');
@@ -321,7 +345,7 @@ export async function moderateOutsideProfile(input: {
 export async function recordPayment(
   input: RecordPaymentInput,
 ): Promise<{ id: string; paymentNumber: string }> {
-  const data = RecordPaymentSchema.parse(input);
+  const data = parseInput(RecordPaymentSchema, input);
   const api = await serverApi();
   const created = await api.recordPayment(data);
   revalidatePath('/payments');
@@ -329,7 +353,7 @@ export async function recordPayment(
 }
 
 export async function matchPayment(input: MatchPaymentInput): Promise<void> {
-  const data = MatchPaymentSchema.parse(input);
+  const data = parseInput(MatchPaymentSchema, input);
   const api = await serverApi();
   await api.matchPayment(data.paymentId, {
     applicationId: data.applicationId,
@@ -343,7 +367,7 @@ export async function matchPayment(input: MatchPaymentInput): Promise<void> {
 }
 
 export async function confirmPayment(input: ConfirmPaymentInput): Promise<void> {
-  const data = ConfirmPaymentSchema.parse(input);
+  const data = parseInput(ConfirmPaymentSchema, input);
   const api = await serverApi();
   const updated = await api.confirmPayment(data.paymentId, {
     notes: data.notes,
@@ -358,7 +382,7 @@ export async function confirmPayment(input: ConfirmPaymentInput): Promise<void> 
 export async function markPaymentException(
   input: PaymentReasonInput,
 ): Promise<void> {
-  const data = PaymentReasonSchema.parse(input);
+  const data = parseInput(PaymentReasonSchema, input);
   const api = await serverApi();
   await api.markPaymentException(data.paymentId, { reason: data.reason });
   revalidatePath('/payments');
@@ -367,7 +391,7 @@ export async function markPaymentException(
 }
 
 export async function refundPayment(input: PaymentReasonInput): Promise<void> {
-  const data = PaymentReasonSchema.parse(input);
+  const data = parseInput(PaymentReasonSchema, input);
   const api = await serverApi();
   await api.refundPayment(data.paymentId, { reason: data.reason });
   revalidatePath('/payments');
@@ -391,7 +415,7 @@ export async function searchMatchSuggestions(
 export async function createFacility(
   input: CreateFacilityInput,
 ): Promise<{ id: string }> {
-  const data = CreateFacilitySchema.parse(input);
+  const data = parseInput(CreateFacilitySchema, input);
   const api = await serverApi();
   const created = await api.createFacility({
     name: data.name,
@@ -407,7 +431,7 @@ export async function createFacility(
 }
 
 export async function updateFacility(input: UpdateFacilityInput): Promise<void> {
-  const data = UpdateFacilitySchema.parse(input);
+  const data = parseInput(UpdateFacilitySchema, input);
   const api = await serverApi();
   const { id, ...rest } = data;
   await api.updateFacility(id, rest);
@@ -419,14 +443,14 @@ export async function updateFacility(input: UpdateFacilityInput): Promise<void> 
 // =============================================================================
 
 export async function createResourceCategory(input: CreateResourceCategoryInput): Promise<void> {
-  const data = CreateResourceCategorySchema.parse(input);
+  const data = parseInput(CreateResourceCategorySchema, input);
   const api = await serverApi();
   await api.createResourceCategory(data);
   revalidatePath('/resources');
 }
 
 export async function updateResourceCategory(input: UpdateResourceCategoryInput): Promise<void> {
-  const data = UpdateResourceCategorySchema.parse(input);
+  const data = parseInput(UpdateResourceCategorySchema, input);
   const api = await serverApi();
   const { id, ...rest } = data;
   await api.updateResourceCategory(id, rest);
@@ -434,7 +458,7 @@ export async function updateResourceCategory(input: UpdateResourceCategoryInput)
 }
 
 export async function createResource(input: CreateResourceInput): Promise<void> {
-  const data = CreateResourceSchema.parse(input);
+  const data = parseInput(CreateResourceSchema, input);
   const api = await serverApi();
   await api.createResource({
     ...data,
@@ -448,7 +472,7 @@ export async function createResource(input: CreateResourceInput): Promise<void> 
 }
 
 export async function updateResource(input: UpdateResourceInput): Promise<void> {
-  const data = UpdateResourceSchema.parse(input);
+  const data = parseInput(UpdateResourceSchema, input);
   const api = await serverApi();
   const { id, ...rest } = data;
   await api.updateResource(id, {
@@ -471,7 +495,7 @@ const MailFromSchema = z.object({
 });
 
 export async function updateMailFrom(input: z.infer<typeof MailFromSchema>): Promise<void> {
-  const data = MailFromSchema.parse(input);
+  const data = parseInput(MailFromSchema, input);
   const api = await serverApi();
   await api.setMailFromSettings(data);
   revalidatePath('/settings');
@@ -490,7 +514,7 @@ const PlanSettingSchema = z.object({
 });
 
 export async function updatePlanSetting(input: z.infer<typeof PlanSettingSchema>): Promise<void> {
-  const data = PlanSettingSchema.parse(input);
+  const data = parseInput(PlanSettingSchema, input);
   const { id, ...rest } = data;
   const api = await serverApi();
   await api.updatePlanSettings(id, rest);

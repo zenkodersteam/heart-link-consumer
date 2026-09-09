@@ -75,9 +75,18 @@ export function SessionProvider({
           expiresAt.current = 0;
           return null;
         }
-        const data = (await response.json()) as { accessToken: string; expiresIn: number };
+        const data = (await response.json()) as {
+          accessToken: string;
+          expiresIn: number;
+          user?: AuthUser | null;
+        };
         token.current = data.accessToken;
         expiresAt.current = Date.now() + data.expiresIn * 1000;
+        // Who the session belongs to, not just proof that it exists. A reload
+        // has only the cookie to go on, so without this the app came back
+        // signed in with an empty user — which is why Account showed a dash
+        // where the email belongs.
+        if (data.user) setUser(data.user);
         return data.accessToken;
       } catch {
         // A network failure is not a signed-out session. The token is left as

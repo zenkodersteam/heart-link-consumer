@@ -26,22 +26,31 @@ import { Sidebar } from '@/components/shell/sidebar';
 export default async function AppLayout({ children }: { children: ReactNode }) {
   if (!(await hasSessionCookie())) redirect('/sign-in');
 
+  // The gate is outside the shell, not inside it.
+  //
+  // It used to wrap only the content, so the bar, the rail and the tab bar
+  // painted immediately while the profile was still being fetched — and
+  // someone arriving from the sign-up code saw the whole app appear, then
+  // vanish as the redirect to /onboarding landed on a screen that has no
+  // shell. Holding everything means one transition instead of two: a spinner,
+  // then whichever place they belong.
+  //
   // The top bar spans the full width above both the rail and the content, as
   // the client screens have it — the rail starts below the bar, not beside it.
   return (
-    <div className="flex min-h-dvh flex-col bg-surface">
-      <TopNav />
-      <div className="flex min-w-0 flex-1">
-        <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <MobileTopBar />
-          <main className="flex-1">
-            <OnboardingGate>{children}</OnboardingGate>
-          </main>
-          <FeatureStrip />
-          <BottomTabs />
+    <OnboardingGate>
+      <div className="flex min-h-dvh flex-col bg-surface">
+        <TopNav />
+        <div className="flex min-w-0 flex-1">
+          <Sidebar />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <MobileTopBar />
+            <main className="flex-1">{children}</main>
+            <FeatureStrip />
+            <BottomTabs />
+          </div>
         </div>
       </div>
-    </div>
+    </OnboardingGate>
   );
 }

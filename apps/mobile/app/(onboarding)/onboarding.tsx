@@ -625,6 +625,20 @@ export default function OnboardingScreen() {
         loading={savingVisible}
         disabled={!stepValid && step.key !== 'review'}
       />
+      {/* A way out for someone who has been through this before — landing back
+          on step one after editing a finished profile left no exit but
+          re-answering nine screens. Only offered once the profile has been
+          submitted: a genuine first-timer skipping would enter the app with
+          nothing filled in, which is what the gate is there to prevent. */}
+      {profile?.onboardingComplete ? (
+        <Button
+          label="Skip — I've done this already"
+          variant="ghost"
+          onPress={() => {
+            void takePendingRoute().then((route) => router.replace((route as never) ?? '/(tabs)'));
+          }}
+        />
+      ) : null}
       {stepIndex > 0 ? (
         <Pressable disabled={saving} onPress={() => setStepIndex((i) => i - 1)}>
           {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => (

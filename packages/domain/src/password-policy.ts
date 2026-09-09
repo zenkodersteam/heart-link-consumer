@@ -22,6 +22,17 @@ export const PASSWORD_MIN_LENGTH = 8;
  */
 export const PASSWORD_MAX_BYTES = 72;
 
+/**
+ * At least one character that is not a letter or a digit.
+ *
+ * Asked for by the client, and matched by the API's own copy of this rule.
+ * Worth recording that composition rules are not what the research supports —
+ * they push people towards `Password1!` rather than the long passphrases that
+ * actually resist guessing — but a rule the server enforces has to be stated
+ * here too, or the form accepts what the API refuses.
+ */
+const SPECIAL_CHARACTER = /[^A-Za-z0-9]/;
+
 /** The problem with a password, or null when there is none. */
 export function passwordProblem(password: string): string | null {
   if (typeof password !== 'string' || password.length === 0) {
@@ -38,6 +49,9 @@ export function passwordProblem(password: string): string | null {
       : password.normalize('NFKC').length;
   if (bytes > PASSWORD_MAX_BYTES) {
     return `Use ${PASSWORD_MAX_BYTES} characters or fewer.`;
+  }
+  if (!SPECIAL_CHARACTER.test(password)) {
+    return 'Add at least one special character, such as ! ? # or $.';
   }
   return null;
 }

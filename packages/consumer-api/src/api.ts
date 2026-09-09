@@ -327,6 +327,16 @@ interface ApiError {
   code?: string;
 }
 
+/**
+ * How long any single request may take before it is treated as unreachable.
+ *
+ * Generous on purpose. The API can be slow to wake — a cold start has been
+ * measured near 25 seconds — and cutting a request that would have succeeded is
+ * worse than waiting a little longer. What this rules out is the case with no
+ * ceiling at all, where a stalled connection spins forever.
+ */
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export class ApiClientError extends Error {
   status: number;
   code: string;
@@ -414,26 +424,39 @@ export function createApiClient(options: ApiClientOptions) {
     console.log('[api] →', init.method ?? 'GET', url, hasToken ? '(authed)' : '(no token)');
 
     let res: Response;
+    // A request that never answers is worse than one that fails: `fetch` has no
+    // timeout of its own, so a stalled connection left screens spinning with no
+    // error to show and no way to retry. Anything past this is treated as
+    // unreachable, which is what it is from here.
+    const abort = new AbortController();
+    const expired = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
     try {
       res = await fetch(url, {
         ...init,
         headers,
         cache: init.cache ?? defaultCache,
+        // A caller's own signal still wins; this only adds a ceiling.
+        signal: init.signal ?? abort.signal,
       });
     } catch (e) {
       // Network-level failure: CORS preflight blocked, DNS, offline, etc. fetch() throws TypeError.
+      const timedOut = abort.signal.aborted;
       const detail = e instanceof Error ? e.message : String(e);
       // eslint-disable-next-line no-console
-      console.error('[api] network error', url, detail);
+      console.error('[api] network error', url, timedOut ? `timed out after ${REQUEST_TIMEOUT_MS}ms` : detail);
       // Nothing came back at all, so the app is cut off from the API. Screens
       // read this to show an offline state rather than a generic failure.
       reportUnreachable();
       throw new ApiClientError(
         0,
-        'NETWORK_ERROR',
-        `Network error reaching ${url}: ${detail}. Likely CORS, DNS, or the API is unreachable.`,
+        timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
+        timedOut
+          ? `The server did not answer within ${Math.round(REQUEST_TIMEOUT_MS / 1000)} seconds. It may be waking up — please try again.`
+          : `Network error reaching ${url}: ${detail}. Likely CORS, DNS, or the API is unreachable.`,
         null,
       );
+    } finally {
+      clearTimeout(expired);
     }
 
     // A reply of any status means the API is reachable, a 500 included.

@@ -88,7 +88,13 @@ export function FilterBar({
             <DropdownMenuItem
               key={option.label}
               onSelect={() => onChange({ ...query, gender: option.value })}
-              className={cn(selected && 'bg-sidebar text-sidebar-text focus:bg-sidebar')}
+              // A gap between rows, so the selected one and the one under the
+              // cursor read as two states rather than a single block of colour
+              // running down the menu.
+              className={cn(
+                'my-0.5',
+                selected && 'bg-sidebar text-sidebar-text focus:bg-sidebar',
+              )}
             >
               <option.icon className="size-4" />
               {option.label}

@@ -17,6 +17,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { createFacility, updateFacility } from '../../lib/actions';
 import { Select } from '../ui/select';
+import { AddressField } from '../ui/address-autocomplete';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -159,12 +160,24 @@ export function FacilityFormDialog({ mode, facility, trigger }: Props) {
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <Label htmlFor="facility-addr1">Address line 1</Label>
-              <Input
+              {/* A facility address is where letters are actually posted, so a
+                  well-formed but wrong one costs postage and comes back weeks
+                  later, if at all. Searching in this field and filling all four
+                  from one result keeps them consistent with each other. */}
+              <AddressField
                 id="facility-addr1"
                 value={form.addressLine1}
-                onChange={(e) =>
-                  setForm({ ...form, addressLine1: e.target.value })
+                onChange={(addressLine1) => setForm((f) => ({ ...f, addressLine1 }))}
+                onSelect={(parts) =>
+                  setForm((f) => ({
+                    ...f,
+                    addressLine1: parts.line1,
+                    city: parts.city,
+                    state: parts.state,
+                    zip: parts.zip,
+                  }))
                 }
+                placeholder="Start typing an address…"
                 disabled={isPending}
               />
             </div>

@@ -57,16 +57,47 @@ function normaliseBaseUrl(baseUrl: string): string {
   return url;
 }
 
+/**
+ * How long an auth call may take before it is treated as unreachable.
+ *
+ * These are the calls that block everything else: every request refreshes the
+ * access token first, so a refresh with no ceiling leaves the whole app
+ * spinning on a request that will never answer. Generous enough to survive a
+ * cold start, which has been measured near 25 seconds.
+ */
+const AUTH_TIMEOUT_MS = 30_000;
+
+/** Runs `fetch` with a ceiling, so a stalled connection fails instead of hanging. */
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const abort = new AbortController();
+  const expired = setTimeout(() => abort.abort(), AUTH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: abort.signal });
+  } catch (err) {
+    if (abort.signal.aborted) {
+      throw new AuthError(
+        0,
+        `HeartLink did not answer within ${Math.round(AUTH_TIMEOUT_MS / 1000)} seconds. It may be waking up — please try again.`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(expired);
+  }
+}
+
 async function post<T>(baseUrl: string, path: string, body: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${normaliseBaseUrl(baseUrl)}${path}`, {
+    res = await fetchWithTimeout(`${normaliseBaseUrl(baseUrl)}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       cache: 'no-store',
     });
   } catch (err) {
+    // Already the sentence we want people to read.
+    if (err instanceof AuthError) throw err;
     throw new AuthError(
       0,
       `We could not reach HeartLink. Check your connection and try again. (${
@@ -99,7 +130,7 @@ async function postAuthed<T>(
 ): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${normaliseBaseUrl(baseUrl)}${path}`, {
+    res = await fetchWithTimeout(`${normaliseBaseUrl(baseUrl)}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -109,6 +140,7 @@ async function postAuthed<T>(
       cache: 'no-store',
     });
   } catch (err) {
+    if (err instanceof AuthError) throw err;
     throw new AuthError(
       0,
       `We could not reach HeartLink. Check your connection and try again. (${

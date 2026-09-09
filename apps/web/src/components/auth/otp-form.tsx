@@ -60,6 +60,12 @@ type Flow = 'password' | 'code' | 'reset';
  * has no such wording, only the framework's "Internal server error", which
  * tells someone nothing and reads as though they did something wrong.
  */
+/** Greets by name when there is one, and does not invent one when there is not. */
+function welcomeBack(displayName: string | null | undefined): string {
+  const name = displayName?.trim();
+  return name ? `Welcome back, ${name}.` : 'Welcome back.';
+}
+
 function failureMessage(status: number, message: string | undefined, fallback: string): string {
   if (status >= 500) return 'Something went wrong on our side. Please try again in a moment.';
   return message ?? fallback;
@@ -347,8 +353,14 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       // already exists and the server reports `created: false`. Sending those
       // people to the app was what made the dashboard flash past on the way to
       // onboarding, and the redirect they saw was the gate correcting it.
-      const destination =
-        data.created || finishingSignUp ? AFTER_SIGN_UP : (redirectTo ?? AFTER_SIGN_IN);
+      const newAccount = data.created || finishingSignUp;
+      toast.success(newAccount ? 'Account created' : 'Signed in', {
+        description: newAccount
+          ? 'A few questions next, so people know who they are writing to.'
+          : welcomeBack(data.user?.displayName),
+      });
+
+      const destination = newAccount ? AFTER_SIGN_UP : (redirectTo ?? AFTER_SIGN_IN);
       router.push(destination);
       // The signed-in layout is a server component and would otherwise still
       // be rendering the anonymous version from cache.
@@ -371,6 +383,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         </p>
 
         <form
+          noValidate
           className="mt-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -405,8 +418,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 clearField('newPassword');
               }}
               autoComplete="new-password"
-              minLength={PASSWORD_MIN_LENGTH}
-              placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+                placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
               className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
             />
           </div>
@@ -446,6 +458,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         </p>
 
         <form
+          noValidate
           className="mt-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -543,6 +556,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         </p>
 
         <form
+          noValidate
           className="mt-6"
           onSubmit={(event) => {
             event.preventDefault();
@@ -623,7 +637,12 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             : 'Enter your email and password.'}
       </p>
 
+      {/* `noValidate`: the browser's own bubble ("Please lengthen this text to
+          8 characters or more") appears in the wrong place, in the wrong voice,
+          and says nothing about the rules this form actually applies. Every
+          field is checked below and explains itself inline. */}
       <form
+        noValidate
         className="mt-6"
         onSubmit={(event) => {
           event.preventDefault();
@@ -725,7 +744,6 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                   clearField('password');
                 }}
                 autoComplete={intent === 'sign_up' ? 'new-password' : 'current-password'}
-                minLength={PASSWORD_MIN_LENGTH}
                 placeholder={
                   intent === 'sign_up' ? `At least ${PASSWORD_MIN_LENGTH} characters` : 'Your password'
                 }

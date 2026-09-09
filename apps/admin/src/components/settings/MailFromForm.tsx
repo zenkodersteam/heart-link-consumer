@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { updateMailFrom } from '../../lib/actions';
+import { AddressField } from '../ui/address-autocomplete';
 
 interface MailFrom {
   name?: string;
@@ -50,7 +51,19 @@ export function MailFromForm({ initial }: { initial: MailFrom | null }) {
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="mf-line1">Street address</Label>
-          <Input id="mf-line1" value={form.line1} onChange={set('line1')} placeholder="458 Unity Blvd" />
+          {/* Searching happens in this field rather than a separate box above
+              it, so the address is typed once. Choosing a result fills city,
+              state and ZIP too, which keeps the four consistent with each
+              other. Without a Mapbox token it is a plain text input. */}
+          <AddressField
+            id="mf-line1"
+            value={form.line1}
+            onChange={(line1) => setForm((f) => ({ ...f, line1 }))}
+            onSelect={(parts) =>
+              setForm((f) => ({ ...f, line1: parts.line1, city: parts.city, state: parts.state, zip: parts.zip }))
+            }
+            placeholder="Start typing an address…"
+          />
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="mf-line2">Suite / unit (optional)</Label>

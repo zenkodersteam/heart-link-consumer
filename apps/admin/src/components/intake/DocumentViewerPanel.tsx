@@ -43,7 +43,19 @@ interface PdfViewport {
 
 type PdfJsModule = typeof import('pdfjs-dist');
 
-const PAGE_LABELS = ['Intake & Plan', 'Details & Signature', 'About Me', 'Photo Guidelines'];
+/**
+ * What the document in the pane is.
+ *
+ * The applicant's own submission is the normal case and says so plainly; a
+ * returned scan is worth distinguishing, because approving against the wrong
+ * one is a real mistake.
+ */
+function documentLabel(document: IntakeDocument | null): string {
+  if (!document) return 'No document';
+  if (document.type === 'letter_inbound') return 'Scanned reply';
+  if (document.type === 'photo') return 'Submitted photo';
+  return isImage(document.mimeType) ? 'Submitted image' : 'Submitted application';
+}
 const ZOOM_LEVELS = [0.72, 0.86, 1, 1.18, 1.36, 1.6];
 
 export function DocumentViewerPanel({ application, document }: DocumentViewerPanelProps) {
@@ -232,7 +244,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <span className="text-[11px] font-semibold text-text">{pageNumber}</span>
                   <span className="truncate text-[11px] text-text-muted">
-                    {PAGE_LABELS[pageNumber - 1] ?? `Page ${pageNumber}`}
+                    {`Page ${pageNumber}`}
                   </span>
                 </div>
               </button>
@@ -247,9 +259,13 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
 
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-[#fffaf7]/92 px-4 py-3 text-xs text-text-muted backdrop-blur">
-          <div className="mr-2 flex items-center gap-2 font-semibold text-text">
-            <FileText className="size-4 text-primary" />
-            Custom PDF Review
+          {/* Names the document on screen. It used to read "Custom PDF
+              Review", which named nothing — reviewers took it for a mode the
+              viewer had defaulted into, and reported the applicant's own file
+              as a placeholder. */}
+          <div className="mr-2 flex min-w-0 items-center gap-2 font-semibold text-text">
+            <FileText className="size-4 shrink-0 text-primary" />
+            <span className="truncate">{documentLabel(document)}</span>
           </div>
           <button
             type="button"
@@ -333,7 +349,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
                         Page {pageNumber}
                       </span>
                       <span className="text-xs font-semibold text-text-muted">
-                        {PAGE_LABELS[pageNumber - 1] ?? 'Application packet'}
+                        {documentLabel(document)}
                       </span>
                     </div>
                   </div>

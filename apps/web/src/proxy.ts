@@ -30,6 +30,21 @@ function isPublic(pathname: string): boolean {
 
 const AUTH_ROUTES = /^\/(sign-in|sign-up)(\/.*)?$/;
 
+/**
+ * Where a `redirect_url` may actually send someone.
+ *
+ * Only a path on this site: it must start with a single slash and no scheme.
+ * `//evil.example` and `https://evil.example` are both browser-valid redirect
+ * targets, so a param copied straight into `redirect()` is an open redirect —
+ * a link that looks like ours and lands somewhere else, which is worth more to
+ * a phisher here than on most sites, given who these members are writing to.
+ */
+function safeRedirect(target: string | null): string | null {
+  if (!target) return null;
+  if (!target.startsWith('/') || target.startsWith('//')) return null;
+  return target;
+}
+
 export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const signedIn = request.cookies.has(SESSION_COOKIE);
@@ -38,7 +53,11 @@ export default function proxy(request: NextRequest) {
   // they can land back on it from a stale tab or a bookmarked link and be left
   // wondering whether they are signed in at all.
   if (signedIn && AUTH_ROUTES.test(pathname)) {
-    return NextResponse.redirect(new URL(AFTER_SIGN_IN, request.url));
+    // Honour where they were going. This used to send everyone to the home
+    // deck, so following a link to a letter while already signed in quietly
+    // dropped the letter and showed the deck instead.
+    const wanted = safeRedirect(request.nextUrl.searchParams.get('redirect_url'));
+    return NextResponse.redirect(new URL(wanted ?? AFTER_SIGN_IN, request.url));
   }
 
   if (!signedIn && !isPublic(pathname)) {

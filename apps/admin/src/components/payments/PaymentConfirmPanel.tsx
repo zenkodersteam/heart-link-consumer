@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { PaymentDetail } from '@heartlink/api-contract';
 import { toast } from 'sonner';
 import { confirmPayment } from '../../lib/actions';
+import { isRedirectError } from '../../lib/redirect-error';
 import { Button } from '../ui/button';
 import { Select } from '../ui/select';
 
@@ -12,16 +13,6 @@ const PURPOSE_OPTIONS = [
   { value: 'consumer', label: 'Consumer purchase' },
   { value: 'other', label: 'Other' },
 ] as const;
-
-function isRedirectError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'digest' in err &&
-    typeof (err as { digest?: unknown }).digest === 'string' &&
-    (err as { digest: string }).digest.startsWith('NEXT_REDIRECT')
-  );
-}
 
 export function PaymentConfirmPanel({ payment }: { payment: PaymentDetail }) {
   const [purpose, setPurpose] = useState(payment.purpose ?? 'listing');
