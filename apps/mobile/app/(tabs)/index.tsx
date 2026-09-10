@@ -163,24 +163,21 @@ export default function HomeScreen() {
 
   const onSwipe = useCallback(
     (profile: PublicProfileSummary, dir: SwipeDir) => {
+      // Swiping moves through the deck; it does not like anyone. Only the heart
+      // does that. A swipe is a fast, easily mistaken gesture - people were
+      // finding profiles in Liked they did not remember choosing - so it no
+      // longer changes Liked here or on the server.
       const action: SwipeAction = dir === 'like' ? 'like' : 'pass';
-      if (action === 'like') {
-        setSaved((s) => new Set(s).add(profile.id));
-        toast.show('Liked', `${profile.displayName} added to your Liked.`);
-      }
       setSwipedCount((n) => n + 1);
       persistSwipe(profile.id, action);
     },
-    [persistSwipe, toast],
+    [persistSwipe],
   );
 
   const onSecondLook = useCallback(
     (profile: PublicProfileSummary) => {
-      setSaved((s) => {
-        const n = new Set(s);
-        n.delete(profile.id);
-        return n;
-      });
+      // Bringing a profile back into the deck is not an opinion about Liked
+      // either, so a deliberate heart survives it.
       toast.show("He's back!", `You'll see ${profile.displayName} again.`);
       persistSwipe(profile.id, 'second_look');
     },

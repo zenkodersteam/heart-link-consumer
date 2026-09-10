@@ -32,6 +32,16 @@ export default function BrowsePage() {
    */
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [lastPassed, setLastPassed] = useState<PublicProfileSummary | null>(null);
+  /**
+   * Which card is on top.
+   *
+   * Browsing moves this; passing and liking remove a profile from `deck`
+   * instead, and whoever was behind takes the same position. Kept here rather
+   * than in the deck because this page also reads the top card — for its
+   * release date and the "view full profile" link — and two places deciding
+   * what is on top is how they end up disagreeing.
+   */
+  const [cursor, setCursor] = useState(0);
 
   const { data, isPending, isError, error, refetch } = usePublicProfiles(query);
   const { data: saved } = useSavedProfiles();
@@ -44,8 +54,15 @@ export default function BrowsePage() {
     [data, dismissed],
   );
 
+  // Passing the last card, or a refetch shrinking the deck, can leave the
+  // cursor pointing past the end. Clamped on read rather than corrected in an
+  // effect: the effect would set state during render and re-run the tree for a
+  // value that can simply be worked out here.
+  const index = Math.min(cursor, Math.max(0, deck.length - 1));
+  const current = deck[index];
+
   // Only the detail carries a release date, and only the card on top shows one.
-  const { data: topDetail } = usePublicProfile(deck[0]?.id);
+  const { data: topDetail } = usePublicProfile(current?.id);
 
   const hasFilters = Boolean(query.state || query.gender || query.ageMin || query.ageMax);
   const reset = () => setQuery({ limit: PAGE_SIZE, offset: 0 });
@@ -67,7 +84,10 @@ export default function BrowsePage() {
     recordSwipe.mutate({ id: profile.id, action });
 
     if (action === 'like') {
-      if (!savedIds.has(profile.id)) toggleSaved.mutate({ id: profile.id, saved: false });
+      // Browsing past someone does not like them. Liked changes only when a
+      // member presses the heart, here or on the profile page - a swipe is too
+      // quick and too easily mistaken to stand for a choice, and people were
+      // finding profiles in Liked they had never deliberately chosen.
       setLastPassed(null);
     } else {
       setLastPassed(profile);
@@ -132,6 +152,13 @@ export default function BrowsePage() {
               releaseDate={topDetail?.releaseDate}
               savedIds={savedIds}
               canSecondLook={Boolean(lastPassed)}
+              index={index}
+              // Stepped from the clamped index, not the raw cursor, or a
+              // cursor left past the end would need several presses to appear
+              // to move at all.
+              onBrowse={(delta) =>
+                setCursor(Math.min(Math.max(index + delta, 0), deck.length - 1))
+              }
               onAction={onAction}
               onToggleSave={(profile) =>
                 toggleSaved.mutate({ id: profile.id, saved: savedIds.has(profile.id) })
@@ -140,8 +167,8 @@ export default function BrowsePage() {
           </div>
 
           <p className="mt-6 text-center text-[13px] text-ink-soft">
-            <Link href={`/profiles/${deck[0].id}`} className="font-semibold text-primary hover:underline">
-              View {deck[0].displayName}&apos;s full profile
+            <Link href={`/profiles/${current.id}`} className="font-semibold text-primary hover:underline">
+              View {current.displayName}&apos;s full profile
             </Link>
           </p>
         </>

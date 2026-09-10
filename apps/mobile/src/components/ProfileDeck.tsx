@@ -306,11 +306,15 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
             <Animated.View style={[styles.stamp, styles.stampPass, { opacity: passOpacity }]}>
               <Text style={[styles.stampText, styles.stampTextPass]}>PASS</Text>
             </Animated.View>
+            {/* "NEXT", not "LIKE", and an arrow rather than a heart: this
+                gesture moves through the deck and no longer adds anyone to
+                Liked. Only the heart button does that. Promising a like here
+                and not delivering one is what made Liked look wrong. */}
             <Animated.View style={[styles.stampLike, { opacity: likeOpacity }]}>
               <View style={styles.likeDisc}>
-                <Feather name="heart" size={38} color={colors.onPrimary} />
+                <Feather name="arrow-right" size={38} color={colors.onPrimary} />
               </View>
-              <Text style={styles.likeWord}>LIKE</Text>
+              <Text style={styles.likeWord}>NEXT</Text>
             </Animated.View>
             {canSecondLook ? (
               <Animated.View style={[styles.stampBack, { opacity: secondLookOpacity }]} pointerEvents="none">

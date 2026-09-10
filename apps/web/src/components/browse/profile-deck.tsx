@@ -40,6 +40,8 @@ export function ProfileDeck({
   onAction,
   onToggleSave,
   canSecondLook,
+  index,
+  onBrowse,
 }: {
   profiles: PublicProfileSummary[];
   releaseDate?: string | null;
@@ -47,6 +49,10 @@ export function ProfileDeck({
   onAction: (profile: PublicProfileSummary, action: SwipeAction) => void;
   onToggleSave: (profile: PublicProfileSummary) => void;
   canSecondLook: boolean;
+  /** Which card is on top. Browsing moves it; passing and liking remove one. */
+  index: number;
+  /** Step through the deck without deciding anything about the card on top. */
+  onBrowse: (delta: 1 | -1) => void;
 }) {
   const [drag, setDrag] = useState<Drag>(AT_REST);
   // Set while a card is animating out, so its exit is not interrupted by
@@ -54,8 +60,8 @@ export function ProfileDeck({
   const [leaving, setLeaving] = useState<'like' | 'pass' | null>(null);
   const start = useRef({ x: 0, y: 0 });
 
-  const top = profiles[0];
-  const behind = profiles.slice(1, 3);
+  const top = profiles[index];
+  const behind = profiles.slice(index + 1, index + 3);
 
   const commit = useCallback(
     (action: SwipeAction) => {
@@ -111,7 +117,17 @@ export function ProfileDeck({
   return (
     <div className="flex flex-col items-center">
       <div className="relative flex w-full items-center justify-center gap-3">
-        <DeckArrow side="left" onClick={() => commit('pass')} disabled={Boolean(leaving)} />
+        {/* Browsing, not deciding. These used to pass and like, so stepping
+            through the deck to see who was there silently threw people away —
+            a chevron reads as "show me the next one", and that is now what it
+            does. Passing and liking are the two buttons underneath, and the
+            swipe. */}
+        <DeckArrow
+          side="left"
+          label="Previous profile"
+          onClick={() => onBrowse(-1)}
+          disabled={index === 0 || Boolean(leaving)}
+        />
 
         <div className="relative h-[496px] w-full max-w-[386px] select-none">
           {/* Drawn back to front so the top card is last in the DOM and sits
@@ -153,12 +169,19 @@ export function ProfileDeck({
 
             {/* The stamps fade in with the drag, so the gesture says what it
                 will do before you let go of it. */}
-            <Stamp label="LIKE" tone="like" strength={offset > 0 ? stampStrength : 0} />
+            {/* "NEXT", not "LIKE": this gesture moves through the deck and
+                adds nobody to Liked. Only the heart does. */}
+            <Stamp label="NEXT" tone="like" strength={offset > 0 ? stampStrength : 0} />
             <Stamp label="PASS" tone="pass" strength={offset < 0 ? stampStrength : 0} />
           </div>
         </div>
 
-        <DeckArrow side="right" onClick={() => commit('like')} disabled={Boolean(leaving)} />
+        <DeckArrow
+          side="right"
+          label="Next profile"
+          onClick={() => onBrowse(1)}
+          disabled={index >= profiles.length - 1 || Boolean(leaving)}
+        />
       </div>
 
       <div className="mt-6 flex items-start justify-center gap-10">
@@ -172,8 +195,13 @@ export function ProfileDeck({
         >
           <RotateCcw className="size-6 text-gold" strokeWidth={2.5} />
         </DeckAction>
+        {/* Outlined, like the X and the arrow beside it.
+            Filled meant something on this screen already — the badge on the
+            card is filled when a profile is in Liked — so a permanently filled
+            heart under it read as "you have liked this", on every profile,
+            before anyone had liked anything. */}
         <DeckAction label="Like" onClick={() => commit('like')} disabled={Boolean(leaving)}>
-          <Heart className="size-7 fill-primary text-primary" />
+          <Heart className="size-7 text-primary" strokeWidth={2.5} />
         </DeckAction>
       </div>
     </div>
@@ -208,10 +236,12 @@ function Stamp({
 /** The chevrons either side, which the screens show on desktop only. */
 function DeckArrow({
   side,
+  label,
   onClick,
   disabled,
 }: {
   side: 'left' | 'right';
+  label: string;
   onClick: () => void;
   disabled: boolean;
 }) {
@@ -221,7 +251,7 @@ function DeckArrow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={side === 'left' ? 'Pass' : 'Like'}
+      aria-label={label}
       className="hidden size-11 shrink-0 place-items-center rounded-full bg-surface-elevated text-ink shadow-[0_4px_14px_rgba(46,18,64,0.12)] transition-transform hover:scale-105 disabled:opacity-40 lg:grid"
     >
       <Icon className="size-5" />
