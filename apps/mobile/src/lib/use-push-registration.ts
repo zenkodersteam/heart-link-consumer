@@ -7,6 +7,7 @@ import { useSession } from './session';
 import { navigationRef } from '../navigations/navigationRef';
 import type { PendingRoute } from './pending-route';
 import { savePendingRoute } from './pending-route';
+import { clearMyProfileCache } from './use-my-profile';
 import { useApiClientFactory } from './use-api-client';
 
 /**
@@ -74,7 +75,25 @@ function destinationFrom(
   }
   if (kind === 'renewal_reminder') return { name: 'Tabs', params: { screen: 'Account' } };
   if (kind === 'profile_live') return { name: 'Tabs', params: { screen: 'Home' } };
+  // A moderator has decided on the member's own profile. Approval goes to the
+  // Account screen, which is where the status is shown; rejection goes straight
+  // to the editor, because editing is the entire way forward - a rejected
+  // profile returns to `draft` when it is edited and can then be resubmitted.
+  if (kind === 'outside_profile_approved') return { name: 'Tabs', params: { screen: 'Account' } };
+  if (kind === 'outside_profile_rejected') return { name: 'EditProfile' };
   return null;
+}
+
+/**
+ * Whether following this notification means the cached profile is now wrong.
+ *
+ * `useMyProfile` caches at module scope and is shared by the tabs gate, the
+ * account screen and the mailbox. A moderation decision changes the very field
+ * all three read, so without this the notification says "approved" and the
+ * screen it opens still says "pending" - and the gate stays shut.
+ */
+function invalidatesMyProfile(kind: unknown): boolean {
+  return kind === 'outside_profile_approved' || kind === 'outside_profile_rejected';
 }
 
 /**
@@ -179,6 +198,7 @@ export function usePushRegistration(): void {
 
     // The app was already running, in the background.
     const unsubscribe = service.onNotificationOpenedApp((message) => {
+      if (invalidatesMyProfile(message?.data?.kind)) clearMyProfileCache();
       follow(destinationFrom(message));
     });
 
@@ -187,6 +207,7 @@ export function usePushRegistration(): void {
     void service
       .getInitialNotification()
       .then((message) => {
+        if (invalidatesMyProfile(message?.data?.kind)) clearMyProfileCache();
         follow(destinationFrom(message));
       })
       .catch(() => undefined);

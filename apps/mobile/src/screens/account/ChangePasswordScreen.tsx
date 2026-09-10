@@ -139,7 +139,7 @@ export default function ChangePasswordScreen() {
             revealable
             autoCapitalize="none"
             autoComplete="new-password"
-            placeholder="Type it again"
+            placeholder="Confirm password"
             onSubmitEditing={() => void onSave()}
             returnKeyType="go"
           />

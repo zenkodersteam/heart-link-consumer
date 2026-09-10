@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { ReactNode, useRef, useState } from 'react';
+import { ReactNode, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -26,6 +26,9 @@ import { colors, cta, radii, spacing, themedStyles, type } from '../theme';
 import { useScrollFieldIntoView } from './KeyboardSafeScrollView';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** The strip on the right of a field that a reveal control owns. */
+const REVEAL_WIDTH = spacing.xxl + spacing.lg;
 
 /**
  * A shadow that both platforms draw.
@@ -55,7 +58,15 @@ interface FieldProps extends TextInputProps {
   revealable?: boolean;
 }
 
-export function Field({
+/**
+ * Forwards the underlying `TextInput`, so a form can move between its own
+ * fields.
+ *
+ * A "next" key that does nothing puts the keyboard away, and on a form whose
+ * later fields sit under it that reads as the app refusing to go on. The form
+ * holds the refs and decides the order; this only has to hand its input over.
+ */
+export const Field = forwardRef<TextInput, FieldProps>(function Field({
   label,
   error,
   style,
@@ -64,13 +75,15 @@ export function Field({
   revealable,
   secureTextEntry,
   ...rest
-}: FieldProps) {
+}: FieldProps, ref) {
   const [focused, setFocused] = useState(false);
   // Never remembered between visits: leaving a password on screen is a
   // decision to take each time, not one to inherit.
   const [revealed, setRevealed] = useState(false);
   const scrollIntoView = useScrollFieldIntoView();
   const inputRef = useRef<TextInput>(null);
+  // The same node the field measures for `scrollIntoView`, published outward.
+  useImperativeHandle(ref, () => inputRef.current as TextInput, []);
 
   return (
     <View style={fieldStyles.wrapper}>
@@ -123,7 +136,7 @@ export function Field({
       {error ? <Text style={fieldStyles.errorText}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const fieldStyles = themedStyles((colors) => ({
   wrapper: { gap: spacing.xs },
@@ -141,10 +154,23 @@ const fieldStyles = themedStyles((colors) => ({
   },
   inputRow: { position: 'relative', justifyContent: 'center' },
   // Room for the reveal, so a long password does not run underneath it.
-  inputWithAction: { paddingRight: spacing.xxl + spacing.lg },
+  inputWithAction: { paddingRight: REVEAL_WIDTH },
+  /**
+   * Boxed to exactly the strip the padding above reserves for it.
+   *
+   * It was pinned by `right` alone, with no width and no vertical insets, so
+   * how much of the row it covered was left to Yoga's treatment of an unsized
+   * absolute child rather than stated. An overlay of unknown width sitting on
+   * top of a text field is the shape of a field that cannot be tapped, and it
+   * costs nothing to say instead: this is the strip on the right, the full
+   * height of the row, and the input owns everything left of it.
+   */
   reveal: {
     position: 'absolute',
-    right: spacing.lg,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: REVEAL_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
   },

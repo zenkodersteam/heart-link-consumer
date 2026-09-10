@@ -30,7 +30,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <SafeAreaView
-      style={[styles.safe, { height: Math.max(0, height - keyboard.overlap) }]}
+      style={[
+        styles.safe,
+        { height: Math.max(0, height - keyboard.overlap) },
+        // Only while the keyboard is up, and load-bearing when it is. `safe`
+        // is `flex: 1`, which Yoga reads as `flexBasis: 0%` plus
+        // `flexGrow: 1`, and against a parent of known height that beats the
+        // explicit height above outright — so this shell went on filling the
+        // window under the keyboard however small a height was asked for, and
+        // the screens that trusted it to shrink kept their fields behind the
+        // keyboard. `flex: 0` gives back `flexBasis: auto` so the height
+        // takes. It stays off the rest of the time: with no keyboard the
+        // height is the whole window and `flex: 1` reaches it either way,
+        // including from a parent whose own height is not yet known.
+        keyboard.overlap > 0 ? { flex: 0 } : null,
+      ]}
       edges={['top']}
     >
       <MobileTopBar />

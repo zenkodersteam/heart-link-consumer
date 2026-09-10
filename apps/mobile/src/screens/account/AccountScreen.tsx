@@ -13,22 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
-
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { useTheme } from '../../components/ThemeProvider';
 import { ScreenHeader, SettingsRow } from '../../components/ScreenHeader';
 import { SubscriptionPlans } from '../../components/SubscriptionPlans';
 import type { LetterEntitlement } from '@heartlink/consumer-api';
 import { humanError } from '../../lib/errors';
-import { haptics } from '../../lib/haptics';
-import { spring } from '../../lib/motion';
-import type { ThemePreference } from '../../lib/theme-preference';
 import { useApiClientFactory } from '../../lib/use-api-client';
 import { clearMyProfileCache, useMyProfile } from '../../lib/use-my-profile';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -213,11 +202,6 @@ export default function AccountScreen() {
           />
         </View>
 
-        <Text style={styles.groupLabel}>APPEARANCE</Text>
-        <View style={styles.card}>
-          <ThemeChoice />
-        </View>
-
         <Text style={styles.groupLabel}>SETTINGS</Text>
         <View style={styles.card}>
           <SettingsRow
@@ -292,83 +276,6 @@ export default function AccountScreen() {
     </SafeAreaView>
   );
 }
-
-/**
- * Light, dark, or whatever the phone says.
- *
- * A segmented control rather than a switch, because there are three answers and
- * the third one - follow the phone - is the one most people want and a two-way
- * switch cannot express. It is also the default, so it sits first.
- *
- * The selected segment slides between positions rather than cutting: on a
- * control that changes the colour of the entire screen underneath it, a moving
- * indicator is what ties the two together.
- */
-function ThemeChoice() {
-  const { preference, setPreference } = useTheme();
-  const reduceMotion = useReducedMotion();
-  const [width, setWidth] = useState(0);
-  const index = OPTIONS.findIndex((o) => o.key === preference);
-  const selected = useSharedValue(index < 0 ? 0 : index);
-
-  useEffect(() => {
-    const next = index < 0 ? 0 : index;
-    selected.value = reduceMotion ? next : withSpring(next, spring.firm);
-  }, [index, reduceMotion, selected]);
-
-  const segment = width > 0 ? width / OPTIONS.length : 0;
-  const indicator = useAnimatedStyle(() => ({
-    width: segment,
-    transform: [{ translateX: selected.value * segment }],
-  }));
-
-  return (
-    <View style={styles.themeRow}>
-      <View style={styles.themeCopy}>
-        <Text style={styles.themeTitle}>Appearance</Text>
-        <Text style={styles.themeHint}>
-          {preference === 'system' ? 'Following your phone' : `Always ${preference}`}
-        </Text>
-      </View>
-
-      <View
-        style={styles.segmented}
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-        accessibilityRole="radiogroup"
-      >
-        {segment > 0 ? <Animated.View style={[styles.segmentIndicator, indicator]} /> : null}
-        {OPTIONS.map((option) => {
-          const active = option.key === preference;
-          return (
-            <Pressable
-              key={option.key}
-              onPress={() => {
-                haptics.selection();
-                setPreference(option.key);
-              }}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={option.label}
-              style={styles.segment}
-            >
-              <Feather
-                name={option.icon}
-                size={15}
-                color={active ? colors.primary : colors.textMuted}
-              />
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-const OPTIONS: { key: ThemePreference; label: string; icon: keyof typeof Feather.glyphMap }[] = [
-  { key: 'system', label: 'Follow my phone', icon: 'smartphone' },
-  { key: 'light', label: 'Always light', icon: 'sun' },
-  { key: 'dark', label: 'Always dark', icon: 'moon' },
-];
 
 const styles = themedStyles((colors) => ({
   banner: {
@@ -450,33 +357,6 @@ const styles = themedStyles((colors) => ({
   rowDivider: { borderTopWidth: 1, borderTopColor: colors.border },
   rowText: { ...type.body, fontSize: 14, color: colors.textSecondary },
   rowStrong: { color: colors.textPrimary, fontFamily: 'Inter_600SemiBold' },
-  themeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  themeCopy: { flexShrink: 1, gap: 1 },
-  themeTitle: { ...type.body, fontSize: 14.5, color: colors.textPrimary },
-  themeHint: { ...type.caption, fontSize: 11.5 },
-  segmented: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surfaceMuted,
-  },
-  segment: { width: 40, height: 30, alignItems: 'center', justifyContent: 'center' },
-  segmentIndicator: {
-    position: 'absolute',
-    top: 3,
-    left: 3,
-    bottom: 3,
-    borderRadius: radii.pill,
-    backgroundColor: colors.bgElevated,
-    ...depth.resting,
-  },
   groupLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,

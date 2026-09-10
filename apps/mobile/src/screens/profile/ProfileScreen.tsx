@@ -293,7 +293,11 @@ export default function ProfileDetailScreen() {
             pressed ? { transform: [{ scale: 0.94 }] } : null,
           ]}
         >
-          <Feather name="more-vertical" size={18} color={colors.textPrimary} />
+          {/* Fixed dark, not `textPrimary`. This button floats on the photo,
+              not on the page, and its pill is a fixed cream in both themes —
+              so following the page's text colour turned the glyph light on a
+              light pill at night and left the control invisible. */}
+          <Feather name="more-vertical" size={18} color={colors.midnight} />
         </Pressable>
       </View>
 

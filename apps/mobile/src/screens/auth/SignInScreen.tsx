@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { SignInResult } from '@heartlink/consumer-api';
 import { emailProblem, passwordProblem } from '@heartlink/domain';
@@ -34,6 +34,11 @@ export default function SignInScreen() {
   const navigation = useNavigation<RootNavigation>();
   const params = useRoute<RootRoute<'SignIn'>>().params ?? {};
   const signingUp = params.intent === 'sign_up';
+  // So "next" moves to the field it names. Without these the return key only
+  // put the keyboard away, on the one form where the fields below it are the
+  // hardest to reach.
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
   const {
     requestCode,
     register,
@@ -335,7 +340,7 @@ export default function SignInScreen() {
           revealable
           autoCapitalize="none"
           autoComplete="new-password"
-          placeholder="Type it again"
+          placeholder="Confirm password"
           onSubmitEditing={() => void onSaveNewPassword()}
           returnKeyType="go"
         />
@@ -485,11 +490,12 @@ export default function SignInScreen() {
         autoComplete="email"
         keyboardType="email-address"
         placeholder="you@example.com"
-        onSubmitEditing={() => (useCode ? void onSendCode() : undefined)}
+        onSubmitEditing={() => (useCode ? void onSendCode() : passwordRef.current?.focus())}
         returnKeyType={useCode ? 'go' : 'next'}
       />
       {!useCode ? (
         <Field
+          ref={passwordRef}
           label="Password"
           error={fieldErrors.password}
           value={password}
@@ -503,7 +509,9 @@ export default function SignInScreen() {
           autoCapitalize="none"
           autoComplete={signingUp ? 'new-password' : 'current-password'}
           placeholder={signingUp ? 'At least 8 characters' : 'Your password'}
-          onSubmitEditing={() => (signingUp ? undefined : void onPasswordSignIn())}
+          onSubmitEditing={() =>
+            signingUp ? confirmRef.current?.focus() : void onPasswordSignIn()
+          }
           returnKeyType={signingUp ? 'next' : 'go'}
         />
       ) : null}
@@ -513,6 +521,7 @@ export default function SignInScreen() {
           it. */}
       {!useCode && signingUp ? (
         <Field
+          ref={confirmRef}
           label="Confirm password"
           error={fieldErrors.confirmPassword}
           value={confirmPassword}
@@ -524,7 +533,7 @@ export default function SignInScreen() {
           revealable
           autoCapitalize="none"
           autoComplete="new-password"
-          placeholder="Type it again"
+          placeholder="Confirm password"
           onSubmitEditing={() => void onRegister()}
           returnKeyType="go"
         />

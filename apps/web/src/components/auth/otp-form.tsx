@@ -488,7 +488,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 clearField('confirmPassword');
               }}
               autoComplete="new-password"
-              placeholder="Type it again"
+              placeholder="Confirm password"
               className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
             />
             <RevealButton shown={confirmShown} onToggle={() => setConfirmShown((v) => !v)} />
@@ -867,7 +867,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                       clearField('confirmPassword');
                     }}
                     autoComplete="new-password"
-                    placeholder="Type it again"
+                    placeholder="Confirm password"
                     className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
                   />
                   <RevealButton

@@ -58,7 +58,7 @@ export default function SponsorScreen() {
           body="Sponsorship keeps someone's HeartLink profile visible and their mailbox open for real correspondence. Start from a profile so we can connect the gift to the right person."
           note="Sponsor checkout is private and tied to the selected member only after you confirm the plan."
           ctaLabel="Browse profiles"
-          onPress={() => navigation.navigate('Tabs')}
+          onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
           secondaryLabel="Visit support"
           onSecondaryPress={() => navigation.navigate('Support')}
         />

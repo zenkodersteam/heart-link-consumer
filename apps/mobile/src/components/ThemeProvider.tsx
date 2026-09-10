@@ -1,22 +1,23 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useColorScheme } from 'react-native';
 
-import {
-  getStoredThemePreference,
-  storeThemePreference,
-  themePreferenceReady,
-  type ThemePreference,
-} from '../lib/theme-preference';
 import { getColorScheme, setColorScheme, type ColorScheme } from '../theme';
 
 /**
- * Which theme is on, and who decided.
+ * Which theme is on.
  *
- * The phone decides by default: someone who has told iOS or Android they want
- * dark has told this app too, and following that is the setting most people
- * never have to think about. Account offers the override for the rest - this
- * app is read in bed at one end of the day and on a bright bus at the other,
- * and the phone's own setting is not always right for both.
+ * The phone decides, and only the phone. Someone who has told iOS or Android
+ * they want dark has told this app too, and that is the setting almost nobody
+ * has to think about.
+ *
+ * There used to be an override in Account — always light, always dark, or
+ * follow the phone. It was removed because of the one frame it could never
+ * reach: iOS renders the launch screen from a static asset before any of our
+ * code runs, so it can only pick by the phone's appearance. A member with the
+ * app forced dark on a light phone launched into a cream splash and then a
+ * dark app, every single time, and nothing on our side of the process start
+ * could prevent it. A preference that is contradicted by the first second of
+ * every launch is worse than no preference at all.
  *
  * `setColorScheme` runs during render rather than in an effect, deliberately.
  * Stylesheets read the active theme the moment they are touched, and children
@@ -31,53 +32,21 @@ import { getColorScheme, setColorScheme, type ColorScheme } from '../theme';
  */
 
 interface ThemeValue {
-  /** The theme actually on screen. */
+  /** The theme actually on screen, which is whatever the phone is set to. */
   scheme: ColorScheme;
-  /** What was asked for, which may be "follow the phone". */
-  preference: ThemePreference;
-  setPreference: (preference: ThemePreference) => void;
 }
 
-const ThemeContext = createContext<ThemeValue>({
-  scheme: 'light',
-  preference: 'system',
-  setPreference: () => undefined,
-});
+const ThemeContext = createContext<ThemeValue>({ scheme: 'light' });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // `null` is "no preference" - the phone has not been told either way, which
+  // `null` is "no preference" — the phone has not been told either way, which
   // is the light default rather than a reason to guess.
   const system = useColorScheme();
-  const [preference, setPreferenceState] = useState<ThemePreference>(getStoredThemePreference);
-
-  // The stored answer usually lands before the first render; when the keychain
-  // is slow it arrives here instead, and the tree re-renders into it.
-  useEffect(() => {
-    let live = true;
-    void themePreferenceReady.then((stored) => {
-      if (live) setPreferenceState(stored);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const scheme: ColorScheme =
-    preference === 'system' ? (system === 'dark' ? 'dark' : 'light') : preference;
+  const scheme: ColorScheme = system === 'dark' ? 'dark' : 'light';
 
   if (getColorScheme() !== scheme) setColorScheme(scheme);
 
-  const value = useMemo<ThemeValue>(
-    () => ({
-      scheme,
-      preference,
-      setPreference: (next) => {
-        storeThemePreference(next);
-        setPreferenceState(next);
-      },
-    }),
-    [preference, scheme],
-  );
+  const value = useMemo<ThemeValue>(() => ({ scheme }), [scheme]);
 
   return (
     <ThemeContext.Provider value={value}>

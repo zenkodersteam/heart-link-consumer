@@ -3,9 +3,11 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet } from 'react-native';
 
-import { colors, themedStyles } from '../theme';
+import { useIsDark } from './ThemeProvider';
+import { colors, darkColors } from '@heartlink/design-tokens';
 
 const ARTWORK = require('../../assets/heartlink-splash.png');
+const ARTWORK_DARK = require('../../assets/heartlink-splash-dark.png');
 
 /**
  * Pulls the artwork into the cache before the overlay is shown. Without it the
@@ -13,7 +15,10 @@ const ARTWORK = require('../../assets/heartlink-splash.png');
  * image.
  */
 export function preloadBrandSplash() {
-  return Asset.fromModule(ARTWORK).downloadAsync();
+  return Promise.all([
+    Asset.fromModule(ARTWORK).downloadAsync(),
+    Asset.fromModule(ARTWORK_DARK).downloadAsync(),
+  ]);
 }
 
 /**
@@ -26,6 +31,16 @@ export function preloadBrandSplash() {
 const HOLD_MS = Platform.OS === 'android' ? 700 : 300;
 const FADE_MS = 320;
 
+/**
+ * The splash belongs to the launch, and a launch happens once.
+ *
+ * Module scope on purpose. Changing theme remounts the entire tree — that is
+ * how stylesheets pick up the new palette — and a remounted splash has no
+ * memory of having already played, so switching to dark replayed the whole
+ * launch animation over an app that was running perfectly well. This outlives
+ * the remount, which is the only place the fact can be kept.
+ */
+let alreadyShown = false;
 
 /**
  * The launch artwork, drawn by the app rather than the platform.
@@ -39,10 +54,25 @@ const FADE_MS = 320;
  * On iOS it is laid out to match the launch storyboard exactly (fitted, on the
  * same ground) so the swap from storyboard to app is invisible; what you see is
  * one continuous splash that happens to change owner halfway through.
+ *
+ * Each theme has its own artwork. The light illustration is cream and
+ * full-bleed — the brightest thing the app owns — so at night it read as a
+ * white flash before a dark app; the dark one is the same composition drawn on
+ * the dark ground.
+ *
+ * Which one is shown follows the phone, which is now the only thing the app's
+ * theme follows either — so this always matches both the launch storyboard
+ * underneath it and the app about to appear above it. That agreement is the
+ * reason the in-app theme override was removed: iOS picks the storyboard from
+ * a static asset before our code runs, so an app forced dark on a light phone
+ * could only ever launch cream and then turn dark.
  */
 export function BrandSplash({ release }: { release: boolean }) {
+  const dark = useIsDark();
   const opacity = useRef(new Animated.Value(1)).current;
-  const [mounted, setMounted] = useState(true);
+  // Read once, at mount: a splash that is already up must finish its fade
+  // rather than vanish the instant the flag is set.
+  const [mounted, setMounted] = useState(() => !alreadyShown);
 
   useEffect(() => {
     if (!release) return undefined;
@@ -55,7 +85,10 @@ export function BrandSplash({ release }: { release: boolean }) {
       }).start(({ finished }) => {
         // Unmount only on a real finish: an interrupted animation leaves the
         // overlay part-faded, and dropping it then would flash the app in.
-        if (finished) setMounted(false);
+        if (finished) {
+          alreadyShown = true;
+          setMounted(false);
+        }
       });
     }, HOLD_MS);
 
@@ -67,11 +100,16 @@ export function BrandSplash({ release }: { release: boolean }) {
   return (
     <Animated.View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFill, styles.ground, { opacity }]}
+      // The ground is the band above and below a fitted image, so it has to be
+      // the colour the storyboard just used.
+      style={[
+        StyleSheet.absoluteFill,
+        { backgroundColor: (dark ? darkColors : colors).bgDeep, opacity },
+      ]}
     >
-      {/* `transition={0}`: the fade below is the only one wanted. */}
+      {/* `transition={0}`: the fade out is the only one wanted. */}
       <Image
-        source={ARTWORK}
+        source={dark ? ARTWORK_DARK : ARTWORK}
         style={StyleSheet.absoluteFill}
         contentFit="contain"
         transition={0}
@@ -79,9 +117,3 @@ export function BrandSplash({ release }: { release: boolean }) {
     </Animated.View>
   );
 }
-
-const styles = themedStyles((colors) => ({
-  // The artwork's own ground, the splash background and the first screen are
-  // all this colour, so the fit leaves no visible band.
-  ground: { backgroundColor: colors.bgDeep },
-}));

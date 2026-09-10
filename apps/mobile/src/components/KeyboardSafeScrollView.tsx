@@ -1,5 +1,7 @@
-import { createContext, forwardRef, useCallback, useContext, useRef } from 'react';
+import { createContext, forwardRef, useCallback, useContext, useEffect, useRef } from 'react';
 import {
+  Dimensions,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { useKeyboardOverlap } from '../lib/use-keyboard-overlap';
+
 /**
  * A ScrollView that keeps the focused field above the keyboard.
  *
@@ -20,14 +24,20 @@ import {
  * keyboard, so the only way through was to dismiss it, and dismissing it is
  * what people do when they think the app is broken.
  *
- * The work is in two halves, and both are needed:
+ * Everything here is decided from the keyboard's own frame, in window
+ * coordinates, rather than from whether some ancestor has resized. Both used
+ * to be true at once — the shell shrank and this scrolled — and the two had to
+ * agree: on a screen with no shell (anything pushed onto the root stack), or
+ * before the shell's resize had been laid out, the measurement said the field
+ * was already visible and nothing moved. That is the bug people kept
+ * reporting as "the password field hides behind the keyboard".
  *
- * - Making room is the *shell's* job. The tab layout and AuthShell are each
- *   given the height the keyboard leaves behind, so this view already ends
- *   above it. iOS's `automaticallyAdjustKeyboardInsets` is deliberately not
- *   used: with the shell shrinking as well, the same compensation applied
- *   twice and a short form gained a keyboard's worth of empty scroll.
- * - Bringing the field *into* that room is this component's job, below.
+ * So: this view measures where it actually ends, measures where the keyboard
+ * actually starts, and works to whichever is higher. If a shell has already
+ * made room, the overlap is zero and nothing is counted twice. If nothing has,
+ * the padding below makes the room and the scroll uses it. iOS's
+ * `automaticallyAdjustKeyboardInsets` stays off for the same reason it always
+ * was — it is the third party to an agreement that only needs two.
  *
  * `keyboardShouldPersistTaps="handled"` is not incidental. Without it the first
  * tap on a button while the keyboard is open is swallowed to dismiss it, and a
@@ -74,20 +84,62 @@ export const KeyboardSafeScrollView = forwardRef<ScrollView, KeyboardSafeScrollV
     /** The scroll view's own frame, measured through a plain host View. */
     const host = useRef<View | null>(null);
     const offset = useRef(0);
+    /**
+     * Where the top of the keyboard is, in window coordinates.
+     *
+     * Kept here as well as inside the hook because `ensureVisible` runs from a
+     * focus handler and needs the value as it is at that instant, not the one
+     * captured when the callback was last built.
+     */
+    const keyboardTop = useRef(Number.POSITIVE_INFINITY);
+    /**
+     * How much of this view the keyboard covers that nothing else has taken.
+     *
+     * `sync` is wired to the host's own `onLayout` below: shells that make
+     * room resize in answer to the same keyboard event this hook listens to,
+     * so the first measurement is always of the old frame. Re-asking once the
+     * frame has changed is what keeps a shrinking shell and this padding from
+     * both making room for the same keyboard.
+     */
+    const { overlap: covered, sync: syncOverlap } = useKeyboardOverlap(host);
 
-    // A constant, not the keyboard's height: that space is already accounted
-    // for by the shell on iOS, and by the OS on Android where the window is
-    // resized (`softwareKeyboardLayoutMode: 'resize'`). Counting it twice gave
-    // the content a whole keyboard of empty scroll to drag through.
-    const pad: StyleProp<ViewStyle> = { paddingBottom: extraBottomSpace };
+    useEffect(() => {
+      const isIos = Platform.OS === 'ios';
+      const show = Keyboard.addListener(
+        isIos ? 'keyboardWillChangeFrame' : 'keyboardDidShow',
+        (event) => {
+          keyboardTop.current = event.endCoordinates?.screenY ?? Dimensions.get('window').height;
+        },
+      );
+      const hide = Keyboard.addListener(isIos ? 'keyboardWillHide' : 'keyboardDidHide', () => {
+        keyboardTop.current = Number.POSITIVE_INFINITY;
+      });
+      return () => {
+        show.remove();
+        hide.remove();
+      };
+    }, []);
+
+    // `covered` is 0 whenever an ancestor has already made the room — which is
+    // the usual case inside the tab shell — so this never double-counts. It is
+    // the whole keyboard on a screen that has no shell above it.
+    const pad: StyleProp<ViewStyle> = { paddingBottom: extraBottomSpace + covered };
+
+    // Nothing may fire after unmount: a stray scroll on a released view is a
+    // crash on the old architecture and a warning on this one.
+    const pending = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+    useEffect(
+      () => () => {
+        pending.current.forEach(clearTimeout);
+      },
+      [],
+    );
 
     const ensureVisible = useCallback<EnsureVisible>(
       (target) => {
         if (!target) return;
-        // Next frame: focusing raises the keyboard, which resizes the shell.
-        // Measuring before that lands compares against the old height and
-        // decides, wrongly, that the field is already visible.
-        requestAnimationFrame(() => {
+
+        const attempt = () => {
           const wrapper = host.current;
           if (!wrapper) return;
 
@@ -98,20 +150,37 @@ export const KeyboardSafeScrollView = forwardRef<ScrollView, KeyboardSafeScrollV
           // failed silently and the field stayed behind the keyboard.
           wrapper.measureInWindow((_wx, wy, _ww, wh) => {
             target.measureInWindow((_tx, ty, _tw, th) => {
-              const hidden = ty + th + extraBottomSpace - (wy + wh);
+              // Whichever comes first: the bottom of this view, or the top of
+              // the keyboard. Trusting only the first is what left the field
+              // hidden on screens where nothing shrinks.
+              const limit = Math.min(wy + wh, keyboardTop.current);
+              const hidden = ty + th + extraBottomSpace - limit;
               if (hidden > 0) {
                 scroller.current?.scrollTo({ y: offset.current + hidden, animated: true });
               }
             });
           });
-        });
+        };
+
+        // Focusing and the keyboard arriving are separate events, and which
+        // lands first is not ours to decide. Measuring once was a coin toss:
+        // too early and the keyboard has no frame yet, so nothing looks
+        // hidden. These three cover the frame the focus lands on, the middle
+        // of the keyboard animation, and the end of it — and each only
+        // scrolls if the field is still covered, so the extra passes cost
+        // nothing once it is not.
+        requestAnimationFrame(attempt);
+        const soon = setTimeout(attempt, 160);
+        const settled = setTimeout(attempt, 380);
+        pending.current.push(soon, settled);
       },
       [extraBottomSpace],
     );
 
+
     return (
       <ScrollIntoViewContext.Provider value={ensureVisible}>
-        <View ref={host} style={styles.fill} collapsable={false}>
+        <View ref={host} onLayout={syncOverlap} style={styles.fill} collapsable={false}>
           <ScrollView
             ref={(instance) => {
               scroller.current = instance;

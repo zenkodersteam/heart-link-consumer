@@ -27,6 +27,13 @@ import { auth, colors, fonts, radii, spacing, themedStyles, type } from '../them
 
 const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
 
+/** How far the form sheet rides up over whatever is above it. */
+const SHEET_LIP = 20;
+/** The slim brand bar's height, fixed so it can be animated away. */
+const SLIM_BAR_HEIGHT = 60;
+/** Long enough to read as the art stepping aside, short enough to keep up. */
+const CROWN_MS = 220;
+
 
 function useReduceMotion() {
   return useMemo(() => {
@@ -204,6 +211,35 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
   const isDesktop = width >= 900;
   const reduce = useReduceMotion() || !!staticEntrance;
 
+  /**
+   * The artwork stands down while someone is typing.
+   *
+   * It is a welcome, not a fixture, and once the keyboard is up it is the one
+   * thing on screen that can be given up. Keeping it cost a third of the phone
+   * on every auth screen: on sign-up that left the password and confirm fields
+   * below the keyboard with the form pinned in place, so the field being typed
+   * into could not be seen at all. Collapsing it hands that third to the form,
+   * which is enough for the whole of it to sit above the keyboard.
+   *
+   * It collapses to `SHEET_LIP` rather than to nothing: the sheet is pulled up
+   * by exactly that much, so stopping there leaves its rounded top flush with
+   * the safe area instead of sliding under the status bar.
+   */
+  const crown = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(crown, {
+      toValue: keyboard.visible ? 1 : 0,
+      duration: reduce ? 0 : CROWN_MS,
+      // Height is a layout property; the native driver cannot carry it.
+      useNativeDriver: false,
+    }).start();
+  }, [keyboard.visible, crown, reduce]);
+
+  const crownHeight = crown.interpolate({
+    inputRange: [0, 1],
+    outputRange: [minimal ? SLIM_BAR_HEIGHT : artHeight, SHEET_LIP],
+  });
+
   // Gentle mount entrance: art panel rises first (desktop only), then the form.
   const heroReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
   const formReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
@@ -286,17 +322,28 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
       {...(onBack ? edgeSwipe.panHandlers : null)}
       style={[
         styles.rootMobile,
-        keyboard.overlap > 0 ? { height: windowHeight - keyboard.overlap } : null,
+        // `flex: 0` is load-bearing, not tidying. `rootMobile` is `flex: 1`,
+        // which Yoga reads as `flexBasis: 0%` plus `flexGrow: 1` — and on the
+        // main axis that beats an explicit `height` outright. So the shell
+        // went on filling the window under the keyboard however small a height
+        // was asked for here, which is why the sheet kept running underneath
+        // it. `flex: 0` gives back `flexBasis: auto`, and the height takes.
+        keyboard.overlap > 0 ? { flex: 0, height: windowHeight - keyboard.overlap } : null,
       ]}
     >
       <SafeAreaView style={styles.flex} edges={['top']}>
-        {minimal ? (
-          <View style={styles.slimBar}>
-            <Brand size={20} />
-          </View>
-        ) : (
-          <ArtPanel mobile height={artHeight} />
-        )}
+        {/* Clipped, not squashed: the panel keeps its own height inside and
+            this window closes over it, so the artwork slides away rather than
+            distorting on its way out. */}
+        <Animated.View style={[styles.crown, { height: crownHeight }]}>
+          {minimal ? (
+            <View style={styles.slimBar}>
+              <Brand size={20} />
+            </View>
+          ) : (
+            <ArtPanel mobile height={artHeight} />
+          )}
+        </Animated.View>
         <Animated.View style={[styles.sheet, revealStyle(formReveal)]}>
           {/*
             Was a KeyboardAvoidingView with behavior="padding" on iOS and
@@ -363,7 +410,8 @@ const styles = themedStyles((colors) => ({
   split: { flex: 1, flexDirection: 'row' },
   artCol: { flex: 1.15, minWidth: 0 },
   artDesktop: { flex: 1, overflow: 'hidden' },
-  slimBar: { paddingHorizontal: 22, paddingTop: 10, paddingBottom: 26 },
+  crown: { overflow: 'hidden' },
+  slimBar: { height: SLIM_BAR_HEIGHT, paddingHorizontal: 22, paddingTop: 10 },
   artMobile: { height: auth.mobileArtHeight, overflow: 'hidden' },
   statementGold: { color: colors.goldBright },
   formCol: { flex: 1, backgroundColor: colors.bgElevated },
@@ -374,7 +422,7 @@ const styles = themedStyles((colors) => ({
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    marginTop: -20,
+    marginTop: -SHEET_LIP,
   },
   scrollMobile: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 26 },
   stickyHead: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: spacing.md },

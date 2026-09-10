@@ -156,7 +156,7 @@ export function ChangePassword() {
           shown={confirmShown}
           onToggleShown={() => setConfirmShown((shown) => !shown)}
           error={errors.confirmPassword}
-          placeholder="Type it again"
+          placeholder="Confirm password"
           autoComplete="new-password"
         />
 

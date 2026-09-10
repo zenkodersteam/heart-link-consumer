@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   Linking,
@@ -26,6 +25,7 @@ import type {
   PublicProfileDetail,
 } from '@heartlink/consumer-api';
 import { stateName } from '@heartlink/consumer-api';
+import { useKeyboardOverlap } from '../../lib/use-keyboard-overlap';
 import { useRefresh } from '../../lib/use-refresh';
 import { haptics } from '../../lib/haptics';
 import { useApiClientFactory } from '../../lib/use-api-client';
@@ -617,7 +617,7 @@ export default function MailboxScreen() {
           <Feather name="mail" size={28} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>No letters yet</Text>
           <Text style={styles.emptyBody}>Find someone on the browse screen and tap Message to write your first letter.</Text>
-          <Pressable onPress={() => navigation.navigate('Tabs')} style={styles.emptyBtn}>
+          <Pressable onPress={() => navigation.navigate('Tabs', { screen: 'Home' })} style={styles.emptyBtn}>
             <Text style={styles.emptyBtnText}>Browse profiles</Text>
           </Pressable>
         </View>
@@ -744,7 +744,7 @@ export default function MailboxScreen() {
         <View style={styles.listCol}>
           <View style={styles.listColTop}>
             <Pressable
-              onPress={() => navigation.navigate('Tabs')}
+              onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
               style={({ pressed }: { pressed: boolean }) => [
                 styles.composeBtn,
                 pressed ? { transform: [{ scale: 0.98 }] } : null,
@@ -800,7 +800,7 @@ export default function MailboxScreen() {
               title="Your first letter starts here"
               body="Choose a letter to read it, or write one. We print and mail it for you, and scan their reply right back to this mailbox."
               ctaLabel="Write a letter"
-              onPress={() => navigation.navigate('Tabs')}
+              onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
             />
           )}
         </View>
@@ -879,7 +879,7 @@ export default function MailboxScreen() {
         </View>
         <Pressable
           hitSlop={8}
-          onPress={() => navigation.navigate('Tabs')}
+          onPress={() => navigation.navigate('Tabs', { screen: 'Home' })}
           style={({ pressed }: { pressed: boolean }) => [styles.composeFab, pressed ? { transform: [{ scale: 0.94 }] } : null]}
         >
           <Feather name="edit-3" size={18} color={colors.onPrimary} />
@@ -924,9 +924,20 @@ export default function MailboxScreen() {
         />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
+      {/*
+        A plain box that fills what is left, not a ScrollView.
+
+        The list inside this is a FlashList, and a virtualised list handed an
+        unbounded height has no window to virtualise against: it measures the
+        space it has as nothing, decides no row is on screen, and draws none of
+        them. That is the whole of "the mailbox is empty" — the letters were
+        loaded and the list was mounted, with nowhere to put them. It scrolls
+        itself, as it always meant to; all it needed was to be told how tall it
+        is.
+      */}
+      <View style={styles.threadListFill}>
         <ThreadList onPick={openThread} flush />
-      </ScrollView>
+      </View>
 
       {!profileApproved && myProfile ? (
         <ProfileReviewOverlay
@@ -1004,6 +1015,8 @@ function ThreadView({
   const menuBtnRef = useRef<View | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
   const messagesRef = useRef<FlashList<MailboxMessage>>(null);
+  const paneRef = useRef<View | null>(null);
+  const { overlap: keyboardRoom, sync: syncKeyboardRoom } = useKeyboardOverlap(paneRef);
   /**
    * The thread, newest first, for the inverted list.
    *
@@ -1035,10 +1048,28 @@ function ThreadView({
   }
 
   return (
-    // A plain View: the tab shell now gives back the height the keyboard takes,
-    // so the reply box is already above it. A KeyboardAvoidingView here would
-    // measure the same space a second time and lift the thread twice.
-    <View style={[styles.readInner, flush ? styles.readInnerFlush : null]}>
+    // A plain View rather than a KeyboardAvoidingView, but not a trusting one.
+    // The tab shell gives back the height the keyboard takes, so usually there
+    // is nothing to do here — `keyboardRoom` measures that and comes back 0.
+    // Where the shell has not made the room, which is every Android build now
+    // that edge-to-edge stopped the window being resized, this is what keeps
+    // the reply box above the keyboard instead of behind it. It cannot double
+    // up: it is the gap between where this view ends and where the keyboard
+    // begins, so once that gap is closed it is zero.
+    <View
+      ref={paneRef}
+      // Re-measured whenever this pane's frame changes: the shell shrinks in
+      // answer to the same keyboard event, so the first measurement is always
+      // of the old frame and would leave this padding making room a second
+      // time. `readInner` is `flex: 1`, so the padding below cannot move the
+      // frame that is measured — no loop.
+      onLayout={syncKeyboardRoom}
+      style={[
+        styles.readInner,
+        flush ? styles.readInnerFlush : null,
+        keyboardRoom > 0 ? { paddingBottom: keyboardRoom } : null,
+      ]}
+    >
       {/* Who this is, and the way out of the thread — the shape the client
           screens draw: portrait, name over a line of detail, overflow on the
           far right. Tapping the person opens their profile, which is where
@@ -1321,6 +1352,8 @@ function ComposePane({
   const [body, setBody] = useState(() => draftFor(target.profileId));
   const [sending, setSending] = useState(false);
   const [saved, setSaved] = useState(false);
+  const paneRef = useRef<View | null>(null);
+  const { overlap: keyboardRoom, sync: syncKeyboardRoom } = useKeyboardOverlap(paneRef);
   const overLimit = limit?.wordLimit != null && countWords(body) > limit.wordLimit;
 
   // "Saved" appears once the typing stops, not on every keystroke - a label
@@ -1357,9 +1390,14 @@ function ComposePane({
   }
 
   return (
-    // As in ThreadView: the shell has already made room for the keyboard, so
-    // this is a plain View rather than a second layer of avoidance.
-    <View style={styles.readInner}>
+    // As in ThreadView: usually the shell has already made room and this
+    // measures 0, and where it has not this is what keeps the sheet and its
+    // Send button off the keyboard.
+    <View
+      ref={paneRef}
+      onLayout={syncKeyboardRoom}
+      style={[styles.readInner, keyboardRoom > 0 ? { paddingBottom: keyboardRoom } : null]}
+    >
       <View style={styles.readHeader}>
         <View style={styles.readSender}>
           <Avatar name={target.name} size={40} />

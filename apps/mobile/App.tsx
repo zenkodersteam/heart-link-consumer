@@ -47,6 +47,9 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
  */
 let lastNavigationState: NavigationState | undefined;
 
+/** Launch artwork is fetched once per process, not once per theme. */
+let artworkReady = false;
+
 
 /**
  * Registers this device for notifications once someone is signed in, and sends
@@ -106,12 +109,18 @@ function AppShell() {
   // The in-app splash cannot cover the swap until it has the artwork, so the
   // native one is held for that as well as for the fonts. A failed fetch still
   // releases: a plain cream screen beats a launch that never finishes.
-  const [artworkLoaded, setArtworkLoaded] = useState(false);
+  //
+  // Seeded from module scope, because a theme change remounts this component:
+  // starting again at `false` made a running app go "not ready" for a beat and
+  // re-run a download that had already finished.
+  const [artworkLoaded, setArtworkLoaded] = useState(artworkReady);
   useEffect(() => {
+    if (artworkReady) return undefined;
     let live = true;
     preloadBrandSplash()
       .catch(() => undefined)
       .finally(() => {
+        artworkReady = true;
         if (live) setArtworkLoaded(true);
       });
     return () => {
