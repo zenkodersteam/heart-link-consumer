@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii, shell } from '../theme';
+import { colors, fonts, radii, shell, themedStyles } from '../theme';
 
 /**
  * Shared UI-lift profile pieces: Hinge-style vitals strip, gold gradient
@@ -54,10 +54,8 @@ export function SectionHeader({ label }: { label: string }) {
 export function BChip({ label, icon }: { label: string; icon?: keyof typeof Feather.glyphMap }) {
   return (
     <Pressable
-      style={({ hovered }: { hovered?: boolean }) => [
+      style={() => [
         bc.chip,
-        webHover,
-        hovered ? bc.chipHover : null,
       ]}
     >
       {icon ? <Feather name={icon} size={14} color={colors.gold} /> : null}
@@ -82,10 +80,8 @@ export function SRow({
 }) {
   return (
     <Pressable
-      style={({ hovered }: { hovered?: boolean }) => [
+      style={() => [
         sr.row,
-        webHover,
-        hovered ? sr.rowHover : null,
       ]}
     >
       <Feather name={icon} size={16} color={colors.gold} />
@@ -95,15 +91,7 @@ export function SRow({
   );
 }
 
-const webHover =
-  Platform.OS === 'web'
-    ? ({
-        transitionProperty: 'transform, box-shadow, border-color, background-color',
-        transitionDuration: '150ms',
-      } as object)
-    : null;
-
-const vs = StyleSheet.create({
+const vs = themedStyles((colors) => ({
   strip: {
     flexDirection: 'row',
     marginTop: 16,
@@ -111,10 +99,7 @@ const vs = StyleSheet.create({
     borderColor: 'rgba(214,168,79,0.35)',
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#FFFDFA',
-    ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(180deg, #FFFDFA, #FBF4EC)' } as object,
-    }),
+    backgroundColor: colors.bgCard,
   },
   cell: { flex: 1, alignItems: 'center', gap: 5, paddingVertical: 12, paddingHorizontal: 6 },
   cellDivider: { borderLeftWidth: 1, borderLeftColor: 'rgba(214,168,79,0.25)' },
@@ -130,38 +115,24 @@ const vs = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
-});
+}));
 
-const ps = StyleSheet.create({
+const ps = themedStyles((colors) => ({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 26, marginBottom: 10 },
   label: {
     fontFamily: fonts.bodyBold,
     fontSize: 11.5,
     letterSpacing: 2,
     color: colors.gold,
-    ...Platform.select({
-      web: {
-        backgroundImage: shell.goldTextGradientCss,
-        WebkitBackgroundClip: 'text',
-        backgroundClip: 'text',
-        color: 'transparent',
-      } as object,
-    }),
   },
   rule: {
     flex: 1,
     height: 1,
     backgroundColor: 'rgba(214,168,79,0.4)',
-    ...Platform.select({
-      web: {
-        backgroundColor: 'transparent',
-        backgroundImage: 'linear-gradient(90deg, rgba(214,168,79,0.4), transparent)',
-      } as object,
-    }),
   },
-});
+}));
 
-const bc = StyleSheet.create({
+const bc = themedStyles((colors) => ({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     flexDirection: 'row',
@@ -174,15 +145,10 @@ const bc = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 13,
   },
-  chipHover: {
-    borderColor: colors.goldBright,
-    transform: [{ translateY: -1 }],
-    boxShadow: '0 4px 12px rgba(214,168,79,0.25)',
-  },
   text: { fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.textPrimary },
-});
+}));
 
-const sr = StyleSheet.create({
+const sr = themedStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -192,7 +158,6 @@ const sr = StyleSheet.create({
     borderTopColor: colors.border,
     flexWrap: 'wrap',
   },
-  rowHover: { backgroundColor: 'rgba(214,168,79,0.05)' },
   label: { fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary },
   value: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.textPrimary, marginLeft: 4 },
-});
+}));

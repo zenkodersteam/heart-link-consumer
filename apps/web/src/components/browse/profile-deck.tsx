@@ -106,7 +106,11 @@ export function ProfileDeck({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative flex w-full items-center justify-center gap-3">
+      {/* The gap has to clear the fanned cards behind the top one, which are
+          nudged to the right — with a small gap the right arrow landed on top
+          of them while the left one sat clear of the card, which is the
+          lopsided look people kept reporting. */}
+      <div className="relative flex w-full items-center justify-center gap-10">
         {/* Browsing, not deciding. These used to pass and like, so stepping
             through the deck to see who was there silently threw people away —
             a chevron reads as "show me the next one", and that is now what it

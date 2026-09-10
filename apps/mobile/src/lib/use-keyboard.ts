@@ -33,8 +33,6 @@ export function useKeyboard(): KeyboardState {
   const [state, setState] = useState<KeyboardState>({ overlap: 0, visible: false });
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-
     const isIos = Platform.OS === 'ios';
 
     const showEvent = isIos ? 'keyboardWillChangeFrame' : 'keyboardDidShow';

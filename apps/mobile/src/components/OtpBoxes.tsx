@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, fonts, radii, spacing } from '../theme';
+import { colors, fonts, radii, spacing, themedStyles } from '../theme';
 
 const LENGTH = 6;
 
@@ -121,7 +121,7 @@ export function OtpBoxes({
 const BOX_WIDTH = 46;
 const BOX_HEIGHT = 56;
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: { position: 'relative', alignSelf: 'stretch', marginBottom: spacing.md },
   row: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
   box: {
@@ -149,4 +149,4 @@ const styles = StyleSheet.create({
     // Android's autofill, and the whole row should be tappable.
     color: 'transparent',
   },
-});
+}));

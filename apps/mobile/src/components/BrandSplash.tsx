@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet } from 'react-native';
 
-import { colors } from '../theme';
+import { colors, themedStyles } from '../theme';
 
 const ARTWORK = require('../../assets/heartlink-splash.png');
 
@@ -26,7 +26,6 @@ export function preloadBrandSplash() {
 const HOLD_MS = Platform.OS === 'android' ? 700 : 300;
 const FADE_MS = 320;
 
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 /**
  * The launch artwork, drawn by the app rather than the platform.
@@ -52,7 +51,7 @@ export function BrandSplash({ release }: { release: boolean }) {
       Animated.timing(opacity, {
         toValue: 0,
         duration: FADE_MS,
-        useNativeDriver: USE_NATIVE_DRIVER,
+        useNativeDriver: true,
       }).start(({ finished }) => {
         // Unmount only on a real finish: an interrupted animation leaves the
         // overlay part-faded, and dropping it then would flash the app in.
@@ -81,8 +80,8 @@ export function BrandSplash({ release }: { release: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   // The artwork's own ground, the splash background and the first screen are
   // all this colour, so the fit leaves no visible band.
   ground: { backgroundColor: colors.bgDeep },
-});
+}));

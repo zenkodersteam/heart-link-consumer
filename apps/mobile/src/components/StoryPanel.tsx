@@ -1,10 +1,12 @@
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { formatReleaseMonth, parsePrefs, stateName } from '@heartlink/consumer-api';
 import { usePublicProfile } from '../lib/use-public-profiles';
-import { colors, fonts, spacing } from '../theme';
+import type { RootNavigation } from '../navigations/types';
+
+import { colors, fonts, spacing, themedStyles } from '../theme';
 import { BChip, ChipRow, SRow, VitalsStrip } from './profile-bits';
 import { Button } from './primitives';
 
@@ -16,7 +18,7 @@ import { Button } from './primitives';
  * "Write a letter".
  */
 export function StoryPanel({ profile, canWrite }: { profile: PublicProfileSummary; canWrite?: boolean }) {
-  const router = useRouter();
+  const navigation = useNavigation<RootNavigation>();
   const detail = usePublicProfile(profile.id).data;
   const prefs = parsePrefs(detail?.matchPreferences);
 
@@ -75,7 +77,7 @@ export function StoryPanel({ profile, canWrite }: { profile: PublicProfileSummar
             label="View full profile"
             variant="secondary"
             style={styles.mbtnInner}
-            onPress={() => router.push(`/(tabs)/profile?id=${profile.id}`)}
+            onPress={() => navigation.navigate('Profile', { id: profile.id })}
           />
         </View>
         <View style={styles.mbtn}>
@@ -84,7 +86,7 @@ export function StoryPanel({ profile, canWrite }: { profile: PublicProfileSummar
             style={styles.mbtnInner}
             disabled={!canWrite}
             onPress={() =>
-              router.push(`/mailbox?compose=${profile.id}&name=${encodeURIComponent(profile.displayName)}`)
+              navigation.navigate('Tabs', { screen: 'Mailbox', params: { compose: profile.id, name: profile.displayName } })
             }
           />
         </View>
@@ -93,7 +95,7 @@ export function StoryPanel({ profile, canWrite }: { profile: PublicProfileSummar
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   // Shrinkable at narrow desktop widths so the browse columns never clip.
   // Height mirrors ProfileDeck's desktop column: 520px card row + 16px gap +
   // action row. The panel stretches down from the same y-origin as the deck,
@@ -125,4 +127,4 @@ const styles = StyleSheet.create({
   mbar: { flexDirection: 'row', gap: 10 },
   mbtn: { flex: 1 },
   mbtnInner: { paddingHorizontal: spacing.sm, paddingVertical: 12 },
-});
+}));

@@ -4,7 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, fonts } from '../theme';
+import { SkeletonImage } from './SkeletonImage';
+import { colors, fonts, themedStyles } from '../theme';
 
 /**
  * A profile photo, or a branded stand-in when there isn't one.
@@ -91,20 +92,28 @@ export function ProfilePhoto({ uri, name, style, priority = 'normal', compact, s
     return <PhotoPlaceholder name={name} style={style} compact={compact} showCaption={showCaption} />;
 
   return (
-    <Image
+    // A shimmer holds the frame until the photo lands. Every profile photo in
+    // the app comes through here, so this is the one place that has to know.
+    <SkeletonImage
       source={{ uri }}
-      style={[styles.fill, style] as StyleProp<ImageStyle>}
+      style={[styles.fill, style] as StyleProp<ViewStyle>}
       contentFit="cover"
-      // No cross-fade: the photo should just be there.
+      // No cross-fade on the image itself: the skeleton underneath is what
+      // fades, and two fades over each other reads as a stutter.
       transition={0}
       cachePolicy="memory-disk"
       priority={priority}
+      // The photo's identity, for the recycler. Rows in a virtualized list are
+      // reused as they scroll, and without this the incoming person is drawn
+      // for a frame in the outgoing person's photo - the one recycling bug
+      // that is unmistakable on a screen full of faces.
+      recyclingKey={uri}
       onError={() => setFailed(true)}
     />
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   fill: { width: '100%', height: '100%' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 14 },
   ring: {
@@ -122,4 +131,4 @@ const styles = StyleSheet.create({
   initialCompact: { fontSize: 15 },
   captionRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   caption: { fontFamily: fonts.body, fontSize: 12, color: colors.sidebarTextMuted },
-});
+}));

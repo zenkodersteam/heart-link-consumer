@@ -9,13 +9,9 @@ import { Animated, Easing, Platform, StyleSheet, View } from 'react-native';
  * filled, non-interactive, and respects reduced motion.
  */
 
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 function useReduceMotion() {
   return useMemo(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }
     return false;
   }, []);
 }
@@ -67,16 +63,16 @@ export function BrandDecor() {
     const drift = drivers.map((v, i) =>
       Animated.loop(
         Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: DRIFT_DURATIONS[i], easing: Easing.inOut(Easing.sin), useNativeDriver: USE_NATIVE_DRIVER }),
-          Animated.timing(v, { toValue: 0, duration: DRIFT_DURATIONS[i], easing: Easing.inOut(Easing.sin), useNativeDriver: USE_NATIVE_DRIVER }),
+          Animated.timing(v, { toValue: 1, duration: DRIFT_DURATIONS[i], easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0, duration: DRIFT_DURATIONS[i], easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
       ),
     );
     const twinkle = (v: Animated.Value, up: number, dn: number) =>
       Animated.loop(
         Animated.sequence([
-          Animated.timing(v, { toValue: 1, duration: up, easing: Easing.inOut(Easing.quad), useNativeDriver: USE_NATIVE_DRIVER }),
-          Animated.timing(v, { toValue: 0.3, duration: dn, easing: Easing.inOut(Easing.quad), useNativeDriver: USE_NATIVE_DRIVER }),
+          Animated.timing(v, { toValue: 1, duration: up, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0.3, duration: dn, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
         ]),
       );
     const loops = [...drift, twinkle(tA, 1500, 1500), twinkle(tB, 2100, 1800)];

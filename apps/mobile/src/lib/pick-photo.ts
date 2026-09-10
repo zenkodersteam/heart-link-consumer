@@ -1,4 +1,3 @@
-import { PHOTO_ACCEPT } from '@heartlink/domain';
 import type { UploadPart } from '@heartlink/consumer-api';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -28,22 +27,6 @@ function mimeFromName(name: string): string {
   if (ext === 'webp') return 'image/webp';
   if (ext === 'heic' || ext === 'heif') return 'image/heic';
   return 'image/jpeg';
-}
-
-/** Hidden file input, the only way to reach the file system on web. */
-export function pickWebImage(): Promise<PickedPhoto | null> {
-  if (typeof document === 'undefined') return Promise.resolve(null);
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = PHOTO_ACCEPT;
-    input.onchange = () => {
-      const f = input.files?.[0];
-      resolve(f ? { part: f, name: f.name } : null);
-    };
-    input.oncancel = () => resolve(null);
-    input.click();
-  });
 }
 
 /**
@@ -93,7 +76,9 @@ export async function pickNativeImage(source: 'library' | 'camera'): Promise<Pic
   };
 }
 
-/** The right picker for the platform, so callers do not branch themselves. */
-export function pickPhoto(source: 'web' | 'library' | 'camera'): Promise<PickedPhoto | null> {
-  return source === 'web' ? pickWebImage() : pickNativeImage(source);
+/** Where the photo comes from. Both are the phone's own pickers. */
+export type PhotoSource = 'library' | 'camera';
+
+export function pickPhoto(source: PhotoSource): Promise<PickedPhoto | null> {
+  return pickNativeImage(source);
 }

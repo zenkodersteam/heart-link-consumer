@@ -87,4 +87,72 @@ export const colors = {
   overlay: 'rgba(26, 8, 51, 0.45)',
 } as const;
 
-export type Colors = typeof colors;
+/**
+ * The palette's shape, widened to `string`.
+ *
+ * `typeof colors` on an `as const` object types every entry as its own literal
+ * hex, which is right for reading a token and useless for writing a second
+ * palette - a dark value would have to equal the light one to typecheck.
+ */
+export type Colors = { [K in keyof typeof colors]: string };
+
+/**
+ * The same brand after dark.
+ *
+ * Designed, not inverted. Three rules held throughout:
+ *
+ * 1. The ground is aubergine, never grey or black. HeartLink's dark surfaces
+ *    already exist - the navigation rail and every photo scrim are midnight
+ *    purple - so night mode is the rest of the app joining them rather than a
+ *    second visual language.
+ * 2. Depth comes from lighter surfaces, not shadow. A shadow on a dark ground
+ *    is invisible, so a card lifts by being a step paler than the page.
+ * 3. The pink is brightened until it works twice: legible as text on the dark
+ *    ground, and still able to carry white text when it is a filled button.
+ *    #DB0252 fails both at night - it disappears into the ground and it is too
+ *    dark to read a label on.
+ */
+export const darkColors: Colors = {
+  // Page, cards, inset fills. Each step is a lift of roughly the same amount,
+  // so three levels of surface stay tellable apart without a border.
+  bgDeep: '#140720',
+  bgElevated: '#1F0E2E',
+  bgCard: '#1F0E2E',
+  surfaceMuted: '#2A1440',
+  surfaceCanvas: '#0F0518',
+
+  // The rail keeps its own identity: it was already the dark surface in the
+  // light theme, so at night it lifts slightly rather than changing character.
+  sidebar: '#1F0E2E',
+  sidebarElevated: '#2A1440',
+  sidebarText: '#F6EEF7',
+  sidebarTextMuted: '#C3AED6',
+
+  // Warm off-white, not #FFF: pure white on a saturated purple ground buzzes,
+  // and the cream is where this brand's light text comes from anyway.
+  textPrimary: '#F6EEF7',
+  textSecondary: '#C3AED6',
+  textMuted: '#9A85B0',
+
+  primary: '#F0356F',
+  primaryHover: '#FF6DA0',
+  primaryFaint: 'rgba(240, 53, 111, 0.16)',
+  onPrimary: '#FFFFFF',
+
+  gold: '#E0B768',
+  goldBright: '#EFCE8E',
+  goldFaint: 'rgba(224, 183, 104, 0.14)',
+
+  midnight: '#0C0313',
+  // Photos need less help at night - the page is already dark, so a heavy tint
+  // only makes them muddy.
+  photoTint: 'rgba(0, 0, 0, 0.18)',
+  scrimStrong: 'rgba(8, 2, 14, 0.90)',
+
+  success: '#56C08D',
+  danger: '#FF6B72',
+
+  border: 'rgba(246, 238, 247, 0.12)',
+  borderStrong: 'rgba(246, 238, 247, 0.22)',
+  overlay: 'rgba(6, 1, 10, 0.62)',
+};

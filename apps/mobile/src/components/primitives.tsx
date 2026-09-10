@@ -2,7 +2,6 @@ import { Feather } from '@expo/vector-icons';
 import { ReactNode, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   PressableProps,
   StyleSheet,
@@ -13,36 +12,36 @@ import {
   ViewProps,
 } from 'react-native';
 
-import { colors, cta, radii, spacing, type } from '../theme';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
+import { haptics } from '../lib/haptics';
+import { PRESS_SCALE, duration, easing, spring } from '../lib/motion';
+import { colors, cta, radii, spacing, themedStyles, type } from '../theme';
 import { useScrollFieldIntoView } from './KeyboardSafeScrollView';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 /**
- * Cross-platform elevation. `boxShadow` is a web-only CSS property, so shadows
- * declared with it alone render on web and vanish on device — which is why the
- * native build read flat next to the web build.
+ * A shadow that both platforms draw.
+ *
+ * iOS reads `shadow*`, Android reads `elevation`, and setting one without the
+ * other is how a card ends up flat on half the devices it runs on.
  */
 function elevation(y: number, blur: number, opacity: number, color = colors.midnight) {
-  return Platform.select({
-    web: { boxShadow: `0 ${y}px ${blur}px rgba(22, 5, 31, ${opacity})` } as object,
-    default: {
-      shadowColor: color,
-      shadowOpacity: opacity,
-      shadowRadius: blur / 2,
-      shadowOffset: { width: 0, height: y },
-      elevation: Math.round(y * 1.5),
-    },
-  });
+  return {
+    shadowColor: color,
+    shadowOpacity: opacity,
+    shadowRadius: blur / 2,
+    shadowOffset: { width: 0, height: y },
+    elevation: Math.round(y * 1.5),
+  };
 }
-
-// RN Web honors CSS transitions via inline style; native ignores these keys,
-// so guard so we don't trip RN's style validation on iOS/Android.
-const webTransition: Record<string, unknown> | null =
-  Platform.OS === 'web'
-    ? {
-        transitionProperty: 'opacity, transform, background-color, border-color',
-        transitionDuration: '150ms',
-      }
-    : null;
 
 interface FieldProps extends TextInputProps {
   label: string;
@@ -84,7 +83,6 @@ export function Field({
           style={[
             fieldStyles.input,
             revealable ? fieldStyles.inputWithAction : null,
-            webTransition,
             focused ? fieldStyles.inputFocused : null,
             error ? fieldStyles.inputError : null,
             style,
@@ -127,7 +125,7 @@ export function Field({
   );
 }
 
-const fieldStyles = StyleSheet.create({
+const fieldStyles = themedStyles((colors) => ({
   wrapper: { gap: spacing.xs },
   label: { ...type.label, textTransform: 'uppercase', letterSpacing: 0.6 },
   input: {
@@ -153,7 +151,7 @@ const fieldStyles = StyleSheet.create({
   inputFocused: { borderColor: colors.primary },
   inputError: { borderColor: colors.danger },
   errorText: { ...type.caption, color: colors.danger },
-});
+}));
 
 interface ButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
@@ -163,36 +161,62 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
   pill?: boolean;
 }
 
-export function Button({ label, variant = 'primary', loading, disabled, icon, pill, style, ...rest }: ButtonProps) {
+/**
+ * The app's button.
+ *
+ * The dip on press is a spring rather than a style swap: a button that jumps
+ * to 0.98 and back reads as a redraw, and one that settles reads as a surface
+ * being pushed. Every press also carries a haptic, chosen by variant - a
+ * primary action is a commit, a secondary one is a selection - so the whole
+ * app answers a finger the same way without each screen deciding.
+ */
+export function Button({ label, variant = 'primary', loading, disabled, icon, pill, style, onPress, ...rest }: ButtonProps) {
   const isDisabled = disabled || loading;
   const v = btnVariant[variant];
   const isPrimary = variant === 'primary';
+  const press = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+
+  const animated = useAnimatedStyle(() => ({
+    transform: [{ scale: reduceMotion ? 1 : 1 - press.value * (1 - PRESS_SCALE) }],
+    opacity: 1 - press.value * 0.06,
+  }));
+
   return (
-    <Pressable
+    <AnimatedPressable
       disabled={isDisabled}
-      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: !!loading }}
+      onPressIn={() => {
+        press.value = withTiming(1, { duration: duration.instant, easing: easing.out });
+      }}
+      onPressOut={() => {
+        press.value = withSpring(0, spring.settle);
+      }}
+      onPress={(e) => {
+        if (isPrimary) haptics.commit();
+        else haptics.selection();
+        onPress?.(e);
+      }}
+      style={[
         btnStyles.base,
         pill ? btnStyles.pill : null,
         { backgroundColor: v.bg, borderColor: v.border },
         isPrimary ? btnStyles.primaryFinish : null,
-        webTransition,
-        hovered && !isDisabled
-          ? isPrimary
-            ? { transform: [{ translateY: -2 }], boxShadow: cta.glowHover }
-            : { opacity: 0.92, transform: [{ translateY: -1 }] }
-          : null,
-        pressed && !isDisabled ? { opacity: 0.92, transform: [{ scale: 0.98 }] } : null,
         isDisabled ? { opacity: 0.5 } : null,
         typeof style === 'function' ? undefined : style,
+        animated,
       ]}
       {...rest}
     >
       {icon && !loading ? <View style={btnStyles.iconLeft}>{icon}</View> : null}
       {loading ? <ActivityIndicator size="small" color={v.fg} style={btnStyles.spinner} /> : null}
-      <Text style={[btnStyles.label, { color: v.fg }]} numberOfLines={1}>
+      {/* Capped, not free-scaling: this label sits in a fixed-height pill, and
+          at 200% Dynamic Type an uncapped one clips instead of wrapping. */}
+      <Text style={[btnStyles.label, { color: v.fg }]} numberOfLines={1} maxFontSizeMultiplier={1.4}>
         {label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -202,7 +226,7 @@ const btnVariant = {
   ghost: { bg: 'transparent', fg: colors.textSecondary, border: 'transparent' },
 } as const;
 
-const btnStyles = StyleSheet.create({
+const btnStyles = themedStyles((colors) => ({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -215,16 +239,11 @@ const btnStyles = StyleSheet.create({
   },
   // Mockup CTA finish: pink gradient material + glow (web), solid pink native.
   primaryFinish: {
-    ...Platform.select({
-      web: { boxShadow: cta.glow, backgroundImage: cta.gradientCss } as object,
-      default: {
-        shadowColor: colors.primary,
+    shadowColor: colors.primary,
         shadowOpacity: 0.34,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 6 },
         elevation: 6,
-      },
-    }),
   },
   pill: { borderRadius: radii.pill, paddingVertical: spacing.lg },
   iconLeft: { position: 'absolute', left: spacing.xl + spacing.sm },
@@ -233,7 +252,7 @@ const btnStyles = StyleSheet.create({
   // spinner beside the label). Without it the text refuses to shrink and
   // overflows the button in narrow containers like the Liked grid.
   label: { ...type.button, flexShrink: 1, textAlign: 'center' },
-});
+}));
 
 export function Card({ style, children, ...rest }: ViewProps & { children: ReactNode }) {
   return (
@@ -243,7 +262,7 @@ export function Card({ style, children, ...rest }: ViewProps & { children: React
   );
 }
 
-const cardStyles = StyleSheet.create({
+const cardStyles = themedStyles((colors) => ({
   card: {
     backgroundColor: colors.bgCard,
     borderRadius: radii.lg,
@@ -252,7 +271,7 @@ const cardStyles = StyleSheet.create({
     padding: spacing.lg,
     ...elevation(2, 12, 0.06),
   },
-});
+}));
 
 export function Pill({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'gold' | 'pink' }) {
   const t = pillTone[tone];

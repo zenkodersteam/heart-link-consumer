@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { createApiClient, type ApiClient } from '@heartlink/consumer-api';
+import { resetToWelcome } from '../navigations/navigationRef';
 import { clearMyProfileCache } from './use-my-profile';
 import { useSession } from './session';
 
@@ -42,7 +42,11 @@ export function useApiClientFactory(): () => Promise<ApiClient> {
         // Sign-out is best effort; we leave regardless so no stale screen shows.
       } finally {
         clearMyProfileCache();
-        router.replace('/(auth)/sign-in');
+        // Straight out, with nothing of the expired session behind it. The
+        // root stack watches the session too, but this runs from a request
+        // that has already failed — waiting for a re-render would leave the
+        // dead screen up while it happened.
+        resetToWelcome();
         expiring.current = false;
       }
     })();

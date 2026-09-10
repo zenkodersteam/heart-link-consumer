@@ -57,11 +57,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
 
-  // Expo's web export only picks up a favicon when it is named here.
-  web: {
-    favicon: './assets/favicon.png',
-  },
-
   android: {
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
@@ -78,15 +73,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
 
 
   // EAS project link. Written by hand because `eas init` cannot edit a dynamic
-  // (.ts) config; spread `config.extra` first so expo-router's own `extra`
-  // survives rather than being replaced.
+  // (.ts) config; `config.extra` is spread first so anything a plugin puts
+  // there survives rather than being replaced.
   extra: {
     ...config.extra,
     eas: { projectId: '0d754966-dd40-44e2-b113-96a02f9b098d' },
   },
 
   plugins: [
-    'expo-router',
     [
       // React Native 0.76 pins Kotlin 1.9.24 on the Gradle classpath, while the
       // Expo template's default is 1.9.25. expo-modules-core picks its Compose

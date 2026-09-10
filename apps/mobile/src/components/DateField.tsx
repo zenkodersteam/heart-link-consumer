@@ -12,16 +12,7 @@ import {
 import { useCallback, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, fonts, inputReset, radii, spacing, type } from '../theme';
-
-const webTransition =
-  Platform.OS === 'web'
-    ? {
-        transitionProperty: 'background-color, border-color, opacity',
-        transitionDuration: '120ms',
-        transitionTimingFunction: 'ease-out',
-      }
-    : null;
+import { colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 
 /**
  * A date field that can be typed or picked.
@@ -92,7 +83,7 @@ export function DateField({
           placeholderTextColor={colors.textMuted}
           keyboardType="number-pad"
           maxLength={10}
-          style={[styles.input, inputReset]}
+          style={[styles.input]}
           accessibilityLabel={label}
         />
         <Pressable
@@ -204,7 +195,6 @@ export function DateField({
                         }}
                         style={({ pressed }: { pressed: boolean }) => [
                           styles.cell,
-                          webTransition,
                           selected ? styles.cellSelected : null,
                           pressed && !selected ? { backgroundColor: colors.surfaceMuted } : null,
                         ]}
@@ -229,7 +219,7 @@ export function DateField({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: { gap: spacing.sm, marginBottom: spacing.lg },
   label: { ...type.caption, fontSize: 13, color: colors.textSecondary },
   inputRow: {
@@ -311,4 +301,4 @@ const styles = StyleSheet.create({
 
   done: { alignItems: 'center', paddingVertical: spacing.sm },
   doneText: { ...type.button, fontSize: 14, color: colors.primary },
-});
+}));

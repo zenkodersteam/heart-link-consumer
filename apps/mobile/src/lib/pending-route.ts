@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+
+import type { RootStackParamList } from '../navigations/types';
 
 /**
  * Remembers where someone was heading when they were bounced to sign-in, so a
@@ -13,61 +14,57 @@ import { Platform } from 'react-native';
  *    in-memory note is not enough and the route is written to disk.
  *  - Onboarding, which sits between signing in and reaching the app.
  *
- * Storage differs per platform, so reads are async: on a cold start the value
- * is on disk and has not been read back yet. `takePendingRoute()` is the one
- * to call, and it clears as it reads — a remembered route is used once.
+ * Reads are async: on a cold start the value is on disk and has not been read
+ * back yet. `takePendingRoute()` is the one to call, and it clears as it reads
+ * — a remembered route is used once.
+ *
+ * A screen name and its params, not a URL. The app navigates by name now, and
+ * a stored path would have to be parsed back into one — a second, weaker copy
+ * of the routing table, kept in sync by hand.
  */
 
 const KEY = 'heartlink.pendingRoute';
 
-/** Mirrors the stored value so a save is visible immediately. */
-let memory: string | null = null;
+export interface PendingRoute {
+  name: keyof RootStackParamList;
+  params?: Record<string, unknown>;
+}
 
-const isWeb = Platform.OS === 'web';
+/** Mirrors the stored value so a save is visible immediately. */
+let memory: PendingRoute | null = null;
+
+function parse(raw: string | null): PendingRoute | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as PendingRoute;
+    return value?.name ? value : null;
+  } catch {
+    // Written by an older build, when this held a path. Nothing to route to.
+    return null;
+  }
+}
 
 /**
  * Started at import so the value is usually already in hand by the time
  * anything asks. Native only; on web `localStorage` is synchronous.
  */
-const hydrated: Promise<void> = isWeb
-  ? Promise.resolve()
-  : SecureStore.getItemAsync(KEY)
-      .then((v) => {
-        // A route saved during this session is newer than whatever was on disk.
-        if (v && memory === null) memory = v;
-      })
-      .catch(() => {
-        // Keychain unavailable. The in-memory copy still covers the common case
-        // where the app is not killed mid sign-in.
-      });
+const hydrated: Promise<void> = SecureStore.getItemAsync(KEY)
+  .then((raw) => {
+    // A route saved during this session is newer than whatever was on disk.
+    if (memory === null) memory = parse(raw);
+  })
+  .catch(() => {
+    // Keychain unavailable. The in-memory copy still covers the common case
+    // where the app is not killed mid sign-in.
+  });
 
-export function savePendingRoute(path: string): void {
-  memory = path;
-  if (isWeb) {
-    try {
-      window.localStorage?.setItem(KEY, path);
-    } catch {
-      // Private mode. Memory covers the session.
-    }
-    return;
-  }
-  void SecureStore.setItemAsync(KEY, path).catch(() => {});
+export function savePendingRoute(route: PendingRoute): void {
+  memory = route;
+  void SecureStore.setItemAsync(KEY, JSON.stringify(route)).catch(() => {});
 }
 
 /** Reads the remembered route and forgets it. Returns null when there is none. */
-export async function takePendingRoute(): Promise<string | null> {
-  if (isWeb) {
-    let value = memory;
-    try {
-      value = window.localStorage?.getItem(KEY) ?? value;
-      window.localStorage?.removeItem(KEY);
-    } catch {
-      // ignore
-    }
-    memory = null;
-    return value;
-  }
-
+export async function takePendingRoute(): Promise<PendingRoute | null> {
   await hydrated;
   const value = memory;
   memory = null;

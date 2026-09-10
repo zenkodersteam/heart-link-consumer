@@ -1,13 +1,8 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing, type } from '../theme';
-
-const webTransition =
-  Platform.OS === 'web'
-    ? { transitionProperty: 'background-color, transform', transitionDuration: '140ms', transitionTimingFunction: 'ease-out' }
-    : null;
+import { colors, radii, spacing, themedStyles, type } from '../theme';
 
 /**
  * Header for a pushed screen: a round back control and the title.
@@ -27,29 +22,27 @@ export function ScreenHeader({
   onBack?: () => void;
   right?: React.ReactNode;
 }) {
-  const router = useRouter();
+  const navigation = useNavigation();
   return (
     <View style={styles.wrap}>
       <Pressable
-        onPress={onBack ?? (() => router.back())}
+        onPress={onBack ?? (() => navigation.goBack())}
         hitSlop={10}
         accessibilityRole="button"
         accessibilityLabel="Go back"
-        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+        style={({ pressed }: { pressed: boolean }) => [
           styles.back,
-          webTransition,
-          hovered ? { backgroundColor: colors.surfaceMuted } : null,
           pressed ? { transform: [{ scale: 0.94 }] } : null,
         ]}
       >
         <Feather name="chevron-left" size={20} color={colors.textPrimary} />
       </Pressable>
       <View style={styles.titles}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.4}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={1}>
+          <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={1.4}>
             {subtitle}
           </Text>
         ) : null}
@@ -59,7 +52,7 @@ export function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -82,7 +75,7 @@ const styles = StyleSheet.create({
   title: { ...type.h2, fontSize: 19, color: colors.textPrimary },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: colors.textMuted, marginTop: 1 },
   spacer: { width: 36, height: 36 },
-});
+}));
 
 /** A tappable settings row with a chevron, for menu-style screens. */
 export function SettingsRow({
@@ -104,11 +97,9 @@ export function SettingsRow({
     <Pressable
       onPress={onPress}
       disabled={!onPress}
-      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+      style={({ pressed }: { pressed: boolean }) => [
         rowStyles.row,
         !last ? rowStyles.divider : null,
-        webTransition,
-        hovered && onPress ? { backgroundColor: colors.surfaceMuted } : null,
         pressed && onPress ? { opacity: 0.7 } : null,
       ]}
     >
@@ -117,11 +108,11 @@ export function SettingsRow({
           <Feather name={icon} size={15} color={danger ? colors.danger : colors.primary} />
         </View>
       ) : null}
-      <Text style={[rowStyles.label, danger ? rowStyles.labelDanger : null]} numberOfLines={1}>
+      <Text style={[rowStyles.label, danger ? rowStyles.labelDanger : null]} numberOfLines={1} maxFontSizeMultiplier={1.4}>
         {label}
       </Text>
       {value ? (
-        <Text style={rowStyles.value} numberOfLines={1}>
+        <Text style={rowStyles.value} numberOfLines={1} maxFontSizeMultiplier={1.4}>
           {value}
         </Text>
       ) : null}
@@ -130,7 +121,7 @@ export function SettingsRow({
   );
 }
 
-const rowStyles = StyleSheet.create({
+const rowStyles = themedStyles((colors) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -152,4 +143,4 @@ const rowStyles = StyleSheet.create({
   label: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14.5, color: colors.textPrimary },
   labelDanger: { color: colors.danger, fontFamily: 'Inter_600SemiBold' },
   value: { fontFamily: 'Inter_400Regular', fontSize: 13.5, color: colors.textMuted, maxWidth: 150 },
-});
+}));

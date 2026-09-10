@@ -17,7 +17,12 @@ import { Toaster as SonnerToaster } from 'sonner';
 export function Toaster() {
   return (
     <SonnerToaster
-      position="top-center"
+      // Top-right, not top-centre. Centred, a toast landed squarely on the
+      // page heading — "Password updated" sitting across "Discover meaningful
+      // connections" — so the confirmation obscured the thing it was
+      // confirming. The corner is out of the way of every layout here.
+      position="top-right"
+      offset={20}
       // Long enough to read a sentence explaining what to do next. Sonner's
       // default is comfortable for "Saved" and too short for anything else.
       duration={5000}

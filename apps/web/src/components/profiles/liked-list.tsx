@@ -48,7 +48,10 @@ export function LikedList() {
   const sortLabel = SORTS.find((option) => option.key === sort)?.label ?? 'Most recent';
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-8">
+    // The same width the profile page uses, so moving between the two does
+    // not jump. The narrower container left a band of empty page either side
+    // of three small cards on a desktop.
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 sm:flex sm:items-start sm:justify-between sm:gap-6">
         <div>
           <h1 className="flex items-center gap-2.5 font-[family-name:var(--font-bree)] text-[26px] text-ink">
@@ -62,7 +65,7 @@ export function LikedList() {
 
         {items.length > 0 ? (
           <div className="mt-4 flex items-center gap-2 sm:mt-0">
-            <span className="text-xs text-ink-faint">Sort by:</span>
+            <span className="text-xs text-ink-soft">Sort by:</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -126,13 +129,13 @@ export function LikedList() {
         </div>
       ) : null}
 
-      {/* Three across on a desktop, as the screens draw it; two, then one, as
-          the room runs out. On a phone the designs switch to a compact row,
-          which is what the card collapses to below `sm`. */}
+      {/* Three across on a desktop, four where there is room for them; two,
+          then one, as the room runs out. On a phone the designs switch to a
+          compact row, which is what the card collapses to below `sm`. */}
       {/* `items-start`: grid items stretch to the tallest in their row by
           default, so one card with a long name padded every other card in the
           row with empty space between the location and the buttons. */}
-      <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((profile) => (
           <li key={profile.id}>
             <LikedCard
@@ -160,7 +163,13 @@ function LikedCard({
   return (
     <article className="flex flex-col overflow-hidden rounded-card border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
       <Link href={`/profiles/${profile.id}`} className="relative block aspect-[4/3] shrink-0">
-        <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} sizes="128px" />
+        {/* The card is a grid cell, not a thumbnail: asking for a 128px
+            image left the photo soft on anything but a phone. */}
+        <ProfilePhoto
+          src={profile.primaryPhotoUrl}
+          name={profile.displayName}
+          sizes="(min-width: 1280px) 288px, (min-width: 1024px) 380px, (min-width: 640px) 45vw, 92vw"
+        />
 
         {/* Filled heart, top right, as the screens have it — on this page every
             card is already liked, so it is the way to unlike rather than a

@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, radii, spacing, type } from '../theme';
+import { colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 
 /**
  * What a free member sees where the mailbox would be.
@@ -80,7 +80,7 @@ export function MailboxLocked({ onSeePlans }: { onSeePlans: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   eyebrow: {
     ...type.caption,
     color: colors.goldBright,
@@ -173,4 +173,4 @@ const styles = StyleSheet.create({
     color: colors.sidebarTextMuted,
     textAlign: 'center',
   },
-});
+}));

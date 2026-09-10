@@ -23,17 +23,13 @@ import {
 import { BrandDecor } from './BrandDecor';
 import { useKeyboard } from '../lib/use-keyboard';
 import { KeyboardSafeScrollView } from './KeyboardSafeScrollView';
-import { auth, colors, fonts, radii, spacing, type } from '../theme';
+import { auth, colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 
 const EMBLEM = require('../../assets/logo/heartlink-emblem.png');
 
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 function useReduceMotion() {
   return useMemo(() => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }
     return false;
   }, []);
 }
@@ -217,11 +213,11 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
     const formIn = Animated.timing(formReveal, {
       toValue: 1,
       duration: 400,
-      useNativeDriver: USE_NATIVE_DRIVER,
+      useNativeDriver: true,
     });
     if (isDesktop) {
       Animated.sequence([
-        Animated.timing(heroReveal, { toValue: 1, duration: 400, useNativeDriver: USE_NATIVE_DRIVER }),
+        Animated.timing(heroReveal, { toValue: 1, duration: 400, useNativeDriver: true }),
         Animated.delay(80),
         formIn,
       ]).start();
@@ -323,7 +319,7 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   flex: { flex: 1 },
 
   // Brand panel (client screen 10)
@@ -395,4 +391,4 @@ const styles = StyleSheet.create({
   subtitleSticky: { marginBottom: spacing.md },
   body: { gap: spacing.lg },
   footer: { marginTop: spacing.lg, alignItems: 'center' },
-});
+}));

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { OutsideProfileStatus } from '@heartlink/consumer-api';
-import { colors, fonts, radii, spacing, type } from '../theme';
+import { colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 import { Button } from './primitives';
 
 /**
@@ -200,7 +200,7 @@ export function ProfileReviewOverlay({ status, moderationNotes, onEditProfile, o
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.overlay,
@@ -220,10 +220,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     overflow: 'hidden',
-    ...Platform.select({
-      web: { boxShadow: '0 24px 60px rgba(22, 5, 31, 0.28)' } as object,
-      default: { shadowColor: colors.midnight, shadowOpacity: 0.28, shadowRadius: 30, shadowOffset: { width: 0, height: 18 }, elevation: 12 },
-    }),
+    shadowColor: colors.midnight, shadowOpacity: 0.28, shadowRadius: 30, shadowOffset: { width: 0, height: 18 }, elevation: 12,
   },
   cardGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: 190 },
 
@@ -266,4 +263,4 @@ const styles = StyleSheet.create({
 
   actions: { alignSelf: 'stretch', gap: spacing.sm },
   footnote: { ...type.caption, textAlign: 'center', marginTop: spacing.md },
-});
+}));

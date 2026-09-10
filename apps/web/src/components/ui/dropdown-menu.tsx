@@ -11,14 +11,20 @@ const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 function DropdownMenuContent({
   className,
   sideOffset = 8,
+  collisionPadding = 12,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
+        // A long menu opened near the bottom of the window used to run off the
+        // screen with its last rows unreachable. Radix measures the room it
+        // has; capping the height to that and scrolling inside keeps every
+        // item reachable wherever the trigger happens to sit.
+        collisionPadding={collisionPadding}
         className={cn(
-          'z-50 min-w-56 overflow-hidden rounded-2xl border border-line bg-surface-elevated p-1.5 shadow-[0_18px_40px_rgba(22,5,31,0.18)]',
+          'z-50 min-w-56 max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface-elevated p-1.5 shadow-[0_18px_40px_rgba(22,5,31,0.18)]',
           'hl-anim-pop',
           className,
         )}

@@ -3,8 +3,10 @@ import { Platform } from 'react-native';
 import type { FirebaseMessagingTypes } from '@react-native-firebase/messaging';
 import * as Device from 'expo-device';
 import { useSession } from './session';
-import { router } from 'expo-router';
 
+import { navigationRef } from '../navigations/navigationRef';
+import type { PendingRoute } from './pending-route';
+import { savePendingRoute } from './pending-route';
 import { useApiClientFactory } from './use-api-client';
 
 /**
@@ -52,14 +54,44 @@ function fcm(): MessagingModule | null {
 /**
  * Where a notification wants to send us, if anywhere.
  *
- * Firebase hands every custom field through as a string in `data`, so the
- * route arrives as one — and anything that is not an in-app path is ignored
- * rather than followed. A push is remote input; a payload that could send
- * someone to an arbitrary URL is a payload that could be abused.
+ * Read from `kind` and `threadId`, which the server sends as their own fields,
+ * rather than by parsing the `url` it also sends. That URL exists for the
+ * website; turning it back into a screen here would be a second copy of the
+ * routing table, kept in step by hand. A payload naming a screen we do not
+ * have simply opens the app.
  */
-function routeFrom(message: FirebaseMessagingTypes.RemoteMessage | null): string | null {
-  const url = message?.data?.url;
-  return typeof url === 'string' && url.startsWith('/') ? url : null;
+function destinationFrom(
+  message: FirebaseMessagingTypes.RemoteMessage | null,
+): PendingRoute | null {
+  const kind = message?.data?.kind;
+  const threadId = message?.data?.threadId;
+
+  if (
+    (kind === 'letter_reply' || kind === 'letter_approved' || kind === 'letter_rejected') &&
+    typeof threadId === 'string'
+  ) {
+    return { name: 'Tabs', params: { screen: 'Mailbox', params: { thread: threadId } } };
+  }
+  if (kind === 'renewal_reminder') return { name: 'Tabs', params: { screen: 'Account' } };
+  if (kind === 'profile_live') return { name: 'Tabs', params: { screen: 'Home' } };
+  return null;
+}
+
+/**
+ * Follow a tapped notification.
+ *
+ * Held rather than dropped when the app is not ready to show it — a cold
+ * launch from a notification arrives before the navigator exists, and someone
+ * signed out has to get through sign-in first. `goToApp` replays it.
+ */
+function follow(destination: PendingRoute | null): void {
+  if (!destination) return;
+  if (!navigationRef.isReady()) {
+    savePendingRoute(destination);
+    return;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  navigationRef.navigate(destination.name as any, destination.params as never);
 }
 
 /**
@@ -147,8 +179,7 @@ export function usePushRegistration(): void {
 
     // The app was already running, in the background.
     const unsubscribe = service.onNotificationOpenedApp((message) => {
-      const url = routeFrom(message);
-      if (url) router.push(url as never);
+      follow(destinationFrom(message));
     });
 
     // The app was not running at all: the notification is what started it, and
@@ -156,8 +187,7 @@ export function usePushRegistration(): void {
     void service
       .getInitialNotification()
       .then((message) => {
-        const url = routeFrom(message);
-        if (url) router.push(url as never);
+        follow(destinationFrom(message));
       })
       .catch(() => undefined);
 

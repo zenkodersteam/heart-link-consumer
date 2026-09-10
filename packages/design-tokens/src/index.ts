@@ -8,7 +8,7 @@
  *    `npm run tokens:build`. Edit the TypeScript, never the generated CSS.
  */
 
-export { colors, type Colors } from './colors';
+export { colors, darkColors, type Colors } from './colors';
 export {
   fontFamilies,
   fontStacks,
@@ -19,4 +19,4 @@ export {
   type Radii,
   type Spacing,
 } from './scale';
-export { shell, auth, cta, elevation } from './effects';
+export { shell, auth, cta, elevation, depth, darkDepth } from './effects';

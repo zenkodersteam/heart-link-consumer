@@ -3,7 +3,8 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, fonts, radii, spacing, type } from '../theme';
+import { haptics } from '../lib/haptics';
+import { colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 
 /** Optional call-to-action rendered inside the toast. */
 export interface ToastAction {
@@ -92,21 +93,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const hide = useCallback(() => {
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: false }),
-      Animated.timing(translateY, { toValue: -16, duration: 180, useNativeDriver: false }),
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -16, duration: 180, useNativeDriver: true }),
     ]).start(() => setToast(null));
   }, [opacity, translateY]);
 
   const show = useCallback(
     (title: string, subtitle?: string, action?: ToastAction, tone: ToastTone = 'success') => {
+      // The toast's tone, felt as well as seen. Someone glancing away still
+      // learns whether the thing they just did worked. `info` stays silent:
+      // it reports rather than answers, and a buzz for every notice is how a
+      // vocabulary stops meaning anything.
+      if (tone === 'error') haptics.error();
+      else if (tone === 'success') haptics.success();
       if (timer.current) clearTimeout(timer.current);
       idRef.current += 1;
       setToast({ id: idRef.current, title, subtitle, action, tone });
       opacity.setValue(0);
       translateY.setValue(-16);
       Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: false }),
-        Animated.spring(translateY, { toValue: 0, friction: 7, useNativeDriver: false }),
+        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, friction: 7, useNativeDriver: true }),
       ]).start();
       // An actionable toast stays up longer: a CTA that vanishes before it can
       // be tapped is worse than no CTA at all. A failure stays longer again,
@@ -150,7 +157,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             </View>
 
             <View style={styles.copy}>
-              <Text style={styles.title} numberOfLines={1}>
+              <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.4}>
                 {toast.title}
               </Text>
               {toast.subtitle ? (
@@ -166,9 +173,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                     hide();
                     act?.onPress();
                   }}
-                  style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                  style={({ pressed }: { pressed: boolean }) => [
                     styles.action,
-                    hovered ? styles.actionHover : null,
                     pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
                   ]}
                 >
@@ -187,7 +193,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: {
     position: 'absolute',
     left: 0,
@@ -231,9 +237,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: colors.primary,
   },
-  actionHover: { backgroundColor: colors.primaryHover },
   // The bold face by name, not `fontWeight`: Android pairs a weight with a
   // family rather than synthesising one, so `fontWeight` on a family that only
   // ships Regular drops the toast action back to the system font.
   actionText: { ...type.caption, color: colors.onPrimary, fontFamily: fonts.bodyBold },
-});
+}));

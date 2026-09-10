@@ -1,27 +1,73 @@
-import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect } from 'react';
+import { StyleSheet, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { colors, radii, spacing } from '../theme';
+import { duration, easing } from '../lib/motion';
+import { colors, radii, spacing, themedStyles } from '../theme';
 
-/** A single pulsing placeholder block. */
+const AnimatedGradient = Animated.createAnimatedComponent(LinearGradient);
+
+/**
+ * A single placeholder block, lit by a sweep.
+ *
+ * A block that throbs between two opacities reads as something blinking
+ * because it is broken; a highlight travelling left to right reads as work in
+ * progress. The sweep runs on the UI thread through Reanimated, so it keeps
+ * moving while the JavaScript thread is busy doing the very fetch this is
+ * standing in for - which is the whole moment a skeleton exists for.
+ *
+ * Reduced motion gets the block without the sweep, not a still highlight
+ * parked mid-travel.
+ */
 export function Skeleton({ style }: { style?: ViewStyle | ViewStyle[] }) {
-  const opacity = useRef(new Animated.Value(0.5)).current;
+  const progress = useSharedValue(0);
+  const reduceMotion = useReducedMotion();
+  const { width: screenWidth } = useWindowDimensions();
+
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: false }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: false }),
-      ]),
+    if (reduceMotion) return undefined;
+    progress.value = 0;
+    progress.value = withRepeat(
+      withTiming(1, { duration: duration.ambient, easing: easing.linear }),
+      -1,
+      false,
     );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return <Animated.View style={[base.block, { opacity }, style]} />;
+    return () => cancelAnimation(progress);
+  }, [progress, reduceMotion]);
+
+  // Travel is keyed to the screen rather than the block: every skeleton on a
+  // screen is the same width of sweep moving at the same speed, so a column of
+  // them reads as one surface being lit rather than a row of separate loops.
+  const sweep = useAnimatedStyle(() => ({
+    transform: [{ translateX: -screenWidth + progress.value * (screenWidth * 2) }],
+  }));
+
+  return (
+    <View style={[base.block, style]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {reduceMotion ? null : (
+        <AnimatedGradient
+          colors={[colors.surfaceMuted, colors.bgElevated, colors.surfaceMuted]}
+          locations={[0.35, 0.5, 0.65]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[StyleSheet.absoluteFill, { width: screenWidth }, sweep]}
+        />
+      )}
+    </View>
+  );
 }
 
-const base = StyleSheet.create({
-  block: { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm },
-});
+const base = themedStyles((colors) => ({
+  block: { backgroundColor: colors.surfaceMuted, borderRadius: radii.sm, overflow: 'hidden' },
+}));
 
 /** Deck-shaped loading state for the Home browse screen. */
 export function DeckSkeleton() {
@@ -44,7 +90,7 @@ export function DeckSkeleton() {
   );
 }
 
-const ds = StyleSheet.create({
+const ds = themedStyles((colors) => ({
   // The placeholder has to live inside whatever height it is given. It
   // previously sized itself from a fixed aspect ratio and could grow taller
   // than its container, spilling over the surrounding screen on a short
@@ -79,7 +125,7 @@ const ds = StyleSheet.create({
   lineSm: { height: 14, width: '90%' },
   actions: { flexDirection: 'row', gap: spacing.xl, flexShrink: 0 },
   circle: { width: 60, height: 60, borderRadius: radii.pill },
-});
+}));
 
 /** Grid of card skeletons for the Liked screen. */
 export function GridSkeleton({ count = 6, columns = 1 }: { count?: number; columns?: number }) {
@@ -101,7 +147,7 @@ export function GridSkeleton({ count = 6, columns = 1 }: { count?: number; colum
   );
 }
 
-const gs = StyleSheet.create({
+const gs = themedStyles((colors) => ({
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.sm },
   col: { padding: spacing.sm },
   card: {
@@ -116,7 +162,7 @@ const gs = StyleSheet.create({
   lineLg: { height: 18, width: '60%' },
   lineSm: { height: 13, width: '85%' },
   btn: { height: 36, width: '100%', borderRadius: radii.md, marginTop: spacing.xs },
-});
+}));
 
 /**
  * Mailbox thread list: avatar, name, preview line.
@@ -173,7 +219,7 @@ export function ThreadDetailSkeleton() {
   );
 }
 
-const td = StyleSheet.create({
+const td = themedStyles((colors) => ({
   wrap: { flex: 1, gap: spacing.md, padding: spacing.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
   avatar: { width: 40, height: 40, borderRadius: 20 },
@@ -199,7 +245,7 @@ const td = StyleSheet.create({
   lineFull: { height: 12, width: 200 },
   lineMid: { height: 12, width: 150 },
   lineShort: { height: 12, width: 90 },
-});
+}));
 
 /** Generic settings-style rows, for list screens behind an API call. */
 export function ListSkeleton({ count = 3 }: { count?: number }) {
@@ -215,7 +261,7 @@ export function ListSkeleton({ count = 3 }: { count?: number }) {
   );
 }
 
-const ls = StyleSheet.create({
+const ls = themedStyles((colors) => ({
   card: {
     backgroundColor: colors.bgElevated,
     borderRadius: 20,
@@ -234,7 +280,7 @@ const ls = StyleSheet.create({
   divider: { borderBottomWidth: 1, borderBottomColor: colors.border },
   label: { height: 13, width: '38%' },
   value: { height: 13, width: 64 },
-});
+}));
 
 /** Profile detail: the photo block, then name and story beneath it. */
 export function ProfileDetailSkeleton() {
@@ -285,7 +331,7 @@ export function LettersCardSkeleton({ withAction = true }: { withAction?: boolea
   );
 }
 
-const lc = StyleSheet.create({
+const lc = themedStyles((colors) => ({
   card: {
     gap: spacing.xs,
     borderWidth: 1,
@@ -299,7 +345,7 @@ const lc = StyleSheet.create({
   title: { height: 15, width: 110 },
   meta: { height: 12, width: 160, marginTop: 2 },
   action: { height: 42, width: '100%', borderRadius: radii.pill, marginTop: spacing.sm },
-});
+}));
 
 /** Liked list: avatar tile, name and location — the row shape that screen uses. */
 export function LikedListSkeleton({ count = 4 }: { count?: number }) {
@@ -319,7 +365,7 @@ export function LikedListSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
-const lk = StyleSheet.create({
+const lk = themedStyles((colors) => ({
   wrap: { gap: spacing.md, width: '100%' },
   row: {
     flexDirection: 'row',
@@ -336,4 +382,4 @@ const lk = StyleSheet.create({
   name: { height: 16, width: '46%' },
   meta: { height: 12, width: '24%' },
   chevron: { width: 10, height: 16, borderRadius: 3 },
-});
+}));

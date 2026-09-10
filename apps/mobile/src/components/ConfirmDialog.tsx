@@ -1,16 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, cta, radii, spacing, type } from '../theme';
-
-const webTransition =
-  Platform.OS === 'web'
-    ? {
-        transitionProperty: 'background-color, border-color, color, transform, opacity',
-        transitionDuration: '160ms',
-        transitionTimingFunction: 'ease-out',
-      }
-    : null;
+import { colors, cta, depth, radii, spacing, themedStyles, type } from '../theme';
 
 /**
  * In-app confirmation and choice dialog.
@@ -81,11 +72,9 @@ export function ConfirmDialog({
                 key={a.label}
                 onPress={a.onPress}
                 disabled={busy}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                style={({ pressed }: { pressed: boolean }) => [
                   styles.action,
                   a.destructive ? styles.actionDanger : styles.actionPrimary,
-                  webTransition,
-                  hovered && !busy ? { opacity: 0.92 } : null,
                   pressed && !busy ? { transform: [{ scale: 0.98 }] } : null,
                   busy ? { opacity: 0.6 } : null,
                 ]}
@@ -104,11 +93,9 @@ export function ConfirmDialog({
             <Pressable
               onPress={onCancel}
               disabled={busy}
-              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+              style={({ pressed }: { pressed: boolean }) => [
                 styles.action,
                 styles.actionQuiet,
-                webTransition,
-                hovered && !busy ? { backgroundColor: colors.surfaceMuted } : null,
                 pressed && !busy ? { transform: [{ scale: 0.98 }] } : null,
               ]}
             >
@@ -121,7 +108,7 @@ export function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(22,5,31,0.55)',
@@ -136,7 +123,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.xl,
     padding: spacing.lg,
     gap: spacing.sm,
-    boxShadow: '0 24px 64px rgba(46,18,64,0.28)',
+    // Floating: this sits above the screen it is asking about.
+    ...depth.floating,
   },
   iconWrap: {
     width: 44,
@@ -165,4 +153,4 @@ const styles = StyleSheet.create({
   actionTextPrimary: { color: colors.onPrimary },
   actionTextDanger: { color: colors.onPrimary },
   actionTextQuiet: { color: colors.textSecondary },
-});
+}));

@@ -3,13 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ProfileGender } from '@heartlink/consumer-api';
-import { colors, radii, spacing, type } from '../theme';
-
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
-const webTransition =
-  Platform.OS === 'web'
-    ? { transitionProperty: 'background-color, border-color, transform', transitionDuration: '150ms', transitionTimingFunction: 'ease-out' }
-    : null;
+import { colors, radii, spacing, themedStyles, type } from '../theme';
 
 export interface AnchorRect {
   x: number;
@@ -43,7 +37,7 @@ export function GenderMenu({ open, value, anchor, desktop, onClose, onSelect }: 
   useEffect(() => {
     if (!open) return;
     anim.setValue(0);
-    Animated.spring(anim, { toValue: 1, friction: 9, tension: 90, useNativeDriver: USE_NATIVE_DRIVER }).start();
+    Animated.spring(anim, { toValue: 1, friction: 9, tension: 90, useNativeDriver: true }).start();
   }, [open, anim]);
 
   const sameSelection = (a: ProfileGender | undefined, b: ProfileGender | undefined) => a === b;
@@ -59,11 +53,9 @@ export function GenderMenu({ open, value, anchor, desktop, onClose, onSelect }: 
               onSelect(o.value);
               onClose();
             }}
-            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+            style={({ pressed }: { pressed: boolean }) => [
               styles.option,
-              webTransition,
               active ? styles.optionActive : null,
-              hovered && !active ? styles.optionHover : null,
               pressed ? { transform: [{ scale: 0.98 }] } : null,
             ]}
           >
@@ -129,7 +121,7 @@ const cardBase = {
   boxShadow: '0 24px 60px rgba(26, 8, 51, 0.28)',
 } as const;
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   backdropClear: { flex: 1 },
   backdropDim: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
   dropdown: { position: 'absolute', width: 280, ...cardBase },
@@ -150,8 +142,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgElevated,
   },
   optionActive: { backgroundColor: colors.sidebar, borderColor: colors.sidebar },
-  optionHover: { borderColor: colors.borderStrong, backgroundColor: colors.surfaceMuted },
   optionText: { ...type.button, fontSize: 15, color: colors.textPrimary, flex: 1 },
   optionTextActive: { color: colors.onPrimary },
   check: { marginLeft: 'auto' },
-});
+}));

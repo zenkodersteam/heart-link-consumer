@@ -1,26 +1,28 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Easing,
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import type { PublicProfileSummary } from '@heartlink/consumer-api';
 import { ProfilePhoto } from './ProfilePhoto';
 import { stateName } from '@heartlink/consumer-api';
+import { haptics } from '../lib/haptics';
+import { duration, easing, spring } from '../lib/motion';
 import { useApiClientFactory } from '../lib/use-api-client';
 import { usePublicProfile } from '../lib/use-public-profiles';
-import { colors, fonts, radii, spacing, type } from '../theme';
+import type { RootNavigation } from '../navigations/types';
+
+import { colors, fonts, radii, spacing, themedStyles, type } from '../theme';
 
 export type SwipeDir = 'like' | 'pass';
 
@@ -48,20 +50,6 @@ const DESKTOP_BREAKPOINT = 900;
 const IMPRESSION_SESSION_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 // Smooth easing on web for hover/press feedback (native ignores these keys).
-const webTransition =
-  Platform.OS === 'web'
-    ? {
-        transitionProperty: 'transform, box-shadow, background-color, opacity',
-        transitionDuration: '200ms',
-        transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
-      }
-    : null;
-
-// On web the swipe is a mouse-drag, which the browser also interprets as text
-// selection + image drag. Suppress both on the deck so dragging only swipes.
-const webNoSelect: Record<string, string> | null =
-  Platform.OS === 'web' ? { userSelect: 'none', cursor: 'grab' } : null;
-
 function formatRelease(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -69,12 +57,27 @@ function formatRelease(value: string): string {
 }
 
 export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExhausted, onFrontChange, emptyAction, filtered }: ProfileDeckProps) {
-  const router = useRouter();
+  const navigation = useNavigation<RootNavigation>();
   const makeClient = useApiClientFactory();
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const [index, setIndex] = useState(0);
-  const position = useRef(new Animated.ValueXY()).current;
+  /**
+   * The card's offset, owned by the UI thread.
+   *
+   * Everything that follows the finger - the card, its rotation, the three
+   * stamps and the two cards behind it - is derived from these on the UI
+   * thread, so the deck keeps tracking at the display's refresh rate while
+   * JavaScript is busy fetching the next page of profiles or decoding photos.
+   * The old PanResponder drove all of it through the JS thread, which is
+   * exactly where that work lands.
+   */
+  const x = useSharedValue(0);
+  const y = useSharedValue(0);
+  /** Set while a drag is being read as a pull-down rather than a like/pass. */
+  const pulling = useSharedValue(0);
+  /** Whether the last frame was past a commit threshold, so the tap fires once. */
+  const armed = useSharedValue(0);
   // Direction the last card was dismissed, so Second Look can bring it back in
   // from the same side it left.
   const lastDir = useRef<SwipeDir>('like');
@@ -84,7 +87,8 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
   if (lastKey.current !== itemsKey) {
     lastKey.current = itemsKey;
     if (index !== 0) setIndex(0);
-    position.setValue({ x: 0, y: 0 });
+    x.value = 0;
+    y.value = 0;
   }
 
   const screenW = Dimensions.get('window').width;
@@ -93,7 +97,8 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
     (dir: SwipeDir) => {
       const profile = items[index];
       lastDir.current = dir;
-      position.setValue({ x: 0, y: 0 });
+      x.value = 0;
+      y.value = 0;
       setIndex((i) => {
         const next = i + 1;
         if (next >= items.length) onExhausted?.();
@@ -101,120 +106,148 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
       });
       if (profile) onSwipe?.(profile, dir);
     },
-    [index, items, onExhausted, onSwipe, position],
+    [index, items, onExhausted, onSwipe, x, y],
   );
 
   const forceSwipe = useCallback(
     (dir: SwipeDir) => {
+      haptics.commit();
       const toX = dir === 'like' ? screenW + 140 : -screenW - 140;
-      Animated.timing(position, {
-        toValue: { x: toX, y: -40 },
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }).start(() => advance(dir));
+      y.value = withTiming(-40, { duration: duration.enter, easing: easing.out });
+      x.value = withTiming(toX, { duration: duration.enter, easing: easing.out }, (finished) => {
+        // `finished` is false when a new gesture interrupts the fling; letting
+        // it advance anyway would drop a profile nobody swiped.
+        if (finished) runOnJS(advance)(dir);
+      });
     },
-    [advance, position, screenW],
+    [advance, screenW, x, y],
   );
 
   const reset = useCallback(() => {
-    Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: false, friction: 7, tension: 80 }).start();
-  }, [position]);
+    x.value = withSpring(0, spring.settle);
+    y.value = withSpring(0, spring.settle);
+  }, [x, y]);
 
   const canSecondLook = index > 0;
 
   const secondLook = useCallback(() => {
     if (index === 0) return;
+    haptics.commit();
     const restored = items[index - 1];
     setIndex(index - 1);
     if (restored) onSecondLook?.(restored);
-    // Start off-screen on the side the card left, then spring back to center -
-    // the behind cards (driven by position.x) sink back as it returns.
-    const fromX = (lastDir.current === 'like' ? 1 : -1) * (screenW + 140);
-    position.setValue({ x: fromX, y: -40 });
-    Animated.spring(position, { toValue: { x: 0, y: 0 }, friction: 7, tension: 70, useNativeDriver: false }).start();
-  }, [index, items, onSecondLook, position, screenW]);
+    // Start off-screen on the side the card left, then spring back to centre -
+    // the behind cards (driven by x) sink back as it returns.
+    x.value = (lastDir.current === 'like' ? 1 : -1) * (screenW + 140);
+    y.value = -40;
+    x.value = withSpring(0, spring.settle);
+    y.value = withSpring(0, spring.settle);
+  }, [index, items, onSecondLook, screenW, x, y]);
 
-  // True while the current drag is being read as a pull-down for Second Look,
-  // rather than a sideways like/pass. Decided during the drag and remembered
-  // until release, so a gesture cannot change meaning halfway through.
-  const pullingBack = useRef(false);
-
-  const panResponder = useMemo(
+  /**
+   * The drag itself, on the UI thread.
+   *
+   * `activeOffsetX` and `failOffsetY` replace what `onMoveShouldSetPanResponder`
+   * used to decide by hand: sideways movement claims the gesture, and a
+   * downward pull only claims it when there is a card to bring back. Doing it
+   * declaratively is also what lets a vertical scroll underneath still win.
+   */
+  const pan = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) =>
-          Math.abs(g.dx) > 6 || (canSecondLook && g.dy > 6),
-        onPanResponderMove: (_e, g) => {
+      Gesture.Pan()
+        .activeOffsetX([-6, 6])
+        .activeOffsetY(canSecondLook ? [-9999, 6] : [-9999, 9999])
+        .onBegin(() => {
+          'worklet';
+          pulling.value = 0;
+          armed.value = 0;
+        })
+        .onUpdate((e) => {
+          'worklet';
           // A drag counts as a pull-back only when it is downward and clearly
           // more vertical than horizontal, so ordinary swipes are unaffected.
-          const isPull = canSecondLook && g.dy > 0 && g.dy > Math.abs(g.dx) * 1.2;
-          pullingBack.current = isPull;
-          position.setValue({
-            // Sideways movement is damped during a pull-back so the card does
-            // not drift toward like or pass while it is being tugged down.
-            x: isPull ? g.dx * 0.2 : g.dx,
-            y: isPull ? g.dy * 0.55 : g.dy * 0.25,
-          });
-        },
-        onPanResponderRelease: (_e, g) => {
-          const wasPull = pullingBack.current;
-          pullingBack.current = false;
+          const isPull = canSecondLook && e.translationY > 0 && e.translationY > Math.abs(e.translationX) * 1.2;
+          pulling.value = isPull ? 1 : 0;
+          // Sideways movement is damped during a pull-back so the card does not
+          // drift toward like or pass while it is being tugged down.
+          x.value = isPull ? e.translationX * 0.2 : e.translationX;
+          y.value = isPull ? e.translationY * 0.55 : e.translationY * 0.25;
+
+          // One tap at the moment the gesture becomes a decision - the card is
+          // still under the thumb, but letting go now would commit. This is the
+          // haptic that gives a swipe its weight, so it fires on the crossing
+          // and not on every frame beyond it.
+          const past = isPull ? y.value >= SECOND_LOOK_THRESHOLD * 0.55 : Math.abs(x.value) >= SWIPE_THRESHOLD;
+          if (past && armed.value === 0) {
+            armed.value = 1;
+            runOnJS(haptics.threshold)();
+          } else if (!past && armed.value === 1) {
+            armed.value = 0;
+          }
+        })
+        .onEnd((e) => {
+          'worklet';
+          const wasPull = pulling.value === 1;
+          pulling.value = 0;
+          armed.value = 0;
 
           if (wasPull) {
-            if (g.dy > SECOND_LOOK_THRESHOLD) secondLook();
-            else reset();
+            if (e.translationY > SECOND_LOOK_THRESHOLD) runOnJS(secondLook)();
+            else runOnJS(reset)();
             return;
           }
-          if (g.dx > SWIPE_THRESHOLD) forceSwipe('like');
-          else if (g.dx < -SWIPE_THRESHOLD) forceSwipe('pass');
-          else reset();
-        },
-        onPanResponderTerminate: () => {
-          pullingBack.current = false;
-          reset();
-        },
-      }),
-    [canSecondLook, forceSwipe, position, reset, secondLook],
+          if (e.translationX > SWIPE_THRESHOLD) runOnJS(forceSwipe)('like');
+          else if (e.translationX < -SWIPE_THRESHOLD) runOnJS(forceSwipe)('pass');
+          else runOnJS(reset)();
+        })
+        .onFinalize(() => {
+          'worklet';
+          pulling.value = 0;
+        }),
+    [armed, canSecondLook, forceSwipe, pulling, reset, secondLook, x, y],
   );
 
-  const rotate = position.x.interpolate({
-    inputRange: [-screenW / 2, 0, screenW / 2],
-    outputRange: ['-9deg', '0deg', '9deg'],
-    extrapolate: 'clamp',
-  });
-  const likeOpacity = position.x.interpolate({ inputRange: [20, SWIPE_THRESHOLD], outputRange: [0, 1], extrapolate: 'clamp' });
-  const passOpacity = position.x.interpolate({ inputRange: [-SWIPE_THRESHOLD, -20], outputRange: [1, 0], extrapolate: 'clamp' });
+  const frontStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: x.value },
+      { translateY: y.value },
+      { rotate: `${interpolate(x.value, [-screenW / 2, 0, screenW / 2], [-9, 0, 9], 'clamp')}deg` },
+    ],
+  }));
+
+  const likeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(x.value, [20, SWIPE_THRESHOLD], [0, 1], 'clamp'),
+  }));
+  const passStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(x.value, [-SWIPE_THRESHOLD, -20], [1, 0], 'clamp'),
+  }));
   // y is damped to 0.55 of the finger during a pull-back, so the stamp reaches
   // full strength at the same moment the gesture would commit.
-  const secondLookOpacity = position.y.interpolate({
-    inputRange: [12, SECOND_LOOK_THRESHOLD * 0.55],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
+  const secondLookStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(y.value, [12, SECOND_LOOK_THRESHOLD * 0.55], [0, 1], 'clamp'),
+  }));
 
-  // As the front card is dragged/flung either way, the cards behind it rise
-  // toward the front position so the next card is already in place when the
-  // front leaves - no snap between states.
+  // As the front card is dragged or flung either way, the cards behind it rise
+  // toward the front position, so the next card is already in place when the
+  // front leaves - no snap between states. Peek offsets are large enough that
+  // they read as a real stack (a band of photo and white card edge), not a
+  // grey sliver.
   const T = SWIPE_THRESHOLD;
-  // Peek offsets are large enough that the behind cards read as a real stack
-  // (a visible band of photo + white card edge), not a grey sliver.
-  const behind1Style = {
-    opacity: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [1, 1, 1], extrapolate: 'clamp' }),
+  const behind1Style = useAnimatedStyle(() => ({
     transform: [
-      { scale: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [1, 0.96, 1], extrapolate: 'clamp' }) },
-      { translateX: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [0, 22, 0], extrapolate: 'clamp' }) },
-      { rotate: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: ['0deg', '3.5deg', '0deg'], extrapolate: 'clamp' }) },
+      { scale: interpolate(x.value, [-T, 0, T], [1, 0.96, 1], 'clamp') },
+      { translateX: interpolate(x.value, [-T, 0, T], [0, 22, 0], 'clamp') },
+      { rotate: `${interpolate(x.value, [-T, 0, T], [0, 3.5, 0], 'clamp')}deg` },
     ],
-  };
-  const behind2Style = {
-    opacity: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [1, 0.85, 1], extrapolate: 'clamp' }),
+  }));
+  const behind2Style = useAnimatedStyle(() => ({
+    opacity: interpolate(x.value, [-T, 0, T], [1, 0.85, 1], 'clamp'),
     transform: [
-      { scale: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [0.96, 0.92, 0.96], extrapolate: 'clamp' }) },
-      { translateX: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: [22, 44, 22], extrapolate: 'clamp' }) },
-      { rotate: position.x.interpolate({ inputRange: [-T, 0, T], outputRange: ['3.5deg', '7deg', '3.5deg'], extrapolate: 'clamp' }) },
+      { scale: interpolate(x.value, [-T, 0, T], [0.96, 0.92, 0.96], 'clamp') },
+      { translateX: interpolate(x.value, [-T, 0, T], [22, 44, 22], 'clamp') },
+      { rotate: `${interpolate(x.value, [-T, 0, T], [3.5, 7, 3.5], 'clamp')}deg` },
     ],
-  };
+  }));
 
   const current = items[index];
   const next = items[index + 1];
@@ -287,7 +320,7 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
       <View style={styles.deckRow}>
         {/* Behind cards fan right (+22/+44); shift the stack left by half the
             peek so the visual footprint is optically centered (mockup rule). */}
-        <View style={[styles.stack, webNoSelect, { transform: [{ translateX: isDesktop ? -22 : -11 }] }]}>
+        <View style={[styles.stack, { transform: [{ translateX: isDesktop ? -22 : -11 }] }]}>
           {after ? (
             <Animated.View style={[styles.absCard, { zIndex: 1 }, behind2Style]} pointerEvents="none">
               <DeckCard profile={after} />
@@ -299,25 +332,23 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
             </Animated.View>
           ) : null}
 
-          <Animated.View
-            style={[styles.absCard, styles.frontCard, { transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }] }]}
-            {...panResponder.panHandlers}
-          >
-            <Animated.View style={[styles.stamp, styles.stampPass, { opacity: passOpacity }]}>
+          <GestureDetector gesture={pan}>
+          <Animated.View style={[styles.absCard, styles.frontCard, frontStyle]}>
+            <Animated.View style={[styles.stamp, styles.stampPass, passStyle]}>
               <Text style={[styles.stampText, styles.stampTextPass]}>PASS</Text>
             </Animated.View>
             {/* "NEXT", not "LIKE", and an arrow rather than a heart: this
                 gesture moves through the deck and no longer adds anyone to
                 Liked. Only the heart button does that. Promising a like here
                 and not delivering one is what made Liked look wrong. */}
-            <Animated.View style={[styles.stampLike, { opacity: likeOpacity }]}>
+            <Animated.View style={[styles.stampLike, likeStyle]}>
               <View style={styles.likeDisc}>
                 <Feather name="arrow-right" size={38} color={colors.onPrimary} />
               </View>
               <Text style={styles.likeWord}>NEXT</Text>
             </Animated.View>
             {canSecondLook ? (
-              <Animated.View style={[styles.stampBack, { opacity: secondLookOpacity }]} pointerEvents="none">
+              <Animated.View style={[styles.stampBack, secondLookStyle]} pointerEvents="none">
                 <Feather name="rotate-ccw" size={15} color={colors.goldBright} />
                 <Text style={styles.stampBackText}>SECOND LOOK</Text>
               </Animated.View>
@@ -330,11 +361,19 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
                 profile={current}
                 front
                 saved={saved?.has(current.id)}
-                onSave={onSave ? () => onSave(current) : undefined}
-                onOpenProfile={!isDesktop ? () => router.push(`/(tabs)/profile?id=${current.id}`) : undefined}
+                onSave={
+                  onSave
+                    ? () => {
+                        haptics.commit();
+                        onSave(current);
+                      }
+                    : undefined
+                }
+                onOpenProfile={!isDesktop ? () => navigation.navigate('Profile', { id: current.id }) : undefined}
               />
             </View>
           </Animated.View>
+          </GestureDetector>
         </View>
 
       </View>
@@ -401,7 +440,7 @@ function DeckCard({
           the face behind a scrim (client screen 2). */}
       <View style={styles.body} pointerEvents={onOpenProfile ? 'box-none' : 'none'}>
           <View style={styles.nameRow} pointerEvents="none">
-            <Text style={styles.name} numberOfLines={1}>
+            <Text style={styles.name} numberOfLines={1} maxFontSizeMultiplier={1.4}>
               {profile.displayName}
             </Text>
             {profile.age != null ? <Text style={styles.age}>{profile.age}</Text> : null}
@@ -495,19 +534,30 @@ function ActionButton({
   const isSecond = variant === 'second';
   const glyphColor = isLike ? colors.onPrimary : isSecond ? colors.gold : colors.textSecondary;
   return (
-    <Pressable onPress={onPress} disabled={disabled}>
-      {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => {
-        const active = (pressed || hovered) && !disabled;
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      accessibilityHint={
+        isLike
+          ? 'Moves to the next profile'
+          : isSecond
+            ? 'Brings back the profile you just passed'
+            : 'Skips this profile'
+      }
+      hitSlop={6}
+    >
+      {({ pressed }: { pressed: boolean }) => {
+        const active = pressed && !disabled;
         return (
           <View style={styles.actionWrap}>
             <View
               style={[
                 styles.actionCircle,
-                webTransition,
                 isLike ? styles.actionCircleLike : null,
                 active ? styles.actionCircleActive : null,
-                // Micro-interaction: Like circle heartbeats while hovered (web).
-                isLike && hovered && !disabled ? styles.actionCircleHeartbeat : null,
                 // Second Look gets a pink glow ring when active (screen 5).
                 isSecond && active ? styles.actionCircleSecondActive : null,
                 pressed && !disabled ? styles.actionCirclePressed : null,
@@ -530,7 +580,7 @@ function ActionButton({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   deckArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.md },
   // Desktop browse has a sibling story column; both columns need to start on
   // the same y-axis and share the same visual column height. Mobile keeps the
@@ -620,7 +670,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 2px 8px rgba(46, 18, 64, 0.18)',
   },
-  saveBtnHover: { backgroundColor: '#FFFFFF', transform: [{ scale: 1.08 }] },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   name: { fontFamily: 'BreeSerif_400Regular', fontSize: 24, color: colors.textPrimary, flexShrink: 1 },
   age: { fontFamily: fonts.bodyMedium, color: colors.textSecondary, fontSize: 18 },
@@ -737,27 +786,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderColor: colors.primary,
     boxShadow: '0 10px 24px rgba(219, 2, 82,0.45)',
-    ...Platform.select({
-      web: { backgroundImage: 'linear-gradient(135deg, #F02168, #DB0252 55%, #B80143)' } as object,
-    }),
   },
   actionCircleActive: { transform: [{ translateY: -3 }, { scale: 1.05 }] },
-  actionCircleHeartbeat: {
-    ...Platform.select({
-      web: {
-        animationKeyframes: [
-          {
-            '0%': { transform: [{ translateY: -3 }, { scale: 1.06 }] },
-            '50%': { transform: [{ translateY: -3 }, { scale: 1.14 }] },
-            '100%': { transform: [{ translateY: -3 }, { scale: 1.06 }] },
-          },
-        ],
-        animationDuration: '0.9s',
-        animationTimingFunction: 'ease-in-out',
-        animationIterationCount: 'infinite',
-      } as object,
-    }),
-  },
   actionCircleSecondActive: { borderColor: colors.primary, borderWidth: 2, boxShadow: '0 0 0 6px rgba(219, 2, 82, 0.18)' },
   actionCirclePressed: { transform: [{ scale: 0.94 }] },
   actionDisabled: { opacity: 0.4 },
@@ -776,4 +806,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   viewProfileText: { fontFamily: 'Inter_600SemiBold', fontSize: 12.5, color: colors.primary },
-});
+}));

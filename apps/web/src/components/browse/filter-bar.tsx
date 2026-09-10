@@ -130,7 +130,11 @@ function FilterChip({ label, children }: { label: string; children: React.ReactN
           <ChevronDown className="size-4 text-ink-faint" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="center">{children}</DropdownMenuContent>
+      {/* Lined up with the chip that opened it, rather than centred under it:
+          centred left the menu sitting off to one side of a short chip. */}
+      <DropdownMenuContent align="start" className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
+        {children}
+      </DropdownMenuContent>
     </DropdownMenu>
   );
 }

@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { humanError, isOffline } from '../lib/errors';
-import { colors, spacing, type } from '../theme';
+import { colors, spacing, themedStyles, type } from '../theme';
 import { Button } from './primitives';
 
 /**
@@ -59,7 +59,7 @@ export function ErrorState({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   action: { marginTop: spacing.md, minWidth: 180 },
-});
+}));
 
 /**
  * Persistent strip for when the app is cut off entirely, so the state is
@@ -102,7 +102,7 @@ export function OfflineBanner() {
   );
 }
 
-const bannerStyles = StyleSheet.create({
+const bannerStyles = themedStyles((colors) => ({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -115,4 +115,4 @@ const bannerStyles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   text: { ...type.bodyMuted, fontSize: 12.5 },
-});
+}));

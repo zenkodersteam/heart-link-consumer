@@ -89,6 +89,15 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
    */
   const [flow, setFlow] = useState<Flow>('password');
   const [newPassword, setNewPassword] = useState('');
+  /**
+   * Typed a second time, and checked against the first.
+   *
+   * Only where a password is being *set*. A mistyped password at sign-in is a
+   * failed attempt you retry; a mistyped one here is being locked out of the
+   * account, and the reveal alone does not catch it because people do not
+   * re-read what they think they just typed.
+   */
+  const [confirmPassword, setConfirmPassword] = useState('');
   /** Held only between verifying a reset code and saving the new password. */
   const [accessToken, setAccessToken] = useState<string | null>(null);
   /** Held with the token, and announced only once the new password is saved. */
@@ -263,7 +272,14 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
   }
 
   async function saveNewPassword() {
-    if (!validate([['newPassword', passwordProblem(newPassword)]])) return;
+    if (
+      !validate([
+        ['newPassword', passwordProblem(newPassword)],
+        ['confirmPassword', confirmPassword === newPassword ? null : 'Both passwords must match.'],
+      ])
+    ) {
+      return;
+    }
     setBusy(true);
     setInvalid(false);
     try {
@@ -421,7 +437,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             <Lock className="size-4 shrink-0 text-ink-faint" />
             <input
               id="new-password"
-              type="password"
+              type={passwordShown ? 'text' : 'password'}
               autoFocus
               value={newPassword}
               aria-invalid={fieldErrors.newPassword ? true : undefined}
@@ -432,11 +448,47 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 clearField('newPassword');
               }}
               autoComplete="new-password"
-                placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
+              placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
             />
+            {/* The same reveal the sign-in field has. It matters most here:
+                this is a password being *set*, so a typo is not a failed
+                attempt, it is being locked out of the account later. */}
+            <RevealButton shown={passwordShown} onToggle={() => setPasswordShown((v) => !v)} />
           </div>
           <FieldError id="new-password-error" message={fieldErrors.newPassword} />
+
+          <label
+            htmlFor="confirm-password"
+            className="mb-2 mt-4 block text-[11px] font-bold uppercase tracking-[1.2px] text-ink-faint"
+          >
+            Confirm new password
+          </label>
+          <div
+            className={cn(
+              'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
+              fieldErrors.confirmPassword
+                ? 'border-danger'
+                : 'border-line focus-within:border-primary',
+            )}
+          >
+            <Lock className="size-4 shrink-0 text-ink-faint" />
+            <input
+              id="confirm-password"
+              type={passwordShown ? 'text' : 'password'}
+              value={confirmPassword}
+              aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+              aria-describedby={fieldErrors.confirmPassword ? 'confirm-password-error' : undefined}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value);
+                clearField('confirmPassword');
+              }}
+              autoComplete="new-password"
+              placeholder="Type it again"
+              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
+            />
+          </div>
+          <FieldError id="confirm-password-error" message={fieldErrors.confirmPassword} />
 
           <Button type="submit" className="mt-5 w-full" disabled={busy}>
             {busy ? <Spinner size="sm" className="border-white/40 border-t-white" /> : null}
@@ -509,7 +561,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
               }}
               autoComplete="email"
               placeholder="you@example.com"
-              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
+              className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
             />
           </div>
           <FieldError id="reset-email-error" message={fieldErrors.email} />
@@ -669,6 +721,16 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             !validate([
               ['email', emailProblem(email)],
               ['password', passwordProblem(password)],
+              // Only when one is being set. At sign-in a second field would
+              // ask people to type a password they already know, twice.
+              ...(intent === 'sign_up'
+                ? ([
+                    [
+                      'confirmPassword',
+                      confirmPassword === password ? null : 'Both passwords must match.',
+                    ],
+                  ] as [string, string | null][])
+                : []),
             ])
           ) {
             return;
@@ -706,7 +768,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             aria-describedby={fieldErrors.email ? 'email-error' : undefined}
             autoComplete="email"
             placeholder="you@example.com"
-            className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
+            className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
           />
         </div>
         <FieldError id="email-error" message={fieldErrors.email} />
@@ -761,23 +823,55 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                 placeholder={
                   intent === 'sign_up' ? `At least ${PASSWORD_MIN_LENGTH} characters` : 'Your password'
                 }
-                className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-faint"
+                className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
               />
-              {/* A typed password is easy to get wrong and impossible to check,
-                  which matters most when setting one. The state is not
-                  remembered between visits: leaving a password on screen is a
-                  decision to take each time, not one to inherit. */}
-              <button
-                type="button"
-                onClick={() => setPasswordShown((shown) => !shown)}
-                aria-label={passwordShown ? 'Hide password' : 'Show password'}
-                aria-pressed={passwordShown}
-                className="grid size-8 shrink-0 place-items-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-              >
-                {passwordShown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
+              <RevealButton
+                shown={passwordShown}
+                onToggle={() => setPasswordShown((shown) => !shown)}
+              />
             </div>
             <FieldError id="password-error" message={fieldErrors.password} />
+
+            {intent === 'sign_up' ? (
+              <>
+                <label
+                  htmlFor="confirm-signup-password"
+                  className="mb-2 mt-4 block text-[11px] font-bold uppercase tracking-[1.2px] text-ink-faint"
+                >
+                  Confirm password
+                </label>
+                <div
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-2xl border bg-surface-elevated px-4 transition-colors',
+                    fieldErrors.confirmPassword
+                      ? 'border-danger'
+                      : 'border-line focus-within:border-primary',
+                  )}
+                >
+                  <Lock className="size-4 shrink-0 text-ink-faint" />
+                  <input
+                    id="confirm-signup-password"
+                    type={passwordShown ? 'text' : 'password'}
+                    value={confirmPassword}
+                    aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+                    aria-describedby={
+                      fieldErrors.confirmPassword ? 'confirm-signup-password-error' : undefined
+                    }
+                    onChange={(event) => {
+                      setConfirmPassword(event.target.value);
+                      clearField('confirmPassword');
+                    }}
+                    autoComplete="new-password"
+                    placeholder="Type it again"
+                    className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
+                  />
+                </div>
+                <FieldError
+                  id="confirm-signup-password-error"
+                  message={fieldErrors.confirmPassword}
+                />
+              </>
+            ) : null}
           </>
         ) : null}
 
@@ -823,13 +917,18 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
         )}
       </p>
 
-      <p className="mt-6 text-center text-[12px] leading-relaxed text-ink-faint">
+      {/* 13px on `ink-soft`, not 12px on `ink-faint`: this is the line that
+          says what someone is agreeing to, and at 3.6:1 against the page it
+          failed the contrast floor for body text. The links carry the brand
+          colour as well as the underline, since an underline alone in the same
+          colour as the sentence does not read as something to press. */}
+      <p className="mt-6 text-center text-[13px] leading-relaxed text-ink-soft">
         By continuing you agree to our{' '}
-        <Link href="/policy?doc=terms" className="underline">
+        <Link href="/policy?doc=terms" className="font-semibold text-primary underline underline-offset-2">
           Terms
         </Link>{' '}
         and{' '}
-        <Link href="/policy?doc=privacy" className="underline">
+        <Link href="/policy?doc=privacy" className="font-semibold text-primary underline underline-offset-2">
           Privacy Policy
         </Link>
         .
@@ -845,6 +944,27 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
  * input points `aria-describedby` at, so the reason is read out with the field
  * rather than floating loose on the page.
  */
+/**
+ * Show or hide what has been typed.
+ *
+ * A typed password is easy to get wrong and impossible to check, which matters
+ * most when setting one. The state is never remembered between visits: leaving
+ * a password on screen is a decision to take each time, not one to inherit.
+ */
+function RevealButton({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={shown ? 'Hide password' : 'Show password'}
+      aria-pressed={shown}
+      className="grid size-8 shrink-0 place-items-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
+    >
+      {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+    </button>
+  );
+}
+
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (

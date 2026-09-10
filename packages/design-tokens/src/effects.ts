@@ -60,3 +60,73 @@ export const elevation = {
   /** The stacked profile deck sits higher off the page than a plain card. */
   deck: '0 4px 12px rgba(46,18,64,0.08), 0 20px 48px rgba(46,18,64,0.12)',
 } as const;
+
+/**
+ * The same three heights, for React Native.
+ *
+ * Three levels and no more, so height means something: `resting` is a card on
+ * the page, `raised` is a surface that came from somewhere (a sheet, a menu, a
+ * deck), and `floating` is a control sitting above the content it acts on.
+ * Spending shadow by role is what keeps a screen readable - a shadow on every
+ * box flattens the hierarchy it was meant to create.
+ *
+ * iOS reads the four `shadow*` values and Android reads `elevation`; both are
+ * given here because a surface that lifts on one platform and not the other is
+ * the same bug twice.
+ */
+export const depth = {
+  resting: {
+    shadowColor: '#2E1240',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  raised: {
+    shadowColor: '#2E1240',
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  floating: {
+    shadowColor: '#2E1240',
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 12,
+  },
+} as const;
+
+/**
+ * The same three heights, after dark.
+ *
+ * A drop shadow on a dark ground is invisible - there is nothing for it to
+ * darken. Height at night is carried by the surface being paler than the page,
+ * which the dark palette already does, so these keep only enough shadow to
+ * separate an overlay from what is behind it, and Android keeps its elevation
+ * so the system's own compositing still lifts the view.
+ */
+export const darkDepth = {
+  resting: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  raised: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.42,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
+  },
+  floating: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.55,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 12,
+  },
+} as const;

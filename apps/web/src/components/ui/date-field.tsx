@@ -10,7 +10,7 @@ import {
   parseDob,
   toDisplayDate,
 } from '@heartlink/consumer-content';
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
@@ -46,6 +46,7 @@ export function DateField({
   const fieldId = id ?? generated;
 
   const [open, setOpen] = React.useState(false);
+  const [pickingYear, setPickingYear] = React.useState(false);
   const start = React.useMemo(() => calendarStart(value), [value]);
   const [year, setYear] = React.useState(start.year);
   const [month, setMonth] = React.useState(start.month);
@@ -77,6 +78,7 @@ export function DateField({
     const next = calendarStart(value);
     setYear(next.year);
     setMonth(next.month);
+    setPickingYear(false);
     setOpen(true);
   };
 
@@ -141,34 +143,25 @@ export function DateField({
                 <ChevronLeft className="size-4" />
               </button>
 
-              {/* Month and year as selects, not just arrows: a birth date is
-                  hundreds of months away, and paging there one at a time is
-                  not a thing anyone will do. */}
-              <select
-                value={month}
-                onChange={(event) => setMonth(Number(event.target.value))}
-                aria-label="Month"
-                className="min-w-0 flex-1 rounded-lg bg-transparent px-1 py-1.5 text-[13px] font-semibold text-ink outline-none hover:bg-surface-muted"
+              {/* One control, inside the popover.
+                  Month and year were native <select>s, and a browser renders
+                  those as its own overlay — a tall OS-drawn list detached from
+                  the calendar, floating over the page. Choosing a year now
+                  swaps the grid for a list in the same panel, so there is only
+                  ever one thing on screen. */}
+              <button
+                type="button"
+                onClick={() => setPickingYear((picking) => !picking)}
+                aria-expanded={pickingYear}
+                className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface-muted"
               >
-                {MONTH_NAMES.map((name, index) => (
-                  <option key={name} value={index}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={year}
-                onChange={(event) => setYear(Number(event.target.value))}
-                aria-label="Year"
-                className="rounded-lg bg-transparent px-1 py-1.5 text-[13px] font-semibold text-ink outline-none hover:bg-surface-muted"
-              >
-                {birthYears().map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+                {MONTH_NAMES[month]} {year}
+                {pickingYear ? (
+                  <ChevronUp className="size-3.5 text-ink-soft" />
+                ) : (
+                  <ChevronDown className="size-3.5 text-ink-soft" />
+                )}
+              </button>
 
               <button
                 type="button"
@@ -180,6 +173,31 @@ export function DateField({
               </button>
             </div>
 
+            {pickingYear ? (
+              <ul className="mt-2 grid max-h-[232px] grid-cols-4 gap-1 overflow-y-auto pr-1">
+                {birthYears().map((option) => (
+                  <li key={option}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYear(option);
+                        setPickingYear(false);
+                      }}
+                      aria-pressed={option === year}
+                      className={cn(
+                        'w-full rounded-lg py-2 text-[13px] transition-colors',
+                        option === year
+                          ? 'bg-primary font-semibold text-on-primary'
+                          : 'text-ink hover:bg-surface-muted',
+                      )}
+                    >
+                      {option}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <>
             <div className="mt-2 grid grid-cols-7 gap-0.5">
               {WEEKDAY_INITIALS.map((initial, index) => (
                 <span
@@ -215,7 +233,9 @@ export function DateField({
                   </button>
                 );
               })}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         ) : null}
       </div>
@@ -225,7 +245,7 @@ export function DateField({
           {error}
         </p>
       ) : hint ? (
-        <p className="text-[13px] text-ink-faint">{hint}</p>
+        <p className="text-[13px] text-ink-soft">{hint}</p>
       ) : null}
     </div>
   );

@@ -2,12 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { useCallback, useRef } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing } from '../theme';
-
-const webTransition =
-  Platform.OS === 'web'
-    ? { transitionProperty: 'background-color, opacity', transitionDuration: '120ms', transitionTimingFunction: 'ease-out' }
-    : null;
+import { colors, radii, spacing, themedStyles } from '../theme';
 
 export interface MenuItem {
   label: string;
@@ -88,14 +83,13 @@ export function DropdownMenu({
         <View style={[styles.sheet, { top, right }]}>
           {items.map((item) => (
             <Pressable
+              hitSlop={8}
               key={item.label}
               onPress={() => choose(item)}
               disabled={item.disabled}
-              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+              style={({ pressed }: { pressed: boolean }) => [
                 styles.item,
                 item.separated ? styles.itemSeparated : null,
-                webTransition,
-                hovered && !item.disabled ? { backgroundColor: colors.surfaceMuted } : null,
                 pressed && !item.disabled ? { backgroundColor: colors.surfaceMuted } : null,
                 item.disabled ? { opacity: 0.45 } : null,
               ]}
@@ -108,7 +102,7 @@ export function DropdownMenu({
                 />
               ) : null}
               <Text
-                numberOfLines={1}
+                numberOfLines={1} maxFontSizeMultiplier={1.4}
                 style={[styles.label, item.destructive ? styles.labelDanger : null]}
               >
                 {item.label}
@@ -121,7 +115,7 @@ export function DropdownMenu({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   backdrop: { flex: 1, backgroundColor: 'rgba(22,5,31,0.28)' },
   sheet: {
     position: 'absolute',
@@ -147,4 +141,4 @@ const styles = StyleSheet.create({
   itemSeparated: { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 13 },
   label: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14.5, color: colors.textPrimary },
   labelDanger: { color: colors.danger, fontFamily: 'Inter_600SemiBold' },
-});
+}));

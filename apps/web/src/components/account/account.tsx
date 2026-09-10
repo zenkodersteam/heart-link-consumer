@@ -61,7 +61,15 @@ export function Account() {
         ? 'Unlimited letters'
         : `${entitlement.totalRemaining} ${entitlement.totalRemaining === 1 ? 'letter' : 'letters'} left`;
 
-  const profileStatus = profile ? (PROFILE_STATUS_LABELS[profile.status] ?? 'Incomplete') : undefined;
+  // `draft` is the only status without a label above, and it means two
+  // different things: a profile that has never been finished, and a finished
+  // one with an edit that has not been sent to the team. Only the first is
+  // "Incomplete" — calling the second that told members who had changed one
+  // line that their whole application had come undone.
+  const profileStatus = profile
+    ? (PROFILE_STATUS_LABELS[profile.status] ??
+      (profile.onboardingComplete ? 'Changes not sent' : 'Incomplete'))
+    : undefined;
 
   /**
    * Sign out, and drop everything cached for this member.

@@ -1,8 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
-import { colors, radii, spacing, type } from '../theme';
+import { duration } from '../lib/motion';
+import { colors, radii, spacing, themedStyles, type } from '../theme';
 import { Button } from './primitives';
 
 /**
@@ -40,8 +42,11 @@ export function EmptyState({
   onSecondaryPress?: () => void;
 }) {
   return (
-    <View style={styles.wrap}>
-      <View style={styles.disc}>
+    // An empty state is nearly always the end of a wait, so it arrives rather
+    // than appearing: the art settles first and the words follow it in. The
+    // entrance is declared, so reduced motion drops it without a branch here.
+    <Animated.View style={styles.wrap} entering={FadeIn.duration(duration.base)}>
+      <Animated.View style={styles.disc} entering={FadeInDown.duration(duration.enter).springify()}>
         {art != null ? (
           <Image source={art} style={styles.discImg} contentFit="cover" />
         ) : (
@@ -49,7 +54,7 @@ export function EmptyState({
             <Feather name={icon ?? 'heart'} size={40} color={colors.goldBright} />
           </View>
         )}
-      </View>
+      </Animated.View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
       {note ? (
@@ -67,11 +72,11 @@ export function EmptyState({
           style={styles.secondary}
         />
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   wrap: {
     flexGrow: 1,
     minHeight: 340,
@@ -96,13 +101,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1A0A26',
-    ...Platform.select({
-      web: {
-        backgroundImage:
-          'radial-gradient(58% 58% at 66% 26%, rgba(219, 2, 82,0.38), transparent 72%), ' +
-          'radial-gradient(78% 78% at 50% 52%, #241031 0%, #13051D 74%)',
-      } as object,
-    }),
   },
   title: { ...type.h2, fontSize: 21, textAlign: 'center', marginBottom: spacing.sm },
   body: {
@@ -128,4 +126,4 @@ const styles = StyleSheet.create({
   noteText: { ...type.caption, flex: 1, color: colors.textSecondary },
   cta: { paddingHorizontal: 26, paddingVertical: 11 },
   secondary: { marginTop: spacing.xs, paddingVertical: 8 },
-});
+}));

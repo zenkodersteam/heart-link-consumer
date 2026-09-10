@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,13 +13,8 @@ import {
 } from 'react-native';
 
 import type { ListPublicProfilesQuery, PlanTier, ProfileGender } from '@heartlink/consumer-api';
-import { colors, cta, radii, spacing, type, inputReset } from '../theme';
-
-const USE_NATIVE_DRIVER = Platform.OS !== 'web';
-const webTransition =
-  Platform.OS === 'web'
-    ? { transitionProperty: 'background-color, border-color, color, transform', transitionDuration: '160ms', transitionTimingFunction: 'ease-out' }
-    : null;
+import { haptics } from '../lib/haptics';
+import { colors, cta, radii, spacing, themedStyles, type } from '../theme';
 
 const AGE_PRESETS: { label: string; min?: number; max?: number }[] = [
   { label: 'Open to all' },
@@ -72,7 +66,6 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
       onPress={onPress}
       style={({ pressed }: { pressed: boolean }) => [
         styles.chip,
-        webTransition,
         active ? styles.chipActive : null,
         pressed ? { transform: [{ scale: 0.96 }] } : null,
       ]}
@@ -105,8 +98,8 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
     scale.setValue(0.95);
     fade.setValue(0);
     Animated.parallel([
-      Animated.spring(scale, { toValue: 1, friction: 8, tension: 90, useNativeDriver: USE_NATIVE_DRIVER }),
-      Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: USE_NATIVE_DRIVER }),
+      Animated.spring(scale, { toValue: 1, friction: 8, tension: 90, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: 180, useNativeDriver: true }),
     ]).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -254,10 +247,12 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
                 return (
                   <Pressable
                     key={g.label}
-                    onPress={() => setGender(g.value)}
+                    onPress={() => {
+                      haptics.selection();
+                      setGender(g.value);
+                    }}
                     style={({ pressed }: { pressed: boolean }) => [
                       styles.segmentItem,
-                      webTransition,
                       active ? styles.segmentItemActive : null,
                       pressed ? { opacity: 0.85 } : null,
                     ]}
@@ -275,7 +270,10 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
                   key={t.label}
                   label={t.label}
                   active={tier === t.value}
-                  onPress={() => setTier(t.value)}
+                  onPress={() => {
+                    haptics.selection();
+                    setTier(t.value);
+                  }}
                 />
               ))}
             </View>
@@ -291,10 +289,8 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
               </Pressable>
               <Pressable
                 onPress={apply}
-                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                style={({ pressed }: { pressed: boolean }) => [
                   styles.applyBtn,
-                  webTransition,
-                  hovered ? { opacity: 0.92 } : null,
                   pressed ? { transform: [{ scale: 0.98 }] } : null,
                 ]}
               >
@@ -308,7 +304,7 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themedStyles((colors) => ({
   // A centred dialog is a desktop shape. On a phone this belongs against the
   // bottom edge, in thumb reach, at the height it actually needs.
   backdrop: {
@@ -423,9 +419,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     alignItems: 'center',
     boxShadow: cta.glow,
-    ...Platform.select({
-      web: { backgroundImage: cta.gradientCss } as object,
-    }),
   },
   applyText: { ...type.button, color: colors.onPrimary, fontSize: 15 },
-});
+}));
