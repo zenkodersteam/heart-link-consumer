@@ -250,8 +250,11 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       }
       clearPendingSignUp();
       setUser(data.user ?? null);
+      // Announced before the navigation: the toaster is mounted in the root
+      // layout, so the message survives the page change and lands on the
+      // screen someone actually arrives at.
+      toast.success('Signed in', { description: welcomeBack(data.user?.displayName) });
       router.push(redirectTo ?? AFTER_SIGN_IN);
-      router.refresh();
     } catch {
       fail('We could not reach HeartLink. Check your connection and try again.');
     } finally {
@@ -286,8 +289,8 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       toast.success('Password updated', {
         description: 'You are signed in with your new password.',
       });
+      // No refresh here either, for the reason spelled out on the code path.
       router.push(redirectTo ?? AFTER_SIGN_IN);
-      router.refresh();
     } catch {
       fail('We could not reach HeartLink. Check your connection and try again.');
     } finally {
@@ -361,10 +364,21 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
       });
 
       const destination = newAccount ? AFTER_SIGN_UP : (redirectTo ?? AFTER_SIGN_IN);
+      // Just the navigation — deliberately no `router.refresh()` alongside it.
+      //
+      // Refresh re-fetches the route you are still on, which by this point is
+      // /sign-in with a session cookie attached. The proxy bounces a signed-in
+      // visitor off the auth pages, so that re-fetch came back a redirect, and
+      // a redirect is the one thing the client router cannot resolve as a soft
+      // navigation: it falls back to setting `window.location`. The document
+      // reloaded, and everything held in memory went with it — including the
+      // toast fired two lines above, which is why signing in never confirmed
+      // anything.
+      //
+      // Nothing is lost by dropping it. The signed-in shell lives in a layout
+      // this page is outside of, so arriving renders it for the first time
+      // rather than from cache, and with the cookie already set.
       router.push(destination);
-      // The signed-in layout is a server component and would otherwise still
-      // be rendering the anonymous version from cache.
-      router.refresh();
     } catch {
       fail('We could not reach HeartLink. Check your connection and try again.');
     } finally {

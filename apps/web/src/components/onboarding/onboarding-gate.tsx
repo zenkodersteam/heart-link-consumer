@@ -39,8 +39,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   // exactly what should not be on screen yet.
   if (isPending || unfinished) {
     return (
-      <div className="grid min-h-dvh place-items-center bg-surface">
-        <PageSpinner label="Getting your profile…" />
+      <div className="bg-surface">
+        <PageSpinner fullScreen label="Getting your profile…" />
       </div>
     );
   }

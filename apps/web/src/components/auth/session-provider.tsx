@@ -13,6 +13,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { getQueryClient } from '@/lib/query-client';
+
 interface SessionValue {
   /**
    * A usable access token, refreshing first if the one held has expired.
@@ -49,7 +51,32 @@ export function SessionProvider({
   hasSession?: boolean;
 }) {
   const router = useRouter();
-  const [user, setUser] = useState<AuthUser | null>(initialUser);
+  const [user, setUserState] = useState<AuthUser | null>(initialUser);
+
+  /**
+   * Who the cache currently belongs to.
+   *
+   * Query keys are not scoped by member — `['my-profile']` is the same key for
+   * everyone — and the cache outlives a sign-out in the same tab. So a new
+   * account opening onboarding was handed the *previous* member's profile from
+   * cache and rendered their name and date of birth into the form, for the
+   * moment before the refetch replaced them. A stale render is one thing; a
+   * stale render of somebody else's details is another.
+   *
+   * A ref rather than reading `user`: this has to be decided at the moment the
+   * user changes, not on the render after it.
+   */
+  const cacheOwner = useRef<string | null>(initialUser?.id ?? null);
+
+  const setUser = useCallback((next: AuthUser | null) => {
+    const nextId = next?.id ?? null;
+    if (cacheOwner.current !== nextId) {
+      // Everything cached belonged to whoever was signed in before.
+      getQueryClient().clear();
+      cacheOwner.current = nextId;
+    }
+    setUserState(next);
+  }, []);
   const [ready, setReady] = useState(!hasSession);
 
   // Refs, not state: changing the token must not re-render the whole app, and
@@ -99,7 +126,7 @@ export function SessionProvider({
 
     inFlight.current = request;
     return request;
-  }, []);
+  }, [setUser]);
 
   const getToken = useCallback(async () => {
     if (token.current && Date.now() < expiresAt.current - REFRESH_MARGIN_MS) {
@@ -113,7 +140,7 @@ export function SessionProvider({
   useEffect(() => {
     if (!hasSession) return;
     void refresh().finally(() => setReady(true));
-  }, [hasSession, refresh]);
+  }, [hasSession, refresh, setUser]);
 
   const signOut = useCallback(async () => {
     token.current = null;
@@ -122,11 +149,11 @@ export function SessionProvider({
     await fetch('/api/auth/sign-out', { method: 'POST' }).catch(() => undefined);
     router.push('/');
     router.refresh();
-  }, [router]);
+  }, [router, setUser]);
 
   const value = useMemo<SessionValue>(
     () => ({ getToken, user, setUser, signOut, ready }),
-    [getToken, user, signOut, ready],
+    [getToken, user, setUser, signOut, ready],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

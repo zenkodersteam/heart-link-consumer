@@ -62,19 +62,27 @@ export function ProfilePhoto({
   return (
     <div className={cn('relative h-full w-full', className)}>
       <PhotoStandIn name={name} className="absolute inset-0" />
-      {/* Optimised rather than served whole: uploads are full-size originals
-          from a phone camera, and a 4 MB file was being downloaded into a 44px
-          circle. The host is allowed through `images.remotePatterns` in
-          next.config, derived from the API base URL. */}
+      {/* Served as issued, not through the image optimiser.
+          Two reasons, and the first one is currently breaking every photo in
+          production. The optimiser only fetches hosts listed in
+          `images.remotePatterns`, which is derived from the API base URL — and
+          since storage moved to S3 the presigned links come from the bucket's
+          host instead, so every request returns 400 "url parameter is not
+          allowed". The upload succeeds, the URL comes back, and `onError`
+          below quietly swaps in the stand-in.
+          The second reason is why allow-listing the bucket is not the fix:
+          these links carry an expiry and a signature, so the same photo has a
+          different URL every time it is issued. That URL is the optimiser's
+          cache key, so nothing is ever reused — every view of every photo pays
+          for a fresh transformation, and Vercel bills and rate-limits those.
+          Resizing belongs upstream: a thumbnail written at upload time is
+          cheaper than one computed per view and survives the URL rotating. */}
       <Image
         src={src}
         alt={name ?? ''}
         fill
         sizes={sizes}
-        // Presigned links carry an expiry and a signature, so the same photo
-        // has a different URL each time it is issued. That is the optimiser's
-        // cache key, so a cached copy is not reused across issues — each first
-        // view still pays for a resize, but never for the original's full size.
+        unoptimized
         onLoad={() => setLoadedSrc(src)}
         onError={() => setFailedSrc(src)}
         className={cn(

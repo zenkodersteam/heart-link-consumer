@@ -5,5 +5,5 @@ import { PageSpinner } from '@/components/ui/spinner';
  * page until the new one is ready, so a slow navigation looks like a dead tap.
  */
 export default function Loading() {
-  return <PageSpinner />;
+  return <PageSpinner fullScreen />;
 }

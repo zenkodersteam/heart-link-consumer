@@ -122,7 +122,13 @@ export function useUploadMyProfilePhoto() {
   return useMutation({
     mutationFn: async (file: File) =>
       (await factory()).uploadMyProfilePhoto(file, file.name),
-    onSuccess: (profile) => queryClient.setQueryData(qk.myProfile(), profile),
+    onSuccess: (profile) => {
+      queryClient.setQueryData(qk.myProfile(), profile);
+      // And ask again. The response is authoritative for the photo, but the
+      // upload also returns the profile to draft for moderation, and anything
+      // else reading it should see that without a reload.
+      void queryClient.invalidateQueries({ queryKey: qk.myProfile() });
+    },
   });
 }
 

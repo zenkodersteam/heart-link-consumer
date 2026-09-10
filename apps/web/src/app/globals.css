@@ -95,3 +95,92 @@ body {
     animation: review-ring 1.8s ease-out infinite;
   }
 }
+
+/**
+ * The route-level loader (components/ui/spinner.tsx, `HeartPulse`).
+ *
+ * `hl-beat` is a real lub-dub rather than an even pulse: a quick squeeze, a
+ * smaller second one on its heels, then a rest. An evenly spaced throb reads as
+ * a progress indicator; this reads as a heartbeat, which is the point.
+ */
+@keyframes hl-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  14% {
+    transform: scale(1.09);
+  }
+  28% {
+    transform: scale(1);
+  }
+  42% {
+    transform: scale(1.05);
+  }
+  56% {
+    transform: scale(1);
+  }
+}
+
+/* Swells with the first beat, so the glow belongs to the heart. */
+@keyframes hl-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  56% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}
+
+@keyframes hl-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The label breathes rather than blinks - a blink at this size is a twitch. */
+@keyframes hl-loader-label {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* SVG children rotate and scale about the user-space origin, which throws
+     them off the canvas. `transform-box` is left at its initial `view-box`, so
+     50% resolves against the 64x64 viewBox - the middle of the mark, and the
+     one centre all three of these share. `fill-box` would use each element's
+     own bounding box instead, and the orbit's bead pulls that off centre. */
+  .animate-hl-beat,
+  .animate-hl-glow,
+  .animate-hl-orbit {
+    transform-origin: 50% 50%;
+  }
+
+  .animate-hl-beat {
+    animation: hl-beat 1.5s ease-in-out infinite;
+  }
+
+  .animate-hl-glow {
+    animation: hl-glow 1.5s ease-in-out infinite;
+  }
+
+  .animate-hl-orbit {
+    animation: hl-orbit 6s linear infinite;
+  }
+
+  .animate-hl-loader-label {
+    animation: hl-loader-label 1.5s ease-in-out infinite;
+  }
+}
