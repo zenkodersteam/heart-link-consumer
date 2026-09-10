@@ -599,7 +599,10 @@ export default function MailboxScreen() {
   // showing the chrome around an explanation would only suggest the contents
   // are loading. Placed after every hook so the early return is safe.
   if (locked) {
-    return <MailboxLocked onSeePlans={() => router.push('/plans')} />;
+    // Out to the website rather than the in-app plans screen: paying happens
+    // there, and a phone screen that only leads to another phone screen that
+    // then leads to a browser is one hop of nothing.
+    return <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} />;
   }
 
   // ----- shared sub-views -------------------------------------------------

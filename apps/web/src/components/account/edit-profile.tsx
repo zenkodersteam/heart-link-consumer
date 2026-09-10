@@ -1,5 +1,6 @@
 'use client';
 
+import { PHOTO_ACCEPT, photoFileProblem } from '@heartlink/domain';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
@@ -67,6 +68,13 @@ export function EditProfile() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function onPickPhoto(file: File) {
+    // Refused before the upload, so the answer names what to do instead of
+    // handing back the MIME type the server rejected.
+    const problem = photoFileProblem(file);
+    if (problem) {
+      toast.error('Could not upload that photo', { description: problem });
+      return;
+    }
     try {
       await uploadPhoto.mutateAsync(file);
       toast.success('Photo updated', {
@@ -127,7 +135,7 @@ export function EditProfile() {
           <div className="mt-6 flex items-center gap-4 rounded-[20px] border border-line bg-surface-elevated p-4">
             <span className="size-16 shrink-0 overflow-hidden rounded-full bg-surface-muted">
               {profile?.primaryPhotoUrl ? (
-                <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
+                <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} sizes="160px" />
               ) : (
                 <span className="grid size-full place-items-center font-[family-name:var(--font-bree)] text-2xl text-ink-faint">
                   {(profile?.displayName ?? '?').charAt(0).toUpperCase()}
@@ -151,7 +159,7 @@ export function EditProfile() {
             <input
               ref={fileInput}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={PHOTO_ACCEPT}
               className="hidden"
               onChange={(event) => {
                 const file = event.target.files?.[0];

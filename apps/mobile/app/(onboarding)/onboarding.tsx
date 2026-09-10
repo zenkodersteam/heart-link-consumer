@@ -25,7 +25,7 @@ import { colors, fonts, radii, spacing, type } from '../../src/theme';
 
 // The step rule is the website's, imported rather than copied. It was written
 // out again here, so the two drifted apart every time either was touched.
-import { validateStep } from '@heartlink/consumer-content';
+import { MAX_BIO_CHARS, MIN_BIO_CHARS, validateStep } from '@heartlink/consumer-content';
 
 type StepKey = 'name' | 'location' | 'identity' | 'connection' | 'lifestyle' | 'communication' | 'story' | 'photo' | 'review';
 
@@ -81,7 +81,13 @@ const STEPS: { key: StepKey; title: string; subtitle: string }[] = [
   },
 ];
 
-const MIN_BIO_CHARS = 40;
+/** "12 more characters to go" under the floor, "231 / 500" the rest of the time. */
+function bioHint(value: string, done: string): string {
+  const used = value.trim().length;
+  if (used < MIN_BIO_CHARS) return `${MIN_BIO_CHARS - used} more characters to go`;
+  if (used > MAX_BIO_CHARS) return `${used - MAX_BIO_CHARS} characters over the ${MAX_BIO_CHARS} limit`;
+  return `${used} / ${MAX_BIO_CHARS} — ${done}`;
+}
 
 type PrefKey =
   | 'iAm'
@@ -228,7 +234,12 @@ export default function OnboardingScreen() {
       case 'location':
         return loc.trim().length >= 2;
       case 'story':
-        return story.trim().length >= MIN_BIO_CHARS && looking.trim().length >= MIN_BIO_CHARS;
+        return (
+          story.trim().length >= MIN_BIO_CHARS &&
+          story.trim().length <= MAX_BIO_CHARS &&
+          looking.trim().length >= MIN_BIO_CHARS &&
+          looking.trim().length <= MAX_BIO_CHARS
+        );
       default:
         return true;
     }
@@ -503,14 +514,11 @@ export default function OnboardingScreen() {
             }}
             placeholder="What brings you here? What kind of connection are you hoping for?"
             multiline
+            maxLength={MAX_BIO_CHARS}
             numberOfLines={6}
             style={styles.bioInput}
           />
-          <Text style={type.caption}>
-            {story.trim().length < MIN_BIO_CHARS
-              ? `${MIN_BIO_CHARS - story.trim().length} more characters to go`
-              : 'Looking good.'}
-          </Text>
+          <Text style={type.caption}>{bioHint(story, 'looking good')}</Text>
           <Field
             label="What I'm looking for"
             error={fieldErrors.lookingFor}
@@ -522,13 +530,12 @@ export default function OnboardingScreen() {
             }}
             placeholder="What kind of correspondence or connection would feel meaningful to you?"
             multiline
+            maxLength={MAX_BIO_CHARS}
             numberOfLines={5}
             style={styles.bioInput}
           />
           <Text style={type.caption}>
-            {looking.trim().length < MIN_BIO_CHARS
-              ? `${MIN_BIO_CHARS - looking.trim().length} more characters to go`
-              : 'This gives people a clearer reason to write back.'}
+            {bioHint(looking, 'a clearer reason to write back')}
           </Text>
         </>
       ) : null}

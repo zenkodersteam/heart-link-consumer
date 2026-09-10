@@ -36,7 +36,7 @@ export function Avatar({
       )}
     >
       {src ? (
-        <ProfilePhoto src={src} name={name} />
+        <ProfilePhoto src={src} name={name} sizes="96px" />
       ) : (
         <span>{initials(name)}</span>
       )}

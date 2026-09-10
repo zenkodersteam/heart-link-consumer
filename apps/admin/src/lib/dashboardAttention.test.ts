@@ -25,7 +25,7 @@ test('clear queues produce a single calm row, not a blank card', () => {
     intake: 0,
     profiles: 0,
     payments: 0,
-    moderation: 0, letters: 0, outboundMail: 0 });
+    moderation: 0, letters: 0, outboundMail: 0, members: 0 });
 
   assert.equal(items.length, 1);
   assert.equal(items[0].kind, 'clear');
@@ -42,7 +42,7 @@ test('safety outranks payments, payments outrank OCR review and activation', () 
     intake: 12,
     profiles: 30,
     payments: 3,
-    moderation: 1, letters: 0, outboundMail: 0 });
+    moderation: 1, letters: 0, outboundMail: 0, members: 0 });
 
   assert.deepEqual(
     items.map((item) => item.id),
@@ -63,7 +63,7 @@ test('a blocked payment queue still sorts above a much larger intake backlog', (
     intake: 400,
     profiles: 0,
     payments: 1,
-    moderation: 0, letters: 0, outboundMail: 0 });
+    moderation: 0, letters: 0, outboundMail: 0, members: 0 });
 
   assert.deepEqual(
     items.map((item) => item.id),
@@ -76,20 +76,20 @@ test('row titles stay singular or plural with the count', () => {
     intake: 0,
     profiles: 0,
     payments: 1,
-    moderation: 0, letters: 0, outboundMail: 0 });
+    moderation: 0, letters: 0, outboundMail: 0, members: 0 });
   assert.equal(single.title, '1 payment unmatched or in exception');
 
   const [many] = buildAttentionItems({
     intake: 0,
     profiles: 0,
     payments: 2,
-    moderation: 0, letters: 0, outboundMail: 0 });
+    moderation: 0, letters: 0, outboundMail: 0, members: 0 });
   assert.equal(many.title, '2 payments unmatched or in exception');
 });
 
 test('the headline leads with blocking work and counts the remainder', () => {
   const blocking = summarizeAttention(
-    buildAttentionItems({ intake: 4, profiles: 2, payments: 1, moderation: 1, letters: 0, outboundMail: 0 }),
+    buildAttentionItems({ intake: 4, profiles: 2, payments: 1, moderation: 1, letters: 0, outboundMail: 0, members: 0 }),
   );
   assert.equal(blocking.severity, 'critical');
   assert.equal(blocking.criticalCount, 2);
@@ -100,7 +100,7 @@ test('the headline leads with blocking work and counts the remainder', () => {
   );
 
   const blockingOnly = summarizeAttention(
-    buildAttentionItems({ intake: 0, profiles: 0, payments: 1, moderation: 0, letters: 0, outboundMail: 0 }),
+    buildAttentionItems({ intake: 0, profiles: 0, payments: 1, moderation: 0, letters: 0, outboundMail: 0, members: 0 }),
   );
   assert.equal(
     blockingOnly.headline,
@@ -110,7 +110,7 @@ test('the headline leads with blocking work and counts the remainder', () => {
 
 test('non-blocking work reads as routine, and says so', () => {
   const summary = summarizeAttention(
-    buildAttentionItems({ intake: 5, profiles: 0, payments: 0, moderation: 0, letters: 0, outboundMail: 0 }),
+    buildAttentionItems({ intake: 5, profiles: 0, payments: 0, moderation: 0, letters: 0, outboundMail: 0, members: 0 }),
   );
   assert.equal(summary.severity, 'elevated');
   assert.equal(summary.criticalCount, 0);
@@ -120,7 +120,7 @@ test('non-blocking work reads as routine, and says so', () => {
   );
 
   const two = summarizeAttention(
-    buildAttentionItems({ intake: 5, profiles: 5, payments: 0, moderation: 0, letters: 0, outboundMail: 0 }),
+    buildAttentionItems({ intake: 5, profiles: 5, payments: 0, moderation: 0, letters: 0, outboundMail: 0, members: 0 }),
   );
   assert.equal(
     two.headline,

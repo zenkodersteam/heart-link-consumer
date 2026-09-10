@@ -1,9 +1,11 @@
 'use client';
 
+import { PHOTO_ACCEPT, photoFileProblem } from '@heartlink/domain';
 import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
 import {
   ONBOARDING_OPTIONS,
   ONBOARDING_STEPS,
+  MAX_BIO_CHARS,
   MIN_BIO_CHARS,
   REVIEW_PREF_GROUPS,
   isoToDisplay,
@@ -44,6 +46,14 @@ import {
  * step six comes back to step six's answers rather than an empty form. The last
  * step submits for moderation.
  */
+/** "12 more characters to go" under the floor, "231 / 500" the rest of the time. */
+function bioHint(value: string, done: string): string {
+  const used = value.trim().length;
+  if (used < MIN_BIO_CHARS) return `${MIN_BIO_CHARS - used} more characters to go`;
+  if (used > MAX_BIO_CHARS) return `${used - MAX_BIO_CHARS} characters over the ${MAX_BIO_CHARS} limit`;
+  return `${used} / ${MAX_BIO_CHARS} — ${done}`;
+}
+
 export function Onboarding() {
   const router = useRouter();
   const { signOut } = useSession();
@@ -143,6 +153,14 @@ export function Onboarding() {
   async function onPickPhoto(file: File | undefined) {
     if (!file) return;
     setSaveError(null);
+    // Refused here, before the upload, so the answer is a sentence someone can
+    // act on. The server's own message names the MIME type it rejected, which
+    // is accurate and useless: "Unsupported photo type: video/mp4".
+    const problem = photoFileProblem(file);
+    if (problem) {
+      setSaveError(problem);
+      return;
+    }
     try {
       await uploadPhoto.mutateAsync(file);
     } catch (e) {
@@ -497,11 +515,8 @@ export function Onboarding() {
                 clearField('story');
               }}
               placeholder="What brings you here? What kind of connection are you hoping for?"
-              hint={
-                story.trim().length < MIN_BIO_CHARS
-                  ? `${MIN_BIO_CHARS - story.trim().length} more characters to go`
-                  : 'Looking good.'
-              }
+              maxLength={MAX_BIO_CHARS}
+              hint={bioHint(story, 'looking good')}
             />
             <TextareaField
               label="What I'm looking for"
@@ -515,11 +530,8 @@ export function Onboarding() {
                 clearField('lookingFor');
               }}
               placeholder="What kind of correspondence or connection would feel meaningful to you?"
-              hint={
-                looking.trim().length < MIN_BIO_CHARS
-                  ? `${MIN_BIO_CHARS - looking.trim().length} more characters to go`
-                  : 'This gives people a clearer reason to write back.'
-              }
+              maxLength={MAX_BIO_CHARS}
+              hint={bioHint(looking, 'a clearer reason to write back')}
             />
           </>
         ) : null}
@@ -535,7 +547,7 @@ export function Onboarding() {
                 className="grid size-36 place-items-center overflow-hidden rounded-full border border-line bg-surface-muted transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
               >
                 {profile?.primaryPhotoUrl ? (
-                  <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName ?? ''} />
+                  <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName ?? ''} sizes="160px" />
                 ) : (
                   <User className="size-11 text-gold" aria-hidden />
                 )}
@@ -555,7 +567,7 @@ export function Onboarding() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={PHOTO_ACCEPT}
               className="sr-only"
               onChange={(e) => {
                 void onPickPhoto(e.target.files?.[0]);

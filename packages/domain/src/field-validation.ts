@@ -31,3 +31,28 @@ export function emailProblem(email: string): string | null {
 export function requiredProblem(value: string, label: string): string | null {
   return value.trim().length === 0 ? `${label} is required.` : null;
 }
+
+/**
+ * Image types a profile photo may be.
+ *
+ * Mirrors `PHOTO_ALLOWED_MIME_TYPES` on the API, which is the one that decides.
+ * Kept here so the picker offers exactly what the server takes: the web input
+ * used to also offer WebP, which sailed through the file dialog and was then
+ * refused on upload.
+ */
+export const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png'] as const;
+
+/** For a file input's `accept`. */
+export const PHOTO_ACCEPT = PHOTO_MIME_TYPES.join(',');
+
+/**
+ * Why this file cannot be used as a photo, or null if it can.
+ *
+ * Checked before uploading so the answer names the file the person chose and
+ * what to do instead. The server's own refusal reads "Unsupported photo type:
+ * video/mp4" - true, but it hands someone a MIME type and no way forward.
+ */
+export function photoFileProblem(file: { type: string; name?: string }): string | null {
+  if ((PHOTO_MIME_TYPES as readonly string[]).includes(file.type)) return null;
+  return 'That file type is not supported. Please choose a JPG or PNG image.';
+}

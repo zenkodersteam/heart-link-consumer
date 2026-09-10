@@ -1,3 +1,4 @@
+import { PHOTO_ACCEPT } from '@heartlink/domain';
 import * as ImagePicker from 'expo-image-picker';
 
 /**
@@ -18,7 +19,7 @@ export function pickWebImage(): Promise<PickedPhoto | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/jpeg,image/png,image/webp';
+    input.accept = PHOTO_ACCEPT;
     input.onchange = () => {
       const f = input.files?.[0];
       resolve(f ? { blob: f, name: f.name } : null);

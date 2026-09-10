@@ -111,6 +111,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // the Firebase SDKs read at launch.
     '@react-native-firebase/app',
     '@react-native-firebase/messaging',
+    // Must come after both of the above: it settles the notification meta-data
+    // they each declare, which the Android manifest merger refuses to do on
+    // its own.
+    './plugins/with-firebase-notification-defaults',
     [
       // Kept for its config plugin alone — nothing imports the library any
       // more, since messages come through @react-native-firebase/messaging.

@@ -147,7 +147,7 @@ function bullets(plan: Plan): string[] {
  * Override with EXPO_PUBLIC_WEB_APP_URL when the site moves.
  */
 const WEB_APP_URL = (
-  process.env.EXPO_PUBLIC_WEB_APP_URL ?? 'https://heart-link-consumer.vercel.app'
+  process.env.EXPO_PUBLIC_WEB_APP_URL ?? 'https://heart-link-consumer-web.vercel.app'
 ).replace(/\/$/, '');
 
 /** Where checkout should return to. Only ever called on the web build. */

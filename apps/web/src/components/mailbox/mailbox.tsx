@@ -1,5 +1,6 @@
 'use client';
 
+import { MailboxLocked } from '@/components/mailbox/mailbox-locked';
 import { ChevronLeft, Mail, PenLine, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -46,6 +47,10 @@ export function Mailbox() {
   const purchase = params.get('purchase');
 
   const { data, isPending, isError, error, refetch } = useMailboxThreads();
+  // A free membership is refused the mailbox by the API. That is a membership
+  // state, not a failure, so it gets its own screen instead of the request's
+  // error text beside a retry that can never succeed.
+  const locked = (error as { status?: number } | null)?.status === 403;
   const { data: myProfile, refetch: refetchProfile, isFetching: profileRefetching } = useMyProfile();
   const { data: saved } = useSavedProfiles();
   const { data: composeLimit } = useLetterLimit(composeId ?? undefined);
@@ -315,6 +320,12 @@ export function Mailbox() {
   // On a phone the two panes are one screen at a time: the list, or whatever
   // is open on top of it, with a back link out.
   const detailOpen = Boolean(threadId || composePane);
+
+  // Replaces the whole screen rather than one pane: on a free membership there
+  // is no mailbox to frame — no folders, no search, no letter count — and
+  // drawing that chrome around an explanation only suggests the contents are
+  // still loading. Placed after every hook so the early return is safe.
+  if (locked) return <MailboxLocked />;
 
   return (
     // `relative` so the overlay can cover exactly this pane rather than the

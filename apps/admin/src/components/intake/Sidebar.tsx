@@ -48,7 +48,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Profiles', href: '/profiles', icon: Users, badgeKey: 'profiles' },
   // Listings and the people who write to them are different populations, so
   // they get separate entries rather than tabs inside one.
-  { label: 'Members', href: '/users', icon: UserRound },
+  { label: 'Members', href: '/users', icon: UserRound, badgeKey: 'members' },
   { label: 'Payments', href: '/payments', icon: CreditCard, badgeKey: 'payments' },
   // Letters sit above the post queue because they come first: a letter is
   // approved here, then appears there to be sent.

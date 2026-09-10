@@ -53,10 +53,13 @@ export function MailboxLocked({ onSeePlans }: { onSeePlans: () => void }) {
           style={({ pressed }: { pressed: boolean }) => [styles.cta, pressed && styles.ctaPressed]}
         >
           <Text style={styles.ctaText}>See memberships</Text>
-          <Feather name="arrow-right" size={16} color={colors.onPrimary} />
+          <Feather name="external-link" size={15} color={colors.onPrimary} />
         </Pressable>
 
-        <Text style={styles.foot}>Every letter is checked by our team before it is printed and posted.</Text>
+        <Text style={styles.foot}>
+          Memberships are bought on the HeartLink website — this opens it in your browser. Every
+          letter is checked by our team before it is printed and posted.
+        </Text>
       </LinearGradient>
     </View>
   );

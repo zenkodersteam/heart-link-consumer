@@ -64,7 +64,7 @@ export function Sponsor() {
         >
           <CheckCircle2 className="mt-0.5 size-[18px] shrink-0 text-success" aria-hidden />
           <p className="text-sm leading-relaxed text-ink-soft">
-            Thank you. Your sponsorship is processing; the membership activates as soon as the
+            Thank you. Your sponsorship is processing, the membership activates as soon as the
             payment settles.
           </p>
         </div>
@@ -90,7 +90,7 @@ export function Sponsor() {
           <section className="flex items-center gap-4 rounded-[24px] border border-line bg-surface-elevated p-4 shadow-[0_1px_2px_rgba(46,18,64,0.05),0_8px_18px_rgba(46,18,64,0.06)]">
             <span className="size-16 shrink-0 overflow-hidden rounded-full bg-surface-muted">
               {profile.primaryPhotoUrl ? (
-                <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
+                <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} sizes="160px" />
               ) : (
                 <span className="grid size-full place-items-center">
                   <User className="size-6 text-ink-faint" aria-hidden />

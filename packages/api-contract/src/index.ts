@@ -818,6 +818,13 @@ export interface NavCounts {
    * single POST endpoint, not a queue, so it has nothing waiting to count.
    */
   outboundMail: number;
+  /**
+   * People who have signed up since this section was last opened.
+   *
+   * Members are `outside_user` accounts — the people writing letters in, as
+   * opposed to the listings they write to, which are counted by `profiles`.
+   */
+  members: number;
 }
 
 // =============================================================================

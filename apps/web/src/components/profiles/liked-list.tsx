@@ -160,7 +160,7 @@ function LikedCard({
   return (
     <article className="flex flex-col overflow-hidden rounded-card border border-line bg-surface-elevated shadow-[0_2px_12px_rgba(22,5,31,0.06)] transition-shadow hover:shadow-[0_14px_30px_rgba(22,5,31,0.14)]">
       <Link href={`/profiles/${profile.id}`} className="relative block aspect-[4/3] shrink-0">
-        <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
+        <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} sizes="128px" />
 
         {/* Filled heart, top right, as the screens have it — on this page every
             card is already liked, so it is the way to unlike rather than a

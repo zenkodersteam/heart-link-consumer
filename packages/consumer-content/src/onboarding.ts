@@ -238,6 +238,15 @@ export const ONBOARDING_OPTIONS = {
 /** Shortest bio and "looking for" we will accept, in characters. */
 export const MIN_BIO_CHARS = 40;
 
+/**
+ * The most either free-text answer may run to.
+ *
+ * Both fields accepted any amount of text, and nothing downstream trimmed it —
+ * the column is `text` and the API does not check — so a profile could carry
+ * an essay that no card layout was built to show.
+ */
+export const MAX_BIO_CHARS = 500;
+
 /** Youngest member HeartLink will accept, in years. */
 export const MIN_AGE = 18;
 
@@ -385,10 +394,14 @@ export function validateStep(
     const story = draft.story.trim();
     if (story.length < MIN_BIO_CHARS) {
       problems.story = `Tell us a little more, about ${MIN_BIO_CHARS - story.length} more characters.`;
+    } else if (story.length > MAX_BIO_CHARS) {
+      problems.story = `That is ${story.length - MAX_BIO_CHARS} characters over the ${MAX_BIO_CHARS} limit.`;
     }
     const looking = draft.lookingFor.trim();
     if (looking.length < MIN_BIO_CHARS) {
       problems.lookingFor = `Tell us what you're looking for, about ${MIN_BIO_CHARS - looking.length} more characters.`;
+    } else if (looking.length > MAX_BIO_CHARS) {
+      problems.lookingFor = `That is ${looking.length - MAX_BIO_CHARS} characters over the ${MAX_BIO_CHARS} limit.`;
     }
   }
   return problems;

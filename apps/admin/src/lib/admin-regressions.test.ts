@@ -138,10 +138,10 @@ test('payment counts query keeps active filters but drops status pagination fiel
 test('payments nav badge can be zeroed while other nav counts remain intact', () => {
   assert.deepEqual(
     applyNavCountsOverride(
-      { intake: 2, profiles: 4, payments: 17, moderation: 0, letters: 0, outboundMail: 0 },
+      { intake: 2, profiles: 4, payments: 17, moderation: 0, letters: 0, outboundMail: 0, members: 0 },
       { payments: 0 },
     ),
-    { intake: 2, profiles: 4, payments: 0, moderation: 0, letters: 0, outboundMail: 0 },
+    { intake: 2, profiles: 4, payments: 0, moderation: 0, letters: 0, outboundMail: 0, members: 0 },
   );
 });
 

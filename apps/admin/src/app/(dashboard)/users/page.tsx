@@ -1,3 +1,4 @@
+import { MarkSectionSeen } from '../../../components/shell/MarkSectionSeen';
 import type { ListAdminUsersQuery, OutsideProfileStatus } from '@heartlink/api-contract';
 
 import { Pagination } from '../../../components/intake/Pagination';
@@ -43,6 +44,7 @@ export default async function UsersPage({
 
   return (
     <div className="flex w-full flex-col gap-6 p-8">
+      <MarkSectionSeen section="members" />
       <PageHero
         eyebrow="Members"
         title="Members"

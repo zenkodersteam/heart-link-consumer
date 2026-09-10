@@ -95,15 +95,20 @@ export function AuthShell({
         </ul>
       </aside>
 
-      {/* The short sign-in form centres; onboarding is taller than the viewport
-          on most steps, so it starts at the top and scrolls from there. */}
+      {/* The short sign-in form centres. Onboarding is taller than the viewport
+          on most steps, so it aligns to the top and scrolls from there — but
+          `my-auto` on the column means a step that *does* fit, like the closing
+          "you're all set" card, still centres instead of hanging from the top
+          of an otherwise empty panel. Auto margins only absorb space that is
+          actually spare, so a tall step is never pushed off the top where it
+          could not be scrolled back to. */}
       <main
         className={cn(
           'flex flex-1 justify-center bg-surface-elevated px-6 py-12',
           wide ? 'items-start' : 'items-center',
         )}
       >
-        <div className={cn('w-full', wide ? 'max-w-[560px]' : 'max-w-[420px]')}>
+        <div className={cn('w-full', wide ? 'my-auto max-w-[560px]' : 'max-w-[420px]')}>
           {title ? (
             <h1 className="font-[family-name:var(--font-bree)] text-3xl text-ink">{title}</h1>
           ) : null}
