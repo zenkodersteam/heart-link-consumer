@@ -40,8 +40,11 @@ export function DeckCard({ profile, releaseDate }: {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-5 py-4">
-        <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-[22px] leading-none text-ink">
-          <span className="truncate">{profile.displayName}</span>
+        {/* `leading-none` cropped the descenders — the tail of a "y" was cut off
+            along the bottom. A serif face needs room under the baseline, and
+            nothing here depends on the line box being exactly the cap height. */}
+        <h2 className="flex items-center gap-2 font-[family-name:var(--font-bree)] text-[22px] leading-[1.25] text-ink">
+          <span className="truncate py-0.5">{profile.displayName}</span>
           {profile.age != null ? (
             <span className="shrink-0 text-[17px] text-ink-soft">{profile.age}</span>
           ) : null}

@@ -1,5 +1,6 @@
 'use client';
 
+import { MAX_BIO_CHARS } from '@heartlink/consumer-content';
 import { PHOTO_ACCEPT, photoFileProblem } from '@heartlink/domain';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -51,7 +52,10 @@ const FIELDS: Record<
     hint: 'A few sentences about who you are and what you are hoping for.',
     placeholder: 'Tell your story…',
     multiline: true,
-    max: 1200,
+    // The shared limit, not a second number. This screen allowed 1200 while
+    // onboarding stopped at 500, so a bio written here was over the limit the
+    // moment it was edited on the other screen.
+    max: MAX_BIO_CHARS,
   },
 };
 

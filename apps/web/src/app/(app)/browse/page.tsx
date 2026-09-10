@@ -4,7 +4,6 @@ import type { ListPublicProfilesQuery, PublicProfileSummary, SwipeAction } from 
 import { Compass, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 import { FilterBar } from '@/components/browse/filter-bar';
 import { ProfileDeck } from '@/components/browse/profile-deck';
@@ -31,7 +30,6 @@ export default function BrowsePage() {
    * resurrect one.
    */
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const [lastPassed, setLastPassed] = useState<PublicProfileSummary | null>(null);
   /**
    * Which card is on top.
    *
@@ -68,30 +66,15 @@ export default function BrowsePage() {
   const reset = () => setQuery({ limit: PAGE_SIZE, offset: 0 });
 
   function onAction(profile: PublicProfileSummary, action: SwipeAction) {
-    if (action === 'second_look') {
-      // Brings back the last person passed. The server drops the row, so they
-      // return on the next fetch on every device rather than only this one.
-      const returning = lastPassed;
-      if (!returning) return;
-      recordSwipe.mutate({ id: returning.id, action });
-      setDismissed((ids) => ids.filter((id) => id !== returning.id));
-      setLastPassed(null);
-      toast.success("He's back!", { description: `You'll see ${returning.displayName} again.` });
-      return;
-    }
-
     setDismissed((ids) => [...ids, profile.id]);
     recordSwipe.mutate({ id: profile.id, action });
 
-    if (action === 'like') {
-      // Liking saves. The heart on the card was the only thing that did, so the
-      // Like button recorded a swipe, dismissed the card, and left nothing in
-      // Liked - from the outside indistinguishable from Pass. Guarded on the
-      // current state so liking someone already saved is not a second write.
-      if (!savedIds.has(profile.id)) toggleSaved.mutate({ id: profile.id, saved: false });
-      setLastPassed(null);
-    } else {
-      setLastPassed(profile);
+    // Liking saves. The heart on the card was the only thing that did, so the
+    // Like button recorded a swipe, dismissed the card, and left nothing in
+    // Liked - from the outside indistinguishable from Pass. Guarded on the
+    // current state so liking someone already saved is not a second write.
+    if (action === 'like' && !savedIds.has(profile.id)) {
+      toggleSaved.mutate({ id: profile.id, saved: false });
     }
   }
 
@@ -151,7 +134,6 @@ export default function BrowsePage() {
             <ProfileDeck
               profiles={deck}
               releaseDate={topDetail?.releaseDate}
-              canSecondLook={Boolean(lastPassed)}
               index={index}
               // Stepped from the clamped index, not the raw cursor, or a
               // cursor left past the end would need several presses to appear

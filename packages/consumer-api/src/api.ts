@@ -206,6 +206,8 @@ export interface ConsentStatus {
 
 export interface MySubscription {
   active: boolean;
+  /** Which plan, so the plans screen can mark the card already bought. */
+  planId: string | null;
   planName: string | null;
   priceCents: number | null;
   billingInterval: string | null;

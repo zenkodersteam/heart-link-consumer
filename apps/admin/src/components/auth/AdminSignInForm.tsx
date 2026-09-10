@@ -1,5 +1,6 @@
 'use client';
 
+import { emailProblem } from '@heartlink/domain';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
@@ -38,6 +39,14 @@ export function AdminSignInForm() {
   const [password, setPassword] = useState('');
   const [passwordShown, setPasswordShown] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  /**
+   * What is wrong with a particular field, shown under that field.
+   *
+   * The server answered an invalid address with "Enter your email address and
+   * password" — inaccurate, since both were filled in — and the toast carrying
+   * it named no field, so nothing on the form said where to look.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   // Carried over from a bounce, so someone sent here by an expired session is
@@ -50,7 +59,27 @@ export function AdminSignInForm() {
     toast.error(message);
   }
 
+  function clearField(field: string) {
+    setFieldErrors((current) => {
+      if (!(field in current)) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   async function signIn() {
+    // Checked here so the answer names the field and stays beside it. Both
+    // problems are reported at once rather than one submit at a time.
+    const problems: Record<string, string> = {};
+    const emailIssue = emailProblem(email);
+    if (emailIssue) problems.email = emailIssue;
+    if (!password) problems.password = 'Enter your password.';
+    if (Object.keys(problems).length > 0) {
+      setFieldErrors(problems);
+      return;
+    }
+
     setBusy(true);
     setInvalid(false);
     try {
@@ -92,16 +121,23 @@ export function AdminSignInForm() {
           <input
             id="email"
             type="email"
-            required
             value={email}
             onChange={(event) => {
               setEmail(event.target.value);
               setInvalid(false);
+              clearField('email');
             }}
+            aria-invalid={fieldErrors.email ? true : undefined}
+            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
             autoComplete="username"
             placeholder="you@heartlink.app"
           />
         </div>
+        {fieldErrors.email ? (
+          <p id="email-error" role="alert" className="hl-auth__error">
+            {fieldErrors.email}
+          </p>
+        ) : null}
       </div>
 
       <div className="hl-auth__field">
@@ -113,12 +149,14 @@ export function AdminSignInForm() {
           <input
             id="password"
             type={passwordShown ? 'text' : 'password'}
-            required
             value={password}
             onChange={(event) => {
               setPassword(event.target.value);
               setInvalid(false);
+              clearField('password');
             }}
+            aria-invalid={fieldErrors.password ? true : undefined}
+            aria-describedby={fieldErrors.password ? 'password-error' : undefined}
             autoComplete="current-password"
             placeholder="Your password"
           />
@@ -134,9 +172,16 @@ export function AdminSignInForm() {
             {passwordShown ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
           </button>
         </div>
+        {fieldErrors.password ? (
+          <p id="password-error" role="alert" className="hl-auth__error">
+            {fieldErrors.password}
+          </p>
+        ) : null}
       </div>
 
-      <button type="submit" disabled={busy || !email.trim() || !password} className="hl-auth__submit">
+      {/* Pressable when empty: a dead button cannot say what is missing, and
+          the form now answers that under the field it belongs to. */}
+      <button type="submit" disabled={busy} className="hl-auth__submit">
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
 

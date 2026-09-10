@@ -121,10 +121,15 @@ export function InboundMailForm({
             }
             onSearchChange={setProfileQuery}
             loading={lookupPending}
+            // A short reference rather than the whole UUID. The full id was
+            // untidy, but dropping it outright would leave two listings both
+            // called "Facility Name" impossible to tell apart — and attaching
+            // someone's letter to the wrong person is not a harmless mistake.
+            // Searching still matches the full id even though it is not shown.
             options={filteredProfiles.map((p) => ({
               value: p.id,
               label: p.displayName ?? 'Unnamed profile',
-              hint: p.id,
+              hint: shortRef(p.id),
             }))}
           />
           <p className="text-[12px] text-text-muted">
@@ -204,4 +209,14 @@ export function InboundMailForm({
       </div>
     </form>
   );
+}
+
+/**
+ * The last six characters of an id, as a reference someone can read aloud.
+ *
+ * Enough to separate two listings with the same display name, without putting
+ * a thirty-six character UUID under every row.
+ */
+function shortRef(id: string): string {
+  return `#${id.replace(/-/g, '').slice(-6)}`;
 }

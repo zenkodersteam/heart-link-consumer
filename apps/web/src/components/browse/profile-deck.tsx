@@ -1,7 +1,7 @@
 'use client';
 
 import type { PublicProfileSummary, SwipeAction } from '@heartlink/consumer-api';
-import { ChevronLeft, ChevronRight, Heart, RotateCcw, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
@@ -37,14 +37,12 @@ export function ProfileDeck({
   profiles,
   releaseDate,
   onAction,
-  canSecondLook,
   index,
   onBrowse,
 }: {
   profiles: PublicProfileSummary[];
   releaseDate?: string | null;
   onAction: (profile: PublicProfileSummary, action: SwipeAction) => void;
-  canSecondLook: boolean;
   /** Which card is on top. Browsing moves it; passing and liking remove one. */
   index: number;
   /** Step through the deck without deciding anything about the card on top. */
@@ -62,10 +60,6 @@ export function ProfileDeck({
   const commit = useCallback(
     (action: SwipeAction) => {
       if (!top || leaving) return;
-      if (action === 'second_look') {
-        onAction(top, action);
-        return;
-      }
       setLeaving(action === 'like' ? 'like' : 'pass');
       setDrag(AT_REST);
       // Long enough for the card to clear the frame; the list changing
@@ -175,16 +169,9 @@ export function ProfileDeck({
         />
       </div>
 
-      <div className="mt-6 flex items-start justify-center gap-10">
+      <div className="mt-6 flex items-start justify-center gap-14">
         <DeckAction label="Pass" onClick={() => commit('pass')} disabled={Boolean(leaving)}>
           <X className="size-7 text-sidebar" strokeWidth={2.5} />
-        </DeckAction>
-        <DeckAction
-          label="Second Look"
-          onClick={() => commit('second_look')}
-          disabled={!canSecondLook || Boolean(leaving)}
-        >
-          <RotateCcw className="size-6 text-gold" strokeWidth={2.5} />
         </DeckAction>
         {/* Outlined, like the X and the arrow beside it.
             Filled meant something on this screen already — the badge on the

@@ -33,6 +33,9 @@ export function Plans() {
   const forProfileId = params.get('profile') ?? undefined;
 
   const { data: plans, isPending, isError, error, refetch } = usePlans(forProfileId);
+  // Which plan is already bought, so its card can say so instead of offering to
+  // sell it again.
+  const { data: mySubscription } = useSubscription();
   const createCheckout = useCreateCheckout();
   const router = useRouter();
 
@@ -142,6 +145,7 @@ export function Plans() {
                     plan={plan}
                     busy={createCheckout.isPending && createCheckout.variables?.planId === plan.id}
                     disabled={createCheckout.isPending}
+                    current={mySubscription?.active === true && mySubscription.planId === plan.id}
                     // A listing plan needs a person before it can be paid for,
                     // so these lead to choosing one rather than to checkout.
                     ctaLabel={section.key === 'listing' && !forProfileId ? 'Choose who to sponsor' : undefined}
@@ -177,12 +181,15 @@ function PlanCard({
   plan,
   busy,
   disabled,
+  current,
   onSubscribe,
   ctaLabel,
 }: {
   plan: Plan;
   busy: boolean;
   disabled: boolean;
+  /** The plan this member is already on. Marked, and not offered for sale again. */
+  current?: boolean;
   onSubscribe: () => void;
   /** Overrides the default "Choose <plan>" when the button does something else. */
   ctaLabel?: string;
@@ -194,9 +201,11 @@ function PlanCard({
     <article
       className={cn(
         'flex flex-col overflow-hidden rounded-card border bg-surface-elevated',
-        featured
-          ? 'border-primary shadow-cta-hover lg:-translate-y-2'
-          : 'border-line shadow-[0_2px_12px_rgba(22,5,31,0.06)]',
+        current
+          ? 'border-success shadow-[0_2px_12px_rgba(22,5,31,0.06)]'
+          : featured
+            ? 'border-primary shadow-cta-hover lg:-translate-y-2'
+            : 'border-line shadow-[0_2px_12px_rgba(22,5,31,0.06)]',
       )}
     >
       <div
@@ -206,7 +215,11 @@ function PlanCard({
         )}
       />
       <div className="flex flex-1 flex-col p-6">
-        {featured ? (
+        {current ? (
+          <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-pill bg-success-tint px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-success">
+            <Check className="size-3" strokeWidth={3} /> Current plan
+          </span>
+        ) : featured ? (
           <span className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-pill bg-primary-faint px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
             <Sparkles className="size-3" /> Most popular
           </span>
@@ -227,14 +240,27 @@ function PlanCard({
           ))}
         </ul>
 
+        {/* Never offered twice. Buying the plan you are already on starts a
+            second Stripe checkout and a second subscription; the card said
+            nothing about being the current one, and the button did it anyway. */}
         <Button
           className="mt-6 w-full"
-          variant={featured ? 'primary' : 'secondary'}
+          variant={current ? 'secondary' : featured ? 'primary' : 'secondary'}
           onClick={onSubscribe}
-          disabled={disabled}
+          disabled={disabled || current || busy}
         >
-          {busy ? <Spinner size="sm" className={featured ? 'border-white/40 border-t-white' : ''} /> : null}
-          {ctaLabel ?? `Choose ${plan.name}`}
+          {/* The label is replaced while in flight rather than sitting behind a
+              spinner pinned to the left edge, which read as a broken button. */}
+          {busy ? (
+            <>
+              <Spinner size="sm" className={featured ? 'border-white/40 border-t-white' : ''} />
+              Processing…
+            </>
+          ) : current ? (
+            'Your current plan'
+          ) : (
+            (ctaLabel ?? `Choose ${plan.name}`)
+          )}
         </Button>
       </div>
     </article>
