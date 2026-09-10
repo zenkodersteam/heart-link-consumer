@@ -1,8 +1,6 @@
 import { ArrowRight, Check, Lock } from 'lucide-react';
 import Link from 'next/link';
 
-import { cn } from '@/lib/utils';
-
 /**
  * What a free member sees where the mailbox would be.
  *
@@ -15,102 +13,80 @@ import { cn } from '@/lib/utils';
  * missing, shows what each paid tier includes so the choice can be made here
  * rather than on a pricing page first, and ends in a single action.
  *
+ * Drawn over the mailbox rather than instead of it, blurred: the folders, the
+ * search and the shape of the list stay legible underneath, so what is being
+ * offered is visibly the thing on the other side of the glass rather than an
+ * abstract feature list. The same treatment the review overlay already uses.
+ *
  * Mirrors the phone app's `MailboxLocked` so the two read as one product.
  */
 export function MailboxLocked({ href = '/plans' }: { href?: string }) {
   const external = href.startsWith('http');
   return (
-    <div className="flex min-h-full items-center justify-center p-4 sm:p-8">
-      <div className="relative w-full max-w-[520px] overflow-hidden rounded-[28px] bg-gradient-to-br from-sidebar to-midnight p-8 text-center shadow-[0_24px_60px_rgba(22,5,31,0.28)] sm:p-10">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Membership required"
+      className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-overlay p-4 backdrop-blur-md sm:p-8"
+    >
+      <div className="relative my-auto w-full max-w-[440px] overflow-hidden rounded-[28px] border border-gold/15 bg-gradient-to-b from-sidebar to-midnight px-8 py-10 text-center shadow-[0_24px_60px_rgba(22,5,31,0.4)]">
         {/* Gold hairline along the top, the same accent the nav rail uses. */}
         <span
           aria-hidden
           className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent"
         />
 
-        <span className="mx-auto grid size-14 place-items-center rounded-full border border-gold/40 bg-white/[0.06]">
+        <span className="mx-auto grid size-14 place-items-center rounded-[18px] border border-gold/35 bg-gold-faint">
           <Lock className="size-6 text-gold-bright" aria-hidden />
         </span>
 
-        <h2 className="mt-5 font-[family-name:var(--font-bree)] text-2xl text-sidebar-text">
-          Your letters are waiting
+        <span className="mt-6 inline-block rounded-pill border border-gold/30 bg-gold-faint px-3 py-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-gold-bright">
+          Membership required
+        </span>
+
+        <h2 className="mt-4 font-[family-name:var(--font-bree)] text-[30px] leading-tight text-sidebar-text">
+          Unlock your mailbox
         </h2>
-        <p className="mx-auto mt-3 max-w-[42ch] text-sm leading-relaxed text-sidebar-text-muted">
-          The secure mailbox is part of a paid membership. Browsing and saving profiles stay free —
-          writing and receiving letters is what a membership adds.
+        <p className="mx-auto mt-3 max-w-[34ch] text-[13.5px] leading-relaxed text-sidebar-text-muted">
+          Browsing and saving profiles stay free. A membership is what lets you write, and be
+          written to.
         </p>
 
-        <div className="mt-7 grid gap-3 text-left sm:grid-cols-2">
-          <Tier name="Diamond" line="4 letters each month" detail="Need more? Add postage stamps any time." />
-          <Tier name="VIP" line="Unlimited letters" detail="No monthly limit, no stamps to buy." highlight />
-        </div>
+        <ul className="mx-auto mt-7 flex max-w-[19rem] flex-col gap-3 text-left">
+          {[
+            'Write letters to anyone you have saved',
+            'Read replies scanned back into your mailbox',
+            'Four letters a month on Diamond',
+            'Unlimited letters on VIP',
+            'Extra postage stamps any time',
+          ].map((line) => (
+            <li key={line} className="flex items-start gap-3">
+              <span className="mt-px grid size-[18px] shrink-0 place-items-center rounded-full bg-gold-faint">
+                <Check className="size-3 text-gold-bright" strokeWidth={3} aria-hidden />
+              </span>
+              <span className="text-[13.5px] leading-snug text-sidebar-text">{line}</span>
+            </li>
+          ))}
+        </ul>
 
         {external ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-7 inline-flex items-center gap-2 rounded-pill bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
-          >
-            See memberships
-            <ArrowRight className="size-4" aria-hidden />
+          <a href={href} target="_blank" rel="noreferrer" className={ctaClass}>
+            View plans <ArrowRight className="size-4" aria-hidden />
           </a>
         ) : (
-          <Link
-            href={href}
-            className="mt-7 inline-flex items-center gap-2 rounded-pill bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
-          >
-            See memberships
-            <ArrowRight className="size-4" aria-hidden />
+          <Link href={href} className={ctaClass}>
+            View plans <ArrowRight className="size-4" aria-hidden />
           </Link>
         )}
 
-        <p className="mt-6 text-[12px] leading-relaxed text-sidebar-text-muted/80">
-          Every letter is checked by our team before it is printed and posted.
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11.5px] text-sidebar-text-muted/80">
+          <Lock className="size-3" aria-hidden />
+          Every letter is checked by our team before it is posted
         </p>
       </div>
     </div>
   );
 }
 
-function Tier({
-  name,
-  line,
-  detail,
-  highlight,
-}: {
-  name: string;
-  line: string;
-  detail: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-[18px] border p-4',
-        highlight ? 'border-gold/45 bg-gold-faint' : 'border-white/10 bg-white/[0.04]',
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'font-[family-name:var(--font-bree)] text-[15px]',
-            highlight ? 'text-gold-bright' : 'text-sidebar-text',
-          )}
-        >
-          {name}
-        </span>
-        {highlight ? (
-          <span className="rounded-pill bg-gold/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-gold-bright">
-            Most letters
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-1.5 flex items-start gap-1.5 text-[13px] font-medium text-sidebar-text">
-        <Check className="mt-0.5 size-3.5 shrink-0 text-gold-bright" aria-hidden />
-        {line}
-      </p>
-      <p className="mt-1 text-[12px] leading-relaxed text-sidebar-text-muted">{detail}</p>
-    </div>
-  );
-}
+const ctaClass =
+  'mt-8 inline-flex w-full items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3.5 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60';

@@ -84,10 +84,11 @@ export default function BrowsePage() {
     recordSwipe.mutate({ id: profile.id, action });
 
     if (action === 'like') {
-      // Browsing past someone does not like them. Liked changes only when a
-      // member presses the heart, here or on the profile page - a swipe is too
-      // quick and too easily mistaken to stand for a choice, and people were
-      // finding profiles in Liked they had never deliberately chosen.
+      // Liking saves. The heart on the card was the only thing that did, so the
+      // Like button recorded a swipe, dismissed the card, and left nothing in
+      // Liked - from the outside indistinguishable from Pass. Guarded on the
+      // current state so liking someone already saved is not a second write.
+      if (!savedIds.has(profile.id)) toggleSaved.mutate({ id: profile.id, saved: false });
       setLastPassed(null);
     } else {
       setLastPassed(profile);
@@ -150,7 +151,6 @@ export default function BrowsePage() {
             <ProfileDeck
               profiles={deck}
               releaseDate={topDetail?.releaseDate}
-              savedIds={savedIds}
               canSecondLook={Boolean(lastPassed)}
               index={index}
               // Stepped from the clamped index, not the raw cursor, or a
@@ -160,9 +160,6 @@ export default function BrowsePage() {
                 setCursor(Math.min(Math.max(index + delta, 0), deck.length - 1))
               }
               onAction={onAction}
-              onToggleSave={(profile) =>
-                toggleSaved.mutate({ id: profile.id, saved: savedIds.has(profile.id) })
-              }
             />
           </div>
 

@@ -594,17 +594,6 @@ export default function MailboxScreen() {
 
   const totalUnread = threads.reduce((n, t) => n + t.unreadCount, 0);
 
-  // Replaces the whole screen, not just the thread list: on a free membership
-  // there is no mailbox to frame — no folders, no search, no letter count — so
-  // showing the chrome around an explanation would only suggest the contents
-  // are loading. Placed after every hook so the early return is safe.
-  if (locked) {
-    // Out to the website rather than the in-app plans screen: paying happens
-    // there, and a phone screen that only leads to another phone screen that
-    // then leads to a browser is one hop of nothing.
-    return <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} />;
-  }
-
   // ----- shared sub-views -------------------------------------------------
 
   function ThreadList({ onPick, flush }: { onPick: (id: string) => void; flush?: boolean }) {
@@ -735,6 +724,9 @@ export default function MailboxScreen() {
   if (isDesktop) {
     return (
       <View style={styles.deskRoot}>
+        {/* Same overlay on the wide layout, which is a separate return. */}
+        {locked ? <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} /> : null}
+
         {/* Notion Mail split (mockup): ONE list column carrying compose,
             quota, search, and threads; reading pane fills the rest. */}
         <View style={styles.listCol}>
@@ -861,6 +853,13 @@ export default function MailboxScreen() {
 
   return (
     <View style={[styles.mobRoot, styles.mobListRoot]}>
+      {/* Over the mailbox, not instead of it: the folders and the shape of the
+          list stay visible through the blur, so what a membership buys is the
+          thing behind the glass rather than a description of it. Out to the
+          website because paying happens there — a phone screen leading to
+          another phone screen that then opens a browser is a hop of nothing. */}
+      {locked ? <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} /> : null}
+
       <View style={styles.mobHeader}>
         <View>
           <Text style={type.h1}>Mailbox</Text>

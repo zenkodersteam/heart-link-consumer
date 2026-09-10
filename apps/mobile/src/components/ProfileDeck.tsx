@@ -395,21 +395,6 @@ function DeckCard({
           </View>
         ) : null}
 
-        {front && onSave ? (
-          <Pressable
-            onPress={onSave}
-            hitSlop={8}
-            style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-              styles.saveBtn,
-              webTransition,
-              hovered ? styles.saveBtnHover : null,
-              pressed ? { transform: [{ scale: 0.88 }] } : null,
-            ]}
-          >
-            <Feather name="heart" size={20} color={saved ? colors.primary : colors.gold} />
-          </Pressable>
-        ) : null}
-
       </View>
 
       {/* Detail card: the words get their own paper rather than sitting over
@@ -425,13 +410,20 @@ function DeckCard({
             ) : null}
           </View>
 
-          <View style={styles.locationRow}>
-            {/* A pin, not a house. The screens draw a building here beside the
-                facility's name; we are only allowed to show the state, and a
-                pin says "where" without implying a building we do not name. */}
-            <Feather name="map-pin" size={13} color={colors.textMuted} />
-            <Text style={styles.state}>{stateName(profile.facility.state)}</Text>
-          </View>
+          {/* Hidden rather than blank when there is no state. The pin used to
+              be drawn regardless, so a profile with no location got an empty
+              row that still took its height and pushed everything under it
+              down a line for nothing. */}
+          {stateName(profile.facility.state) ? (
+            <View style={styles.locationRow}>
+              {/* A pin, not a house. The screens draw a building here beside
+                  the facility's name; we are only allowed to show the state,
+                  and a pin says "where" without implying a building we do not
+                  name. */}
+              <Feather name="map-pin" size={13} color={colors.textMuted} />
+              <Text style={styles.state}>{stateName(profile.facility.state)}</Text>
+            </View>
+          ) : null}
 
           {interests ? <FactRow icon="heart" label="Interests" value={interests} /> : null}
           {release ? <FactRow icon="calendar" label="Release Date" value={release} /> : null}

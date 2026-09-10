@@ -321,18 +321,17 @@ export function Mailbox() {
   // is open on top of it, with a back link out.
   const detailOpen = Boolean(threadId || composePane);
 
-  // Replaces the whole screen rather than one pane: on a free membership there
-  // is no mailbox to frame — no folders, no search, no letter count — and
-  // drawing that chrome around an explanation only suggests the contents are
-  // still loading. Placed after every hook so the early return is safe.
-  if (locked) return <MailboxLocked />;
-
   return (
     // `relative` so the overlay can cover exactly this pane rather than the
     // whole window: the rail and the tab bar stay usable, which is the point —
     // browsing is still allowed while a profile is in review, only the mailbox
     // is not.
     <div className="relative lg:flex lg:h-[calc(100dvh-3.8rem)] lg:min-h-0">
+      {/* Over the mailbox, not instead of it: the folders and the shape of the
+          list stay visible through the blur, so what a membership buys is the
+          thing behind the glass rather than a description of it. */}
+      {locked ? <MailboxLocked /> : null}
+
       {myProfile && myProfile.status !== 'approved' ? (
         <ProfileReviewOverlay
           status={myProfile.status}

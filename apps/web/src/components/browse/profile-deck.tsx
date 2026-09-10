@@ -36,18 +36,14 @@ const AT_REST: Drag = { x: 0, y: 0, dragging: false };
 export function ProfileDeck({
   profiles,
   releaseDate,
-  savedIds,
   onAction,
-  onToggleSave,
   canSecondLook,
   index,
   onBrowse,
 }: {
   profiles: PublicProfileSummary[];
   releaseDate?: string | null;
-  savedIds: Set<string>;
   onAction: (profile: PublicProfileSummary, action: SwipeAction) => void;
-  onToggleSave: (profile: PublicProfileSummary) => void;
   canSecondLook: boolean;
   /** Which card is on top. Browsing moves it; passing and liking remove one. */
   index: number;
@@ -84,7 +80,7 @@ export function ProfileDeck({
 
   function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (leaving) return;
-    // Let the reactions inside the card (the heart) take their own clicks.
+    // Let any control inside the card take its own click.
     if ((event.target as HTMLElement).closest('button')) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     start.current = { x: event.clientX, y: event.clientY };
@@ -143,7 +139,7 @@ export function ProfileDeck({
                   opacity: 1 - (index + 1) * 0.25,
                 }}
               >
-                <DeckCard profile={profile} interactive={false} />
+                <DeckCard profile={profile} />
               </div>
             ))
             .reverse()}
@@ -160,12 +156,7 @@ export function ProfileDeck({
             )}
             style={{ transform: `translate(${offset}px, ${lift}px) rotate(${tilt}deg)` }}
           >
-            <DeckCard
-              profile={top}
-              releaseDate={releaseDate}
-              saved={savedIds.has(top.id)}
-              onToggleSave={() => onToggleSave(top)}
-            />
+            <DeckCard profile={top} releaseDate={releaseDate} />
 
             {/* The stamps fade in with the drag, so the gesture says what it
                 will do before you let go of it. */}

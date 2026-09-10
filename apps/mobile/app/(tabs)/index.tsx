@@ -163,15 +163,24 @@ export default function HomeScreen() {
 
   const onSwipe = useCallback(
     (profile: PublicProfileSummary, dir: SwipeDir) => {
-      // Swiping moves through the deck; it does not like anyone. Only the heart
-      // does that. A swipe is a fast, easily mistaken gesture - people were
-      // finding profiles in Liked they did not remember choosing - so it no
-      // longer changes Liked here or on the server.
+      // Liking saves. The heart on the card used to be the only thing that did,
+      // so Like recorded a swipe, dismissed the card and left nothing in Liked -
+      // from the outside indistinguishable from Pass. Guarded on the current
+      // state so liking someone already saved is not a second write.
       const action: SwipeAction = dir === 'like' ? 'like' : 'pass';
       setSwipedCount((n) => n + 1);
       persistSwipe(profile.id, action);
+      if (action === 'like') {
+        setSaved((s) => {
+          if (s.has(profile.id)) return s;
+          const n = new Set(s);
+          n.add(profile.id);
+          persistSave(profile.id, true);
+          return n;
+        });
+      }
     },
-    [persistSwipe],
+    [persistSwipe, persistSave],
   );
 
   const onSecondLook = useCallback(
@@ -220,7 +229,6 @@ export default function HomeScreen() {
           saved={saved}
           onSwipe={onSwipe}
           onSecondLook={onSecondLook}
-          onSave={onSave}
           onFrontChange={setFrontProfile}
           filtered={hasFilters}
           emptyAction={

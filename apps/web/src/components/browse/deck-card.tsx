@@ -1,10 +1,9 @@
 'use client';
 
 import { formatReleaseMonth, stateName, type PublicProfileSummary } from '@heartlink/consumer-api';
-import { BadgeCheck, Calendar, Heart, Landmark, Mail } from 'lucide-react';
+import { BadgeCheck, Calendar, Landmark, Mail } from 'lucide-react';
 
 import { ProfilePhoto } from '@/components/profiles/profile-photo';
-import { cn } from '@/lib/utils';
 
 /**
  * One card in the deck: photo above, details below, as the client screens draw
@@ -15,13 +14,7 @@ import { cn } from '@/lib/utils';
  * profiles come from scanned paper applications where any given field may
  * simply not have been filled in.
  */
-export function DeckCard({
-  profile,
-  releaseDate,
-  saved,
-  onToggleSave,
-  interactive = true,
-}: {
+export function DeckCard({ profile, releaseDate }: {
   profile: PublicProfileSummary;
   /**
    * Only the detail endpoint carries a release date, so the deck fetches it for
@@ -29,11 +22,6 @@ export function DeckCard({
    * rather than blank when it is missing.
    */
   releaseDate?: string | null;
-  saved?: boolean;
-  onToggleSave?: () => void;
-  /** False for the cards stacked behind, which are decoration and must not
-   *  take a tap meant for the card on top. */
-  interactive?: boolean;
 }) {
   const place = stateName(profile.facility?.state);
   const release = releaseDate ? formatReleaseMonth(releaseDate) : null;
@@ -42,19 +30,6 @@ export function DeckCard({
     <article className="flex h-full flex-col overflow-hidden rounded-[20px] bg-surface-elevated shadow-[0_18px_40px_rgba(46,18,64,0.16)]">
       <div className="relative aspect-[4/3] shrink-0">
         <ProfilePhoto src={profile.primaryPhotoUrl} name={profile.displayName} />
-
-        {onToggleSave ? (
-          <button
-            type="button"
-            aria-label={saved ? 'Remove from Liked' : 'Save to Liked'}
-            aria-pressed={saved}
-            tabIndex={interactive ? 0 : -1}
-            onClick={onToggleSave}
-            className="absolute right-3.5 top-3.5 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-105 active:scale-95"
-          >
-            <Heart className={cn('size-[18px]', saved ? 'fill-primary text-primary' : 'text-gold')} />
-          </button>
-        ) : null}
 
         {profile.isVerified ? (
           <span className="absolute bottom-3.5 left-3.5 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink shadow-sm">
