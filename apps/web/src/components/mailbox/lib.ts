@@ -1,13 +1,17 @@
 import type { LetterEntitlement, MailboxThreadSummary } from '@heartlink/consumer-api';
 
 /**
- * Which half of the mailbox is on screen.
+ * Which section of the mailbox is on screen.
  *
- * Two, not the four the client screens draw: Inbox and Sent are real — a
- * thread's last direction decides which it belongs to — while Archive and
- * Trash have nothing behind them in the API.
+ * Inbox and Sent are the two halves of the correspondence itself — a thread's
+ * last direction decides which it belongs to. Archive and Trash, which the
+ * client screens draw, are not offered: they have nothing behind them in the
+ * API.
+ *
+ * Liked is not a folder of letters at all but the people you may write to,
+ * kept here because that is where writing to them starts.
  */
-export type MailFolder = 'inbox' | 'sent';
+export type MailFolder = 'inbox' | 'sent' | 'liked';
 
 /**
  * Delivery states, in the member's words.

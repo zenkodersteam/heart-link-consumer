@@ -1,6 +1,7 @@
 'use client';
 
 import { MailboxLocked } from '@/components/mailbox/mailbox-locked';
+import { stateName, type PublicProfileSummary } from '@heartlink/consumer-api';
 import { ChevronLeft, Mail, PenLine, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,6 +18,7 @@ import {
   useMailboxThreads,
   useMarkThreadRead,
   useMyProfile,
+  useRefreshThread,
   useSavedProfiles,
 } from '@/lib/queries';
 import { cn } from '@/lib/utils';
@@ -52,11 +54,17 @@ export function Mailbox() {
   // error text beside a retry that can never succeed.
   const locked = (error as { status?: number } | null)?.status === 403;
   const { data: myProfile, refetch: refetchProfile, isFetching: profileRefetching } = useMyProfile();
-  const { data: saved } = useSavedProfiles();
+  const {
+    data: saved,
+    isPending: likedPending,
+    isError: likedFailed,
+    refetch: refetchSaved,
+  } = useSavedProfiles();
   const inReview = myProfile != null && myProfile.status !== 'approved';
   const { data: composeLimit } = useLetterLimit(composeId ?? undefined);
   const composeLetter = useComposeLetter();
   const { mutate: markThreadRead } = useMarkThreadRead();
+  const refreshThread = useRefreshThread();
 
   const [folder, setFolder] = useState<MailFolder>('inbox');
   const [search, setSearch] = useState('');
@@ -92,14 +100,45 @@ export function Mailbox() {
       : inFolder;
   }, [inFolder, debounced]);
 
-  // Opening a letter clears its unread badge. Guarded by a ref so a re-render
-  // while the thread is open does not fire the mutation again.
+  // Liked is searched by the same box as the letters, on the same field: a
+  // name. Switching tabs with a query typed therefore keeps meaning something.
+  const filteredLiked = useMemo(() => {
+    const query = debounced.trim().toLowerCase();
+    const items = saved?.items ?? [];
+    return query ? items.filter((p) => p.displayName.toLowerCase().includes(query)) : items;
+  }, [saved, debounced]);
+
+  /**
+   * Opening a letter clears its unread badge — and so does one arriving in a
+   * thread that is already open.
+   *
+   * The guard used to latch on the thread id alone, which made the mark on
+   * open the only one this page would ever send. A reply scanned in while the
+   * member sat on that very thread put all three unread indicators back — the
+   * rail, the Inbox pill, the dot on the row — and nothing took them down
+   * again short of a reload.
+   *
+   * Keyed on the count as well now, so each fresh arrival is marked once. A
+   * failed mutation rolls the count back to the number it was, which reads as
+   * the same arrival rather than a new one: no retry loop.
+   */
+  const openThread = threads.find((thread) => thread.threadId === threadId);
+  // `null` while the list is still loading, and for a thread that is not in it
+  // at all. Unknown is not the same as read, so that case still gets its one
+  // call, exactly as it did before.
+  const openUnread = openThread ? openThread.unreadCount : null;
   const markedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!threadId || markedRef.current === threadId) return;
-    markedRef.current = threadId;
+    if (!threadId || openUnread === 0) return;
+    const arrival = `${threadId}:${openUnread ?? 'unknown'}`;
+    if (markedRef.current === arrival) return;
+    markedRef.current = arrival;
+    // The list is reporting post the reading pane has not fetched, so what is
+    // on screen is behind. Refresh it before clearing the badge, or the badge
+    // goes for a letter the member was never shown.
+    refreshThread(threadId);
     markThreadRead(threadId);
-  }, [threadId, markThreadRead]);
+  }, [threadId, openUnread, markThreadRead, refreshThread]);
 
   // Credits are granted by the payment webhook, so the balance is refetched
   // rather than assumed to have changed.
@@ -181,17 +220,21 @@ export function Mailbox() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search letters…"
+            placeholder={folder === 'liked' ? 'Search liked profiles…' : 'Search letters…'}
             className="min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink-faint"
           />
         </label>
 
-        {/* Inbox and Sent as two pills rather than a column of their own: the
-            rail they came from held nothing else worth its width. Archive and
-            Trash are not offered, since the API has nothing behind them and a
-            folder that can never fill is worse than no folder. */}
+        {/* Pills rather than a column of their own: the rail they came from
+            held nothing else worth its width. Archive and Trash are not
+            offered, since the API has nothing behind them and a folder that
+            can never fill is worse than no folder.
+
+            Liked sits with them because writing a first letter started
+            somewhere else entirely — out of the mailbox, into the rail, find
+            the person, come back — for the one thing this screen is for. */}
         <div className="flex gap-1.5">
-          {(['inbox', 'sent'] as const).map((key) => (
+          {(['inbox', 'sent', 'liked'] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -216,61 +259,74 @@ export function Mailbox() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {isPending ? <PageSpinner label="Opening your mailbox…" /> : null}
+        {folder === 'liked' ? (
+          <LikedRail
+            profiles={filteredLiked}
+            activeId={composeId}
+            pending={likedPending}
+            failed={likedFailed}
+            onRetry={() => void refetchSaved()}
+            searching={debounced.trim().length > 0}
+          />
+        ) : (
+          <>
+          {isPending ? <PageSpinner label="Opening your mailbox…" /> : null}
 
-        {isError ? (
-          <div className="m-2 rounded-card border border-line bg-surface-elevated p-6 text-center">
-            <p className="text-sm text-ink-soft">
-              {error instanceof Error ? error.message : "We couldn't load your mailbox."}
-            </p>
-            <Button variant="secondary" size="sm" className="mt-4" onClick={() => void refetch()}>
-              Try again
-            </Button>
-          </div>
-        ) : null}
+          {isError ? (
+            <div className="m-2 rounded-card border border-line bg-surface-elevated p-6 text-center">
+              <p className="text-sm text-ink-soft">
+                {error instanceof Error ? error.message : "We couldn't load your mailbox."}
+              </p>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => void refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : null}
 
-        {!isPending && !isError && filtered.length === 0 ? (
-          <EmptyThreads searching={debounced.trim().length > 0} />
-        ) : null}
+          {!isPending && !isError && filtered.length === 0 ? (
+            <EmptyThreads searching={debounced.trim().length > 0} />
+          ) : null}
 
-        <ul>
-          {filtered.map((thread) => (
-            <li key={thread.threadId}>
-              <Link
-                href={`/mailbox?thread=${thread.threadId}`}
-                aria-current={thread.threadId === threadId ? 'true' : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-3 transition-colors',
-                  thread.threadId === threadId ? 'bg-primary-faint' : 'hover:bg-surface-muted',
-                )}
-              >
-                <Avatar name={thread.profileDisplayName} src={thread.profilePhotoUrl} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span
-                      className={cn(
-                        'truncate text-sm text-ink',
-                        thread.unreadCount > 0 && 'font-bold',
-                      )}
-                    >
-                      {thread.profileDisplayName}
+          <ul>
+            {filtered.map((thread) => (
+              <li key={thread.threadId}>
+                <Link
+                  href={`/mailbox?thread=${thread.threadId}`}
+                  aria-current={thread.threadId === threadId ? 'true' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-3 transition-colors',
+                    thread.threadId === threadId ? 'bg-primary-faint' : 'hover:bg-surface-muted',
+                  )}
+                >
+                  <Avatar name={thread.profileDisplayName} src={thread.profilePhotoUrl} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span
+                        className={cn(
+                          'truncate text-sm text-ink',
+                          thread.unreadCount > 0 && 'font-bold',
+                        )}
+                      >
+                        {thread.profileDisplayName}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-ink-faint">
+                        {formatTime(thread.lastMessageAt)}
+                      </span>
                     </span>
-                    <span className="shrink-0 text-[11px] text-ink-faint">
-                      {formatTime(thread.lastMessageAt)}
+                    <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
+                      {thread.lastDirection === 'outbound' ? 'You: ' : ''}
+                      {threadPreview(thread)}
                     </span>
                   </span>
-                  <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
-                    {thread.lastDirection === 'outbound' ? 'You: ' : ''}
-                    {threadPreview(thread)}
-                  </span>
-                </span>
-                {thread.unreadCount > 0 ? (
-                  <span className="size-2 shrink-0 rounded-full bg-primary" />
-                ) : null}
-              </Link>
-            </li>
-          ))}
-        </ul>
+                  {thread.unreadCount > 0 ? (
+                    <span className="size-2 shrink-0 rounded-full bg-primary" />
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          </>
+        )}
       </div>
 
       {/* The allowance sits at the foot, where a mail client puts storage: it
@@ -372,6 +428,117 @@ export function Mailbox() {
         <div className="lg:h-full">{readingPane}</div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Everyone the member has liked, as a third section of the list column.
+ *
+ * A thread only exists once a letter has been sent, so Inbox and Sent between
+ * them can never show the person you have not written to yet. Reaching them
+ * meant leaving the mailbox for Liked in the rail, finding them, and coming
+ * back — for the one action this screen exists to perform.
+ *
+ * Each row opens the same compose pane a Liked card does, by the same URL, so
+ * there is one path into writing a letter and not two.
+ */
+function LikedRail({
+  profiles,
+  activeId,
+  pending,
+  failed,
+  onRetry,
+  searching,
+}: {
+  profiles: PublicProfileSummary[];
+  activeId: string | null;
+  pending: boolean;
+  failed: boolean;
+  onRetry: () => void;
+  searching: boolean;
+}) {
+  if (pending) return <PageSpinner label="Opening your liked profiles…" />;
+
+  if (failed) {
+    return (
+      <div className="m-2 rounded-card border border-line bg-surface-elevated p-6 text-center">
+        <p className="text-sm text-ink-soft">We couldn&apos;t load your liked profiles.</p>
+        <Button variant="secondary" size="sm" className="mt-4" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (profiles.length === 0) {
+    return searching ? (
+      <div className="px-1 py-10 text-center lg:py-8">
+        <p className="font-[family-name:var(--font-bree)] text-[15px] text-ink">
+          No liked profiles match that name
+        </p>
+        <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-ink-soft">
+          Try a different name, or clear the search to see everyone you have liked.
+        </p>
+      </div>
+    ) : (
+      <div className="px-1 py-10 text-center lg:py-8">
+        <p className="font-[family-name:var(--font-bree)] text-[15px] text-ink">
+          No one liked yet
+        </p>
+        <p className="mx-auto mt-1.5 max-w-xs text-[13px] leading-relaxed text-ink-soft">
+          Like someone while browsing and they will wait for you here, ready to write to.
+        </p>
+        <Button asChild variant="secondary" size="sm" className="mt-4">
+          <Link href="/browse">Browse profiles</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <ul>
+      {profiles.map((profile) => {
+        // Only `state` rides along on the summary; expanded so the line reads
+        // "Texas" rather than "TX", as it does everywhere else.
+        const place = stateName(profile.facility?.state);
+        return (
+          <li key={profile.id}>
+            <Link
+              href={`/mailbox?compose=${profile.id}&name=${encodeURIComponent(profile.displayName)}`}
+              aria-current={profile.id === activeId ? 'true' : undefined}
+              className={cn(
+                'group flex items-center gap-3 rounded-xl px-3 py-3 transition-colors',
+                profile.id === activeId ? 'bg-primary-faint' : 'hover:bg-surface-muted',
+              )}
+            >
+              <Avatar name={profile.displayName} src={profile.primaryPhotoUrl} />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline gap-2">
+                  <span className="truncate text-sm text-ink">{profile.displayName}</span>
+                  {profile.age != null ? (
+                    <span className="shrink-0 text-[12px] text-ink-soft">{profile.age}</span>
+                  ) : null}
+                </span>
+                {/* Never blank: a profile with no facility on it would leave a
+                    name floating alone at a row height set for two lines. */}
+                <span className="mt-0.5 block truncate text-[13px] text-ink-soft">
+                  {place || 'Write the first letter'}
+                </span>
+              </span>
+              <PenLine
+                aria-hidden
+                className={cn(
+                  'size-4 shrink-0 transition-colors',
+                  profile.id === activeId
+                    ? 'text-primary'
+                    : 'text-ink-faint group-hover:text-primary',
+                )}
+              />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

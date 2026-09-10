@@ -6,6 +6,7 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import type {
   ComposeLetterInput,
   LetterEntitlement,
@@ -226,6 +227,23 @@ export function useLetterLimit(profileId: string | undefined) {
     // shows a plain word count instead.
     retry: false,
   });
+}
+
+/**
+ * Pull an open thread again.
+ *
+ * Wanted when the thread list reports post the reading pane has not fetched:
+ * the pane holds a minute-old copy, and clearing the unread badge over stale
+ * contents would retire a letter the member was never shown.
+ */
+export function useRefreshThread() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    (threadId: string) => {
+      void queryClient.invalidateQueries({ queryKey: qk.thread(threadId) });
+    },
+    [queryClient],
+  );
 }
 
 /** Clears the unread badge. Fire-and-forget: a failure costs the member nothing. */
