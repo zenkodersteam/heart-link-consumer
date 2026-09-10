@@ -53,6 +53,7 @@ export function Mailbox() {
   const locked = (error as { status?: number } | null)?.status === 403;
   const { data: myProfile, refetch: refetchProfile, isFetching: profileRefetching } = useMyProfile();
   const { data: saved } = useSavedProfiles();
+  const inReview = myProfile != null && myProfile.status !== 'approved';
   const { data: composeLimit } = useLetterLimit(composeId ?? undefined);
   const composeLetter = useComposeLetter();
   const { mutate: markThreadRead } = useMarkThreadRead();
@@ -327,18 +328,21 @@ export function Mailbox() {
     // browsing is still allowed while a profile is in review, only the mailbox
     // is not.
     <div className="relative lg:flex lg:h-[calc(100dvh-3.8rem)] lg:min-h-0">
-      {/* Over the mailbox, not instead of it: the folders and the shape of the
-          list stay visible through the blur, so what a membership buys is the
-          thing behind the glass rather than a description of it. */}
-      {locked ? <MailboxLocked /> : null}
-
-      {myProfile && myProfile.status !== 'approved' ? (
+      {/* One at a time, review first.
+          A member can easily be both in review and without a membership, and
+          both used to draw at once — two cards stacked on the same blur, the
+          second one unreadable behind the first. Review comes first because it
+          is the one that resolves on its own: a membership bought while the
+          profile is still being checked buys nothing usable yet. */}
+      {inReview ? (
         <ProfileReviewOverlay
           status={myProfile.status}
           moderationNotes={myProfile.moderationNotes}
           onRefresh={() => void refetchProfile()}
           refreshing={profileRefetching}
         />
+      ) : locked ? (
+        <MailboxLocked />
       ) : null}
 
       {/* Two panes, as a mail client has them: the list, and what is open.
