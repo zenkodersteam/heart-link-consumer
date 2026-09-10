@@ -15,6 +15,27 @@ import { reportReachable, reportUnreachable } from './connectivity';
 // Public consumer profile browse types
 // =============================================================================
 
+/**
+ * A file on its way up, in whichever shape the platform provides.
+ *
+ * A browser hands over a `File`. React Native cannot: there is no file content
+ * in JS, only a `file://` path, and its `FormData` understands this descriptor
+ * and streams the file itself at send time. The two are not interchangeable,
+ * and converting the phone's path into a Blob first is what silently strips
+ * the content type.
+ */
+export interface NativeFilePart {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+export type UploadPart = Blob | NativeFilePart;
+
+function isNativeFile(part: UploadPart): part is NativeFilePart {
+  return typeof (part as NativeFilePart).uri === 'string';
+}
+
 export type PlanTier = 'basic' | 'diamond' | 'vip';
 
 // Facility name + city are intentionally not exposed on the public surface
@@ -104,6 +125,23 @@ export interface OutsideUserProfile {
   /** Durable one-way flag: true once onboarding was completed (first submit).
    *  Never resets on profile edits, so the onboarding gate keys on this. */
   onboardingComplete: boolean;
+}
+
+/**
+ * Whether an edited profile still has to be sent for moderation.
+ *
+ * Saving a change puts the profile back to `draft` - the edit is stored, but it
+ * is not in front of anyone. Nothing shows it to the team until `submitMyProfile`
+ * is called, which used to be reachable only from the last step of onboarding:
+ * change one line on the profile screen and the only way to get it reviewed was
+ * to walk the nine sign-up questions again. Both surfaces call this after a save
+ * so the change goes where the screen says it goes.
+ *
+ * `pending` and `approved` are left alone: one is already in the queue, and the
+ * other has nothing waiting on it.
+ */
+export function needsReviewSubmission(status: OutsideProfileStatus): boolean {
+  return status === 'draft' || status === 'rejected';
 }
 
 export interface UpdateOutsideProfileInput {
@@ -610,9 +648,22 @@ export function createApiClient(options: ApiClientOptions) {
     },
 
     /** Upload/replace the member's own profile photo (multipart, field `file`). */
-    async uploadMyProfilePhoto(file: Blob, filename = 'photo.jpg'): Promise<OutsideUserProfile> {
+    async uploadMyProfilePhoto(
+      file: UploadPart,
+      filename = 'photo.jpg',
+    ): Promise<OutsideUserProfile> {
       const form = new FormData();
-      form.append('file', file, filename);
+      if (isNativeFile(file)) {
+        // React Native's FormData takes the file by reference and reads it at
+        // send time, carrying the type given here. Turning the same `file://`
+        // into a Blob first — `fetch(uri).blob()` — loses it: the part goes up
+        // as `application/octet-stream`, and the API refuses it with
+        // "Unsupported photo type", which is what made uploading from a phone
+        // fail while the identical code worked in a browser.
+        form.append('file', file as unknown as Blob);
+      } else {
+        form.append('file', file, filename);
+      }
       return request<OutsideUserProfile>(`/api/me/profile/photo`, {
         method: 'POST',
         body: form,

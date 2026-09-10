@@ -1,6 +1,12 @@
 'use client';
 
-import { MAX_BIO_CHARS } from '@heartlink/consumer-content';
+import { needsReviewSubmission, type OutsideUserProfile } from '@heartlink/consumer-api';
+import {
+  MAX_BIO_CHARS,
+  REVIEW_PREF_GROUPS,
+  summarizePrefs,
+  type PreferenceState,
+} from '@heartlink/consumer-content';
 import { PHOTO_ACCEPT, photoFileProblem } from '@heartlink/domain';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
@@ -17,7 +23,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { useMyProfile, useUpdateMyProfile, useUploadMyProfilePhoto } from '@/lib/queries';
+import {
+  useMyProfile,
+  useSubmitMyProfile,
+  useUpdateMyProfile,
+  useUploadMyProfilePhoto,
+} from '@/lib/queries';
 import { cn } from '@/lib/utils';
 
 /**
@@ -27,6 +38,11 @@ import { cn } from '@/lib/utils';
  * detail afterwards does not, so each row opens a dialog for just that field
  * rather than sending someone back through onboarding. The preference
  * questions, which only read as a set, still link there.
+ *
+ * Saving also sends the profile for review. A save on its own only writes the
+ * draft, which left the change sitting where nobody would see it while the page
+ * promised it was being reviewed - and the only way to actually reach the queue
+ * was to walk the whole sign-up flow again to its submit step.
  */
 
 type FieldKey = 'displayName' | 'location' | 'bio';
@@ -68,6 +84,7 @@ const STATUS_LABEL: Record<string, string> = {
 export function EditProfile() {
   const { data: profile, isPending } = useMyProfile();
   const updateProfile = useUpdateMyProfile();
+  const submitProfile = useSubmitMyProfile();
   const uploadPhoto = useUploadMyProfilePhoto();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -80,10 +97,13 @@ export function EditProfile() {
       return;
     }
     try {
-      await uploadPhoto.mutateAsync(file);
+      const saved = await uploadPhoto.mutateAsync(file);
       toast.success('Photo updated', {
         description: 'It is visible to the people you write to.',
       });
+      // A new photo is a change like any other, and it is the one members are
+      // most surprised to find waiting in a draft nobody looked at.
+      await sendForReview(saved);
     } catch (err) {
       toast.error('Could not upload that photo', {
         description: err instanceof Error ? err.message : 'Please try again in a moment.',
@@ -97,6 +117,9 @@ export function EditProfile() {
 
   const field = editing ? FIELDS[editing] : null;
   const statusLabel = STATUS_LABEL[profile?.status ?? ''] ?? 'Draft';
+  // `matchPreferences` is `unknown` on the wire - the server stores whatever
+  // the flow put there - so it is narrowed once, here, rather than at each row.
+  const prefs = (profile?.matchPreferences ?? {}) as PreferenceState;
 
   function open(key: FieldKey) {
     setDraft((profile?.[key] as string | null) ?? '');
@@ -104,12 +127,34 @@ export function EditProfile() {
     setEditing(key);
   }
 
+  /**
+   * Hands a saved change to the moderation queue.
+   *
+   * Kept separate from the save itself so a submit that fails cannot lose the
+   * edit: the change is already stored either way, and this only decides
+   * whether it is queued. The member is told which of the two happened.
+   */
+  async function sendForReview(saved: OutsideUserProfile) {
+    if (!needsReviewSubmission(saved.status)) return;
+    try {
+      await submitProfile.mutateAsync();
+      toast.success('Sent for review', {
+        description: 'Our team looks at changes before they reach other members.',
+      });
+    } catch {
+      toast.error('Saved, but not sent for review', {
+        description: 'Your change is stored. Try saving again to send it to our team.',
+      });
+    }
+  }
+
   async function save() {
     if (!editing) return;
     setError(null);
     try {
-      await updateProfile.mutateAsync({ [editing]: draft.trim() });
+      const saved = await updateProfile.mutateAsync({ [editing]: draft.trim() });
       setEditing(null);
+      await sendForReview(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'We could not save that. Please try again.');
     }
@@ -204,22 +249,36 @@ export function EditProfile() {
             />
           </SettingsCard>
 
+          {/* Four rows, not one link to the start of onboarding. These answers
+              only read as a group, so they have no dialog here - but each one
+              opens just its own step, saves, and comes back. One row saying
+              "Review" that led to nine questions is what made changing a single
+              answer feel like doing the whole sign-up again. */}
           <SettingsGroupLabel>Preferences</SettingsGroupLabel>
           <SettingsCard>
-            <Link
-              href="/onboarding"
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-muted"
-            >
-              <span className="min-w-0 flex-1 text-left text-[14.5px] text-ink">
-                Interests, values and pace
-              </span>
-              <span className="shrink-0 text-[13px] text-ink-soft">Review</span>
-              <ChevronRight className="size-4 shrink-0 text-ink-faint" aria-hidden />
-            </Link>
+            {REVIEW_PREF_GROUPS.map((group, i) => (
+              <Link
+                key={group.step}
+                href={`/onboarding?section=${group.step}`}
+                className={cn(
+                  'flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-surface-muted',
+                  i === REVIEW_PREF_GROUPS.length - 1 ? null : 'border-b border-line',
+                )}
+              >
+                <span className="min-w-0 flex-1 text-left text-[14.5px] text-ink">
+                  {group.label}
+                </span>
+                <span className="min-w-0 shrink truncate text-[13px] text-ink-soft">
+                  {summarizePrefs(prefs, group.keys)}
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-ink-faint" aria-hidden />
+              </Link>
+            ))}
           </SettingsCard>
 
           <p className="mt-7 px-1 text-[12.5px] leading-relaxed text-ink-faint">
-            Changes are reviewed by our team before they appear to other members.
+            Saving a change sends your profile to our team. They review it before
+            it reaches other members, usually within a day.
           </p>
         </>
       )}
@@ -281,7 +340,7 @@ export function EditProfile() {
               Cancel
             </Button>
             <Button disabled={updateProfile.isPending} onClick={() => void save()}>
-              {updateProfile.isPending ? 'Saving…' : 'Save'}
+              {updateProfile.isPending ? 'Saving…' : 'Save changes'}
             </Button>
           </div>
         </DialogContent>

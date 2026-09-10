@@ -16,6 +16,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { needsReviewSubmission, type OutsideUserProfile } from '@heartlink/consumer-api';
+import {
+  REVIEW_PREF_GROUPS,
+  summarizePrefs,
+  type PreferenceState,
+} from '@heartlink/consumer-content';
+
 import { ConfirmDialog } from '../../src/components/ConfirmDialog';
 import { ScreenHeader, SettingsRow } from '../../src/components/ScreenHeader';
 import { ListSkeleton } from '../../src/components/Skeleton';
@@ -60,7 +67,31 @@ const FIELDS: Record<
  * questions again, which is why tapping "your profile" felt like being sent
  * back to the start. The questions still make sense the first time; changing
  * one detail afterwards does not.
+ *
+ * Saving also sends the profile for review. A save on its own only writes the
+ * draft, which left the change sitting where nobody would see it while the
+ * screen promised it was being reviewed - and the only way to actually reach
+ * the queue was to walk the sign-up questions again to their submit step.
  */
+/**
+ * The moderation state, in the two colours it actually means.
+ *
+ * Approved is settled, needs-changes wants attention, and everything between
+ * is simply in progress — three tones rather than four, because "draft" and
+ * "in review" ask nothing of the member.
+ */
+function statusPillStyle(status: string | undefined) {
+  if (status === 'approved') return styles.statusApproved;
+  if (status === 'rejected') return styles.statusRejected;
+  return styles.statusPending;
+}
+
+function statusTextStyle(status: string | undefined) {
+  if (status === 'approved') return styles.statusApprovedText;
+  if (status === 'rejected') return styles.statusRejectedText;
+  return styles.statusPendingText;
+}
+
 export default function EditProfileScreen() {
   const router = useRouter();
   const apiFactory = useApiClientFactory();
@@ -88,9 +119,12 @@ export default function EditProfileScreen() {
       if (!picked) return;
       setUploading(true);
       const api = await apiFactory();
-      await api.uploadMyProfilePhoto(picked.blob, picked.name);
-      await refresh();
+      const saved = await api.uploadMyProfilePhoto(picked.part, picked.name);
       toast.show('Photo updated', 'It is visible to the people you write to.');
+      // A new photo is a change like any other, and it is the one members are
+      // most surprised to find waiting in a draft nobody looked at.
+      await sendForReview(saved);
+      await refresh();
     } catch (e) {
       // A refused permission throws with wording worth showing as it is.
       toast.error(humanError(e, 'Could not upload that photo.'));
@@ -104,14 +138,33 @@ export default function EditProfileScreen() {
     setEditing(key);
   }
 
+  /**
+   * Hands a saved change to the moderation queue.
+   *
+   * Kept separate from the save itself so a submit that fails cannot lose the
+   * edit: the change is already stored either way, and this only decides
+   * whether it is queued. The member is told which of the two happened.
+   */
+  async function sendForReview(saved: OutsideUserProfile) {
+    if (!needsReviewSubmission(saved.status)) return;
+    try {
+      const api = await apiFactory();
+      await api.submitMyProfile();
+      toast.show('Sent for review', 'Our team looks at changes before they reach other members.');
+    } catch {
+      toast.error('Saved, but not sent for review. Try saving again to send it to our team.');
+    }
+  }
+
   async function save() {
     if (!editing) return;
     setSaving(true);
     try {
       const api = await apiFactory();
-      await api.updateMyProfile({ [editing]: draft.trim() });
-      await refresh();
+      const saved = await api.updateMyProfile({ [editing]: draft.trim() });
       setEditing(null);
+      await sendForReview(saved);
+      await refresh();
     } catch (e) {
       toast.error(humanError(e, 'We could not save that. Please try again.'));
     } finally {
@@ -120,6 +173,9 @@ export default function EditProfileScreen() {
   }
 
   const field = editing ? FIELDS[editing] : null;
+  // `matchPreferences` is `unknown` on the wire - the server stores whatever the
+  // flow put there - so it is narrowed once, here, rather than at each row.
+  const prefs = (profile?.matchPreferences ?? {}) as PreferenceState;
   const statusLabel =
     profile?.status === 'approved'
       ? 'Approved'
@@ -131,7 +187,7 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <ScreenHeader title="Your profile" subtitle={statusLabel} />
+      <ScreenHeader title="Your profile" />
 
       {loading && !profile ? (
         <View style={styles.body}>
@@ -139,42 +195,60 @@ export default function EditProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <View style={styles.photoRow}>
-            {profile?.primaryPhotoUrl ? (
-              <Image source={{ uri: profile.primaryPhotoUrl }} style={styles.photo} contentFit="cover" />
-            ) : (
-              <View style={[styles.photo, styles.photoEmpty]}>
-                <Text style={styles.photoInitial}>
-                  {(profile?.displayName ?? '?').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.photoTitle}>Profile photo</Text>
-              <Text style={styles.photoHint}>
-                {profile?.primaryPhotoUrl ? 'Visible to people you write to.' : 'No photo yet.'}
-              </Text>
-            </View>
+          {/* A profile header, not a settings row.
+              This was a 56px thumbnail in a list line with a "Change" link on
+              the right — the shape a web settings page uses. A phone puts the
+              person at the top: their face, their name, and the badge you tap
+              to replace it. */}
+          <View style={styles.identity}>
             <Pressable
               onPress={() =>
                 Platform.OS === 'web' ? void onPickPhoto('web') : setSourceOpen(true)
               }
               disabled={uploading}
               accessibilityRole="button"
+              accessibilityLabel={profile?.primaryPhotoUrl ? 'Change your photo' : 'Add a photo'}
               style={({ pressed }: { pressed: boolean }) => [
-                styles.photoBtn,
-                pressed ? { opacity: 0.85 } : null,
-                uploading ? { opacity: 0.6 } : null,
+                styles.avatarWrap,
+                pressed ? { transform: [{ scale: 0.98 }] } : null,
               ]}
             >
-              {uploading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+              {profile?.primaryPhotoUrl ? (
+                <Image
+                  source={{ uri: profile.primaryPhotoUrl }}
+                  style={styles.avatar}
+                  contentFit="cover"
+                  transition={150}
+                />
               ) : (
-                <Text style={styles.photoBtnText}>
-                  {profile?.primaryPhotoUrl ? 'Change' : 'Add'}
-                </Text>
+                <View style={[styles.avatar, styles.avatarEmpty]}>
+                  <Text style={styles.avatarInitial}>
+                    {(profile?.displayName ?? '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
               )}
+
+              <View style={styles.cameraBadge}>
+                {uploading ? (
+                  <ActivityIndicator size="small" color={colors.onPrimary} />
+                ) : (
+                  <Feather name="camera" size={14} color={colors.onPrimary} />
+                )}
+              </View>
             </Pressable>
+
+            <Text style={styles.identityName} numberOfLines={1}>
+              {profile?.displayName || 'Your profile'}
+            </Text>
+
+            {/* The moderation state as a pill. As a grey subtitle in the header
+                it read as a page title's decoration rather than as the status
+                of the thing on screen. */}
+            <View style={[styles.statusPill, statusPillStyle(profile?.status)]}>
+              <Text style={[styles.statusPillText, statusTextStyle(profile?.status)]}>
+                {statusLabel}
+              </Text>
+            </View>
           </View>
 
           <Text style={styles.groupLabel}>DETAILS</Text>
@@ -197,17 +271,26 @@ export default function EditProfileScreen() {
             />
           </View>
 
+          {/* Four rows, not one link to the start of onboarding. These answers
+              only read as a group, so they have no editor here - but each row
+              opens just its own step, saves, and comes back. One row saying
+              "Review" that led to nine questions is what made changing a single
+              answer feel like doing the whole sign-up again. */}
           <Text style={styles.groupLabel}>PREFERENCES</Text>
           <View style={styles.card}>
-            <SettingsRow
-              label="Interests, values and pace"
-              value="Review"
-              onPress={() => router.push('/onboarding' as never)}
-              last
-            />
+            {REVIEW_PREF_GROUPS.map((group, i) => (
+              <SettingsRow
+                key={group.step}
+                label={group.label}
+                value={summarizePrefs(prefs, group.keys)}
+                onPress={() => router.push(`/onboarding?section=${group.step}` as never)}
+                last={i === REVIEW_PREF_GROUPS.length - 1}
+              />
+            ))}
           </View>
           <Text style={styles.note}>
-            Changes are reviewed by our team before they appear to other members.
+            Saving a change sends your profile to our team. They review it before it
+            reaches other members, usually within a day.
           </Text>
         </ScrollView>
       )}
@@ -282,33 +365,39 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
-  photoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-    borderRadius: 20,
-    backgroundColor: colors.bgElevated,
-    borderWidth: 1,
-    borderColor: 'rgba(46,18,64,0.05)',
-  },
-  photo: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surfaceMuted },
-  photoBtn: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+  identity: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg },
+  avatarWrap: { position: 'relative' },
+  avatar: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.surfaceMuted },
+  avatarEmpty: { alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { ...type.h1, fontSize: 34, color: colors.textMuted },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 32,
+    height: 32,
     borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgElevated,
-    minWidth: 78,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    // A ring in the page colour, so the badge reads as sitting on the photo
+    // rather than punched out of it.
+    borderWidth: 3,
+    borderColor: colors.bgDeep,
   },
-  photoBtnText: { ...type.button, fontSize: 13, color: colors.primary },
-  photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.sidebar },
-  photoInitial: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: colors.sidebarText },
-  photoTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14.5, color: colors.textPrimary },
-  photoHint: { fontFamily: 'Inter_400Regular', fontSize: 12.5, color: colors.textMuted, marginTop: 1 },
+  identityName: { ...type.h2, fontSize: 19, marginTop: spacing.xs },
+  statusPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  statusPillText: { ...type.caption, fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  statusApproved: { backgroundColor: 'rgba(62, 155, 110, 0.14)' },
+  statusApprovedText: { color: colors.success },
+  statusRejected: { backgroundColor: 'rgba(214, 69, 80, 0.14)' },
+  statusRejectedText: { color: colors.danger },
+  statusPending: { backgroundColor: colors.goldFaint },
+  statusPendingText: { color: colors.gold },
   groupLabel: {
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,

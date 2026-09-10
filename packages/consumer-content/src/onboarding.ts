@@ -417,12 +417,28 @@ export function summarizePrefs(prefs: PreferenceState, keys: PrefKey[]): string 
   return parts.length ? parts.join(', ') : '-';
 }
 
-/** Which preference keys each review row summarises. */
-export const REVIEW_PREF_GROUPS: { label: string; keys: PrefKey[] }[] = [
-  { label: 'Identity', keys: ['iAm', 'religion', 'interestedIn'] },
-  { label: 'Connection', keys: ['connectionTypes', 'relationshipPace', 'futureExpectations'] },
+/**
+ * Which preference keys each review row summarises, and which step asks them.
+ *
+ * `step` is here so the profile screen can offer these as four separate things
+ * to edit and send someone straight to the step that asks them, instead of the
+ * start of the flow. The four sets are the answers with no editor of their own:
+ * name, location and story are single fields, but these only read as a group.
+ */
+export const REVIEW_PREF_GROUPS: {
+  label: string;
+  step: OnboardingStepKey;
+  keys: PrefKey[];
+}[] = [
+  { label: 'Identity', step: 'identity', keys: ['iAm', 'religion', 'interestedIn'] },
+  {
+    label: 'Connection',
+    step: 'connection',
+    keys: ['connectionTypes', 'relationshipPace', 'futureExpectations'],
+  },
   {
     label: 'Lifestyle',
+    step: 'lifestyle',
     keys: [
       'values',
       'interests',
@@ -436,6 +452,7 @@ export const REVIEW_PREF_GROUPS: { label: string; keys: PrefKey[] }[] = [
   },
   {
     label: 'Communication',
+    step: 'communication',
     keys: ['communicationChannels', 'communicationPace', 'emotionalIntentions', 'loveLanguage'],
   },
 ];

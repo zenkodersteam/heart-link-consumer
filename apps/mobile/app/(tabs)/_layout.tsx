@@ -6,9 +6,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabBar, MobileTopBar, Sidebar } from '../../src/components/AppNav';
 import { OfflineBanner } from '../../src/components/ErrorState';
 import { useKeyboard } from '../../src/lib/use-keyboard';
+import { useSettledOffline } from '../../src/lib/use-settled-offline';
 import { savePendingRoute } from '../../src/lib/pending-route';
 import { PREVIEW_BYPASS_AUTH } from '../../src/lib/preview';
-import { useIsOffline } from '@heartlink/consumer-api';
+
 import { isOnboarded, useMyProfile } from '../../src/lib/use-my-profile';
 import { colors, shell } from '../../src/theme';
 
@@ -36,7 +37,10 @@ export default function TabLayout() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const { profile, loading: profileLoading, error: profileError } = useMyProfile();
-  const offline = useIsOffline();
+  // Settled, not instantaneous: a single failed request used to insert the
+  // banner above every screen and take it away again, shifting the whole app
+  // down a row and back for no reason the member could see.
+  const offline = useSettledOffline();
   const keyboard = useKeyboard();
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;

@@ -26,6 +26,9 @@ export interface KeyboardState {
  * keyboard that changes size (an autocomplete bar appearing, a language switch)
  * is followed rather than measured once.
  */
+/** Below this, the frame belongs to an accessory bar rather than a keyboard. */
+const MIN_KEYBOARD_HEIGHT = 120;
+
 export function useKeyboard(): KeyboardState {
   const [state, setState] = useState<KeyboardState>({ overlap: 0, visible: false });
 
@@ -40,7 +43,13 @@ export function useKeyboard(): KeyboardState {
     const show = Keyboard.addListener(showEvent, (event) => {
       const windowHeight = Dimensions.get('window').height;
       const covered = Math.max(0, windowHeight - (event.endCoordinates?.screenY ?? windowHeight));
-      setState({ overlap: isIos ? covered : 0, visible: covered > 0 });
+      // A real software keyboard is hundreds of points tall. iOS also reports
+      // frame changes for the accessory bar alone — with a hardware keyboard
+      // paired, or an autofill strip — and treating those as "the keyboard is
+      // up" hid the tab bar and resized the shell for a 45pt strip, which
+      // reads as the screen shifting on its own.
+      const real = covered > MIN_KEYBOARD_HEIGHT;
+      setState({ overlap: isIos && real ? covered : 0, visible: real });
     });
 
     const hide = Keyboard.addListener(hideEvent, () => {

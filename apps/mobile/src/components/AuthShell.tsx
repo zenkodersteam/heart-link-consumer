@@ -3,6 +3,8 @@ import { Image } from 'expo-image';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
+  BackHandler,
+  PanResponder,
   Platform,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ import {
 } from '@heartlink/consumer-content';
 
 import { BrandDecor } from './BrandDecor';
+import { useKeyboard } from '../lib/use-keyboard';
 import { KeyboardSafeScrollView } from './KeyboardSafeScrollView';
 import { auth, colors, fonts, radii, spacing, type } from '../theme';
 
@@ -73,6 +76,15 @@ interface AuthShellProps {
    * nine in a row.
    */
   minimal?: boolean;
+  /**
+   * Step back, when the screen has steps of its own.
+   *
+   * Onboarding is nine steps inside a single route, so neither the Android
+   * back button nor an iOS edge swipe can move between them — there is nothing
+   * for the router to pop. Given this, the shell wires both to the callback so
+   * the platform gestures do what someone expects instead of leaving the flow.
+   */
+  onBack?: () => void;
 }
 
 function Brand({ size }: { size: number }) {
@@ -156,12 +168,42 @@ function GoldRule() {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer, compact, minimal, staticEntrance, stickyHeader }: AuthShellProps) {
-  const { width, height } = useWindowDimensions();
+export function AuthShell({ title, subtitle, children, footer, compact, minimal, staticEntrance, stickyHeader, onBack }: AuthShellProps) {
+  const keyboard = useKeyboard();
+
+  // Android's own back button, when there are steps to go back through.
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  useEffect(() => {
+    if (!onBack || Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBackRef.current?.();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
+
+  // iOS has no gesture on a route with no stack behind it, so the same swipe
+  // is built here: a drag from the left edge, as elsewhere in the app.
+  const edgeSwipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, g) =>
+          Boolean(onBackRef.current) &&
+          g.dx > 12 &&
+          Math.abs(g.dy) < 12 &&
+          g.moveX - g.dx < 44,
+        onPanResponderRelease: (_evt, g) => {
+          if (g.dx > 80 || g.vx > 0.4) onBackRef.current?.();
+        },
+      }),
+    [],
+  );
+  const { width, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // Cap the art as a share of the viewport so short phones are not swallowed.
   const artHeight = Math.round(
-    Math.min(compact ? 172 : auth.mobileArtHeight, height * (compact ? 0.2 : 0.32)),
+    Math.min(compact ? 172 : auth.mobileArtHeight, windowHeight * (compact ? 0.2 : 0.32)),
   );
   const isDesktop = width >= 900;
   const reduce = useReduceMotion() || !!staticEntrance;
@@ -235,7 +277,22 @@ export function AuthShell({ title, subtitle, children, footer, compact, minimal,
 
   // Mobile: art owns the top third; the form rises over it as a white sheet.
   return (
-    <View style={styles.rootMobile}>
+    // Given the height the keyboard leaves, exactly as the tab shell is.
+    //
+    // The sheet used to run the full height of the screen, under the keyboard,
+    // so iOS added a keyboard-height content inset to the scroll view inside
+    // it. On a short form that is pure dead space: the fields could be dragged
+    // up behind the artwork with a blank band where the keyboard sits. Ending
+    // the sheet where the keyboard begins leaves nothing to over-scroll into.
+    //
+    // Android is resized by the OS already, so `overlap` is 0 there.
+    <View
+      {...(onBack ? edgeSwipe.panHandlers : null)}
+      style={[
+        styles.rootMobile,
+        keyboard.overlap > 0 ? { height: windowHeight - keyboard.overlap } : null,
+      ]}
+    >
       <SafeAreaView style={styles.flex} edges={['top']}>
         {minimal ? (
           <View style={styles.slimBar}>

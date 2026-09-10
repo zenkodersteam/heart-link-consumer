@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -8,7 +8,11 @@ import { AuthShell } from '../../src/components/AuthShell';
 import { DateField } from '../../src/components/DateField';
 import { pickPhoto } from '../../src/lib/pick-photo';
 import { Button, Field } from '../../src/components/primitives';
-import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
+import {
+  ApiClientError,
+  needsReviewSubmission,
+  type UpdateOutsideProfileInput,
+} from '@heartlink/consumer-api';
 import { takePendingRoute } from '../../src/lib/pending-route';
 import { useToast } from '../../src/components/Toast';
 import { useApiClientFactory } from '../../src/lib/use-api-client';
@@ -28,6 +32,17 @@ import { colors, fonts, radii, spacing, type } from '../../src/theme';
 import { MAX_BIO_CHARS, MIN_BIO_CHARS, validateStep } from '@heartlink/consumer-content';
 
 type StepKey = 'name' | 'location' | 'identity' | 'connection' | 'lifestyle' | 'communication' | 'story' | 'photo' | 'review';
+
+/**
+ * The steps `?section=` may open on their own, for a member who has already
+ * finished and wants to change one answer. The preference sets only: name,
+ * location and story have their own editors on the profile screen, and the
+ * photo and review steps are not answers to change.
+ */
+const EDITABLE_SECTIONS: StepKey[] = ['identity', 'connection', 'lifestyle', 'communication'];
+
+/** Where `?section=` came from, and where saving it returns to. */
+const PROFILE_ROUTE = '/edit-profile';
 
 const STEPS: { key: StepKey; title: string; subtitle: string }[] = [
   {
@@ -173,6 +188,7 @@ function isoToDisplay(iso: string | null): string {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ section?: string }>();
   const apiFactory = useApiClientFactory();
   const { profile, loading, error: profileLoadError, refresh, apply } = useMyProfile();
 
@@ -222,7 +238,18 @@ export default function OnboardingScreen() {
     }
   }, [preferences, profile?.matchPreferences]);
 
-  const step = STEPS[stepIndex];
+  /**
+   * The one step this visit is here to change, if any.
+   *
+   * Gated on `onboardingComplete` as well as the parameter: a first-timer who
+   * lands on a `section` link still has the whole flow to do, and dropping them
+   * into step four with no way back would leave the rest unanswered.
+   */
+  const editingSection =
+    profile?.onboardingComplete && EDITABLE_SECTIONS.includes(params.section as StepKey)
+      ? (params.section as StepKey)
+      : null;
+  const step = STEPS[editingSection ? STEPS.findIndex((s) => s.key === editingSection) : stepIndex];
   const rejected = profile?.status === 'rejected';
 
   const stepValid = useMemo(() => {
@@ -262,7 +289,7 @@ export default function OnboardingScreen() {
       if (!picked) return;
       setUploadingPhoto(true);
       const api = await apiFactory();
-      const updated = await api.uploadMyProfilePhoto(picked.blob, picked.name);
+      const updated = await api.uploadMyProfilePhoto(picked.part, picked.name);
       apply(updated);
     } catch (e) {
       // A denied permission throws with copy worth showing verbatim.
@@ -278,10 +305,12 @@ export default function OnboardingScreen() {
     }
   }
 
+  /** Returns the saved profile so a caller can read the status it came back in. */
   async function saveDraft(input: UpdateOutsideProfileInput) {
     const api = await apiFactory();
     const updated = await api.updateMyProfile(input);
     apply(updated);
+    return updated;
   }
 
   function setSinglePref(key: PrefKey, value: string) {
@@ -312,7 +341,17 @@ export default function OnboardingScreen() {
       } else if (step.key === 'location') {
         await saveDraft({ location: loc.trim() });
       } else if (['identity', 'connection', 'lifestyle', 'communication'].includes(step.key)) {
-        await saveDraft({ matchPreferences: preferences });
+        const saved = await saveDraft({ matchPreferences: preferences });
+        if (editingSection) {
+          // Straight to the queue and back to the profile screen. Leaving it in
+          // draft is how a change ends up looking saved to the member and
+          // invisible to everyone else.
+          const api = await apiFactory();
+          if (saved && needsReviewSubmission(saved.status)) apply(await api.submitMyProfile());
+          toast.show('Sent for review', 'Our team looks at changes before they reach other members.');
+          router.replace(PROFILE_ROUTE as never);
+          return;
+        }
       } else if (step.key === 'story') {
         await saveDraft({ bio: story.trim(), matchPreferences: { ...preferences, lookingFor: looking.trim() } });
       } else if (step.key === 'photo') {
@@ -396,9 +435,23 @@ export default function OnboardingScreen() {
       compact
       minimal
       staticEntrance
+      // No "Back" of its own any more: the Android back button and an iOS
+      // left-edge swipe step through the questions instead. These nine steps
+      // live inside one route, so neither gesture has anything to pop — the
+      // shell wires them to this.
+      onBack={
+        !editingSection && stepIndex > 0 && !saving
+          ? () => setStepIndex((i) => i - 1)
+          : undefined
+      }
       stickyHeader={
         // Pinned with the title. Scrolling a long step used to carry the
         // question and the progress off screen together.
+        //
+        // Nothing to pin when a single section is open: "Step 4 of 9" promises
+        // five more screens that are not coming, and the count is what made
+        // changing one answer feel like starting the sign-up over.
+        editingSection ? null : (
         <View style={styles.progressBlock}>
           <View style={styles.progressMeta}>
             <Text style={styles.progressStep}>
@@ -414,6 +467,7 @@ export default function OnboardingScreen() {
             <View style={[styles.progressFill, { width: `${((stepIndex + 1) / STEPS.length) * 100}%` }]} />
           </View>
         </View>
+        )
       }
     >
       {rejected && profile?.moderationNotes ? (
@@ -627,17 +681,27 @@ export default function OnboardingScreen() {
       ) : null}
 
       <Button
-        label={step.key === 'review' ? 'Submit for review' : 'Continue'}
+        label={
+          editingSection ? 'Save changes' : step.key === 'review' ? 'Submit for review' : 'Continue'
+        }
         onPress={onNext}
         loading={savingVisible}
         disabled={!stepValid && step.key !== 'review'}
       />
+      {editingSection ? (
+        <Button
+          label="Cancel"
+          variant="ghost"
+          disabled={saving}
+          onPress={() => router.replace(PROFILE_ROUTE as never)}
+        />
+      ) : null}
       {/* A way out for someone who has been through this before — landing back
           on step one after editing a finished profile left no exit but
           re-answering nine screens. Only offered once the profile has been
           submitted: a genuine first-timer skipping would enter the app with
           nothing filled in, which is what the gate is there to prevent. */}
-      {profile?.onboardingComplete ? (
+      {profile?.onboardingComplete && !editingSection ? (
         <Button
           label="Skip — I've done this already"
           variant="ghost"
@@ -645,13 +709,6 @@ export default function OnboardingScreen() {
             void takePendingRoute().then((route) => router.replace((route as never) ?? '/(tabs)'));
           }}
         />
-      ) : null}
-      {stepIndex > 0 ? (
-        <Pressable disabled={saving} onPress={() => setStepIndex((i) => i - 1)}>
-          {({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => (
-            <Text style={[styles.back, hovered ? styles.backHover : null, pressed ? styles.backPressed : null, saving ? styles.backDisabled : null]}>Back</Text>
-          )}
-        </Pressable>
       ) : null}
     </AuthShell>
   );
@@ -761,16 +818,6 @@ const styles = StyleSheet.create({
   },
   errorCardText: { ...type.body, flex: 1 },
   bioInput: { minHeight: 140, textAlignVertical: 'top', paddingTop: spacing.md },
-  back: {
-    textAlign: 'center',
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
-  },
-  backHover: { color: colors.primary },
-  backPressed: { opacity: 0.72 },
-  backDisabled: { opacity: 0.45 },
   review: { gap: spacing.md },
   reviewRow: {
     borderWidth: 1,

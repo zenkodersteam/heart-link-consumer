@@ -1,4 +1,5 @@
 import { PHOTO_ACCEPT } from '@heartlink/domain';
+import type { UploadPart } from '@heartlink/consumer-api';
 import * as ImagePicker from 'expo-image-picker';
 
 /**
@@ -9,8 +10,24 @@ import * as ImagePicker from 'expo-image-picker';
  * way to change either. One module, so both screens pick a photo the same way.
  */
 export interface PickedPhoto {
-  blob: Blob;
+  /** Ready to hand to the API client: a `File` on web, a descriptor on a phone. */
+  part: UploadPart;
   name: string;
+}
+
+/**
+ * What the API will accept, from a file name.
+ *
+ * ImagePicker does report a `mimeType`, but not on every platform or every
+ * source — the camera on Android frequently omits it — and an empty type is
+ * what the server rejects. The extension is the fallback that is always there.
+ */
+function mimeFromName(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase();
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'heic' || ext === 'heif') return 'image/heic';
+  return 'image/jpeg';
 }
 
 /** Hidden file input, the only way to reach the file system on web. */
@@ -22,7 +39,7 @@ export function pickWebImage(): Promise<PickedPhoto | null> {
     input.accept = PHOTO_ACCEPT;
     input.onchange = () => {
       const f = input.files?.[0];
-      resolve(f ? { blob: f, name: f.name } : null);
+      resolve(f ? { part: f, name: f.name } : null);
     };
     input.oncancel = () => resolve(null);
     input.click();
@@ -64,8 +81,16 @@ export async function pickNativeImage(source: 'library' | 'camera'): Promise<Pic
 
   const asset = result.canceled ? null : result.assets?.[0];
   if (!asset) return null;
-  const res = await fetch(asset.uri);
-  return { blob: await res.blob(), name: asset.fileName ?? `photo-${Date.now()}.jpg` };
+
+  const name = asset.fileName ?? `photo-${Date.now()}.jpg`;
+  // The path, not a Blob. `fetch(uri).blob()` reads the whole image into
+  // memory and hands over a part with no usable content type, which the API
+  // refuses as an unsupported photo — the upload that worked in a browser and
+  // failed on a phone. React Native's FormData streams from the path itself.
+  return {
+    part: { uri: asset.uri, name, type: asset.mimeType || mimeFromName(name) },
+    name,
+  };
 }
 
 /** The right picker for the platform, so callers do not branch themselves. */

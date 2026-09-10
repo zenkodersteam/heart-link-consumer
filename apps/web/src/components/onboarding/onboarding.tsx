@@ -1,7 +1,11 @@
 'use client';
 
 import { PHOTO_ACCEPT, photoFileProblem } from '@heartlink/domain';
-import { ApiClientError, type UpdateOutsideProfileInput } from '@heartlink/consumer-api';
+import {
+  ApiClientError,
+  needsReviewSubmission,
+  type UpdateOutsideProfileInput,
+} from '@heartlink/consumer-api';
 import {
   ONBOARDING_OPTIONS,
   ONBOARDING_STEPS,
@@ -12,11 +16,13 @@ import {
   parseDob,
   summarizePrefs,
   validateStep,
+  type OnboardingStepKey,
   type PrefKey,
   type PreferenceState,
 } from '@heartlink/consumer-content';
-import { AlertCircle, CheckCircle2, LogOut, Pencil, Plus, User, WifiOff } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { AlertCircle, ArrowLeft, CheckCircle2, LogOut, Pencil, Plus, User, WifiOff } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { AuthShell } from '@/components/auth/auth-shell';
@@ -45,7 +51,30 @@ import {
  * Each step PUTs a draft before advancing, so someone who closes the tab on
  * step six comes back to step six's answers rather than an empty form. The last
  * step submits for moderation.
+ *
+ * `?section=<step>` opens one step on its own, for a member who has already
+ * finished and wants to change one answer. The profile screen links here for
+ * the preference sets, which only make sense as a group and so have no dialog
+ * of their own. Saving in that mode sends the profile for review and returns to
+ * the profile screen, rather than walking on through the remaining questions -
+ * being marched back through all nine to change one line is exactly what the
+ * per-field editing on that screen was for.
  */
+
+/**
+ * The steps `?section=` may open. The preference sets only: name, location and
+ * story already have their own editors on the profile screen, and the photo and
+ * review steps are not answers to change.
+ */
+/** Where `?section=` came from, and where saving it returns to. */
+const PROFILE_ROUTE = '/edit-profile';
+
+const EDITABLE_SECTIONS: OnboardingStepKey[] = [
+  'identity',
+  'connection',
+  'lifestyle',
+  'communication',
+];
 /** "12 more characters to go" under the floor, "231 / 500" the rest of the time. */
 function bioHint(value: string, done: string): string {
   const used = value.trim().length;
@@ -56,6 +85,7 @@ function bioHint(value: string, done: string): string {
 
 export function Onboarding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signOut } = useSession();
   const { data: profile, isPending, isError, error, refetch } = useMyProfile();
   const updateProfile = useUpdateMyProfile();
@@ -118,7 +148,23 @@ export function Onboarding() {
   const story = bio ?? profile?.bio ?? '';
   const looking = lookingFor ?? ((preferences.lookingFor as string | undefined) ?? '');
 
-  const step = ONBOARDING_STEPS[stepIndex];
+  /**
+   * The one step this visit is here to change, if any.
+   *
+   * Gated on `onboardingComplete` as well as the parameter: a first-timer who
+   * lands on a `?section=` link still has the whole flow to do, and dropping
+   * them into step four with no way back would leave the rest unanswered.
+   */
+  const sectionParam = searchParams.get('section') as OnboardingStepKey | null;
+  const editingSection =
+    profile?.onboardingComplete && sectionParam && EDITABLE_SECTIONS.includes(sectionParam)
+      ? sectionParam
+      : null;
+  const sectionIndex = editingSection
+    ? ONBOARDING_STEPS.findIndex((s) => s.key === editingSection)
+    : -1;
+
+  const step = ONBOARDING_STEPS[editingSection ? sectionIndex : stepIndex];
   const draft = { name, dob, location: loc, story, lookingFor: looking };
   const blocker = validateStep(step.key, draft);
   const stepReady = Object.keys(blocker).length === 0;
@@ -193,9 +239,18 @@ export function Onboarding() {
         case 'identity':
         case 'connection':
         case 'lifestyle':
-        case 'communication':
-          await save({ matchPreferences: preferences });
+        case 'communication': {
+          const saved = await save({ matchPreferences: preferences });
+          if (editingSection) {
+            // Straight to the queue and back to the profile screen. Leaving it
+            // in draft is how a change ends up looking saved to the member and
+            // invisible to everyone else.
+            if (needsReviewSubmission(saved.status)) await submitProfile.mutateAsync();
+            router.replace(PROFILE_ROUTE);
+            return;
+          }
           break;
+        }
         case 'story':
           await save({
             bio: story.trim(),
@@ -271,6 +326,20 @@ export function Onboarding() {
 
   return (
     <Shell>
+      {/* No progress bar when a single section is open: "Step 4 of 9" promises
+          five more screens that are not coming, and the count is what made
+          changing one answer feel like starting the sign-up over. */}
+      {editingSection ? (
+        <div className="mb-7">
+          <Link
+            href={PROFILE_ROUTE}
+            className="inline-flex items-center gap-1.5 text-[13px] text-ink-soft transition-colors hover:text-ink"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Your profile
+          </Link>
+        </div>
+      ) : (
       <div className="sticky top-0 z-10 -mx-6 mb-7 bg-surface-elevated px-6 pb-3 pt-1">
         <div className="mb-2 flex items-center justify-between gap-3">
           <span className="text-[12px] font-semibold tracking-wide text-ink-soft">
@@ -305,6 +374,7 @@ export function Onboarding() {
           />
         </div>
       </div>
+      )}
 
       <h1
         ref={headingRef}
@@ -621,9 +691,20 @@ export function Onboarding() {
           // every step and Continue stayed disabled no matter what was typed.
           disabled={saving || (!isLastStep && !stepReady)}
         >
-          {saving ? 'Saving…' : isLastStep ? 'Submit for review' : 'Continue'}
+          {saving
+            ? 'Saving…'
+            : editingSection
+              ? 'Save changes'
+              : isLastStep
+                ? 'Submit for review'
+                : 'Continue'}
         </Button>
-        {stepIndex > 0 ? (
+        {editingSection ? (
+          <Button variant="ghost" disabled={saving} onClick={() => router.push(PROFILE_ROUTE)}>
+            Cancel
+          </Button>
+        ) : null}
+        {!editingSection && stepIndex > 0 ? (
           <Button
             variant="ghost"
             disabled={saving}
@@ -641,7 +722,7 @@ export function Onboarding() {
             re-answering nine screens. Only offered once the profile has been
             submitted: a genuine first-timer skipping would enter the app with
             nothing filled in, which is what the gate is there to prevent. */}
-        {profile?.onboardingComplete ? (
+        {profile?.onboardingComplete && !editingSection ? (
           <Button variant="ghost" disabled={saving} onClick={() => router.push(AFTER_SIGN_IN)}>
             Skip — I&apos;ve done this already
           </Button>

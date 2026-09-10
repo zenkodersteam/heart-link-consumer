@@ -1,4 +1,5 @@
 import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useSession } from '../../src/lib/session';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -135,8 +136,21 @@ export default function AccountScreen() {
 
         {/* Identity: a row, not a stacked block. */}
         <View style={styles.lid}>
+          {/* The photo, when there is one. This drew the initial and nothing
+              else, so a member who had uploaded a picture — and been told it
+              was saved — still saw a letter in a circle every time they opened
+              Account. */}
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
+            {profile?.primaryPhotoUrl ? (
+              <Image
+                source={{ uri: profile.primaryPhotoUrl }}
+                style={styles.avatarPhoto}
+                contentFit="cover"
+                transition={150}
+              />
+            ) : (
+              <Text style={styles.avatarText}>{initial}</Text>
+            )}
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.lidName} numberOfLines={1}>
@@ -162,18 +176,15 @@ export default function AccountScreen() {
               step 1 of 9 reads as though the approval did not count. */}
           <SettingsRow
             icon="user"
-            label={
-              profile?.status === 'approved'
-                ? 'Your profile'
-                : profile?.status === 'rejected'
-                  ? 'Fix and resubmit your profile'
-                  : 'Finish your profile'
-            }
+            label={profile?.onboardingComplete ? 'Your profile' : 'Finish your profile'}
             value={profileStatusLabel ?? undefined}
             onPress={
-              // An approved member edits fields directly; someone who has not
-              // finished still walks the questions, where step-by-step helps.
-              profile?.status === 'approved'
+              // Keyed on whether the questions have ever been answered, not on
+              // the moderation status. Status returns to draft on every edit
+              // and sits at pending while staff review, so keying on it sent
+              // members who had long since finished back to step 1 of 9 to
+              // change one word.
+              profile?.onboardingComplete
                 ? () => router.push('/edit-profile' as never)
                 : () => router.push('/onboarding' as never)
             }
@@ -268,10 +279,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: 'transparent' },
   body: { padding: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl, width: '100%', maxWidth: 980, alignSelf: 'center' },
   lid: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
+  avatarPhoto: { width: '100%', height: '100%', borderRadius: 23 },
   avatar: {
     width: 46,
     height: 46,
     borderRadius: 23,
+    overflow: 'hidden',
     backgroundColor: colors.sidebar,
     alignItems: 'center',
     justifyContent: 'center',

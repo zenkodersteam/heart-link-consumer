@@ -204,7 +204,7 @@ function deliveryLabel(status: string | null): string {
 
 function checkoutOrigin(): string {
   if (typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
-  return 'https://heart-link-consumer.vercel.app';
+  return 'https://heart-link-consume-web.vercel.app';
 }
 
 /** Count words the way the server does, so the two never disagree. */
@@ -992,6 +992,9 @@ function ThreadView({
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
   const menuBtnRef = useRef<View | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
+  const messagesRef = useRef<ScrollView>(null);
+  /** Whether the reader is at the foot of the thread, so following is welcome. */
+  const atEnd = useRef(true);
 
   // Age and state, whichever of them we have. The facility name is not shown:
   // the client's own privacy decision keeps it off every member-facing screen.
@@ -1126,7 +1129,29 @@ function ThreadView({
         onCancel={() => setBlockOpen(false)}
       />
 
-      <ScrollView style={styles.readBodyScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
+      {/* Opens on the newest letter, and follows one that arrives or is sent —
+          the way you pick up a pile of post. Without this the thread opened at
+          the oldest message and stayed there, so a reply that had just been
+          sent was somewhere below the fold.
+
+          `onContentSizeChange` rather than an effect on the message count: the
+          scroll has to happen once the new bubble has been laid out, and its
+          height is not known before that. */}
+      <ScrollView
+        ref={messagesRef}
+        style={styles.readBodyScroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.md }}
+        onContentSizeChange={() => messagesRef.current?.scrollToEnd({ animated: atEnd.current })}
+        onScroll={(event) => {
+          const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+          // Someone reading further up should not be yanked back down by a
+          // letter arriving; only follow when they were already at the end.
+          atEnd.current =
+            contentOffset.y + layoutMeasurement.height >= contentSize.height - 40;
+        }}
+        scrollEventThrottle={80}
+      >
         {detail.messages.map((m) => (
           <MessageBubble key={m.id} message={m} />
         ))}

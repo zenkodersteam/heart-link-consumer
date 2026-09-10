@@ -483,7 +483,14 @@ export default function SignInScreen() {
             setInvalid(false);
             setStage('forgot');
           }}
-          hitSlop={8}
+          // Hugging the words, not the row. A Pressable in this column is
+          // full-width by default, and `textAlign: 'right'` only moves the
+          // glyphs - so the empty half-inch left of "Forgot your password?",
+          // directly above the Sign in button, was a live link to the reset
+          // flow. The slop keeps it comfortable to hit without spanning the
+          // row again.
+          style={styles.forgotHit}
+          hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
           accessibilityRole="button"
         >
           <Text style={styles.forgot}>Forgot your password?</Text>
@@ -521,6 +528,12 @@ export default function SignInScreen() {
           setFlow((f: 'password' | 'code' | 'reset') => (f === 'password' ? 'code' : 'password'));
           setInvalid(false);
         }}
+        // Same reason as the reset link above: centred text in a full-width
+        // Pressable makes the blank space either side of the words tappable,
+        // and this one sits directly under the Sign in button.
+        style={styles.altLinkHit}
+        hitSlop={{ top: 10, bottom: 10, left: 12, right: 12 }}
+        accessibilityRole="button"
       >
         <Text style={styles.altLink}>
           {useCode ? 'Use a password instead' : 'Sign in with a code instead'}
@@ -533,6 +546,7 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs },
   link: { ...type.button, color: colors.primary, fontSize: 14 },
+  altLinkHit: { alignSelf: 'center' },
   altLink: { ...type.button, color: colors.primary, fontSize: 14, textAlign: 'center', marginTop: spacing.md },
   stepsCard: {
     gap: spacing.md,
@@ -555,6 +569,7 @@ const styles = StyleSheet.create({
   stepNumText: { ...type.caption, fontSize: 11, color: colors.primary, fontFamily: 'Inter_700Bold' },
   // flexShrink so a long line wraps instead of running off the card.
   stepText: { ...type.caption, flexShrink: 1 },
+  forgotHit: { alignSelf: 'flex-end' },
   forgot: { ...type.button, color: colors.primary, fontSize: 13, textAlign: 'right', marginTop: -spacing.xs },
   codeLabel: {
     ...type.caption,

@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { colors, cta, radii, spacing, type } from '../theme';
+import { useScrollFieldIntoView } from './KeyboardSafeScrollView';
 
 /**
  * Cross-platform elevation. `boxShadow` is a web-only CSS property, so shadows
@@ -69,12 +70,15 @@ export function Field({
   // Never remembered between visits: leaving a password on screen is a
   // decision to take each time, not one to inherit.
   const [revealed, setRevealed] = useState(false);
+  const scrollIntoView = useScrollFieldIntoView();
+  const inputRef = useRef<TextInput>(null);
 
   return (
     <View style={fieldStyles.wrapper}>
       <Text style={fieldStyles.label}>{label}</Text>
       <View style={fieldStyles.inputRow}>
         <TextInput
+          ref={inputRef}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={revealable ? secureTextEntry && !revealed : secureTextEntry}
           style={[
@@ -87,6 +91,10 @@ export function Field({
           ]}
           onFocus={(e) => {
             setFocused(true);
+            // Ask to be shown. The shell makes room for the keyboard, but on a
+            // form taller than what is left — sign-in is one — the field being
+            // typed into can still start below it.
+            scrollIntoView(inputRef.current);
             onFocus?.(e);
           }}
           onBlur={(e) => {
