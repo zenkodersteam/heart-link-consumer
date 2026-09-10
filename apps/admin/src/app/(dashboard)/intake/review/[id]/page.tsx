@@ -23,11 +23,26 @@ export default async function ReviewWorkspacePage({
   }
 
   const documents = await api.listApplicationDocuments(id);
+
+  /**
+   * The document to review, in order of how likely it is to be the one.
+   *
+   * The last two steps are the point: this used to stop at
+   * `type === 'scanned_application'` and hand the viewer `null` for anything
+   * else, so an application whose PDF came in as a packet - or under any other
+   * type - showed an empty pane with the file sitting in S3 the whole time.
+   * A reviewer looking at a blank panel has no way to tell that from "no
+   * document was ever uploaded".
+   */
+  const viewable = documents.filter(
+    (d) => d.mimeType === 'application/pdf' || d.mimeType.startsWith('image/'),
+  );
   const primaryDoc =
-    documents.find(
-      (d) => d.type === 'scanned_application' && d.ocrStatus === 'completed',
-    ) ??
-    documents.find((d) => d.type === 'scanned_application') ??
+    viewable.find((d) => d.type === 'scanned_application' && d.ocrStatus === 'completed') ??
+    viewable.find((d) => d.type === 'scanned_application') ??
+    viewable.find((d) => d.type === 'packet_pdf') ??
+    viewable[0] ??
+    documents[0] ??
     null;
 
   // Build the filtered list for prev/next navigation. Fetch both needs_review

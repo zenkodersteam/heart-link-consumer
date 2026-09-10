@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
 import { retryDocumentOcr } from '../../lib/actions';
@@ -11,9 +12,15 @@ import { retryDocumentOcr } from '../../lib/actions';
  * with fields nobody can use — both leave a reviewer equally stuck. Hidden while
  * a read is still in flight, because two workers writing fields to the same
  * document would leave whichever finished last.
+ *
+ * The refresh afterwards is the point of the whole exercise: the action puts
+ * the document straight back to `pending`, and without pulling that down the
+ * row kept showing the previous result. A toast said something had happened
+ * and the screen said otherwise, so people pressed it again.
  */
 export function RetryOcrButton({ documentId }: { documentId: string }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <button
@@ -23,7 +30,10 @@ export function RetryOcrButton({ documentId }: { documentId: string }) {
         startTransition(async () => {
           try {
             await retryDocumentOcr(documentId);
-            toast.success('Reading the scan again. This usually takes a moment.');
+            toast.success('Reading the scan again', {
+              description: 'You will see it move from queued to read on this page.',
+            });
+            router.refresh();
           } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Could not read the scan again');
           }

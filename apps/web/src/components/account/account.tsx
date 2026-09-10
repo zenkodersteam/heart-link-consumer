@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CreditCard,
   Info,
+  KeyRound,
   LifeBuoy,
   LogOut,
   MessageCircle,
@@ -162,6 +163,7 @@ export function Account() {
 
       <SettingsGroupLabel>Settings</SettingsGroupLabel>
       <SettingsCard>
+        <SettingsRow icon={KeyRound} label="Change password" href="/change-password" />
         <SettingsRow icon={Shield} label="Privacy & safety" href="/privacy-safety" />
         <SettingsRow icon={LifeBuoy} label="Support" href="/support" />
         <SettingsRow icon={MessageCircle} label="Support Circle" href="/circle" last />

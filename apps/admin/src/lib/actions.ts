@@ -145,6 +145,33 @@ export async function updateDocumentFields(input: FieldsInput): Promise<{ ok: tr
   return { ok: true as const };
 }
 
+/**
+ * A fresh signed URL for one document.
+ *
+ * Two reasons the viewer needs this rather than only the `presignedUrl` that
+ * comes back on the document list:
+ *
+ *   - the list endpoint does not always carry one, and a viewer with no URL
+ *     shows an empty pane for a document that is sitting right there in S3;
+ *   - the ones it does carry expire in fifteen minutes, which is less than a
+ *     reviewer spends on a stack of applications. A tab left open came back to
+ *     a 403 and no way to recover short of a reload.
+ *
+ * The client method existed and had no callers.
+ */
+export async function refreshDocumentUrl(documentId: string): Promise<string | null> {
+  const id = parseInput(z.string().uuid(), documentId);
+  const api = await serverApi();
+  try {
+    const { url } = await api.getDocumentPresignedUrl(id);
+    return url ?? null;
+  } catch {
+    // The viewer already has a "could not load" state; a thrown server action
+    // would replace the whole screen with an error boundary instead.
+    return null;
+  }
+}
+
 // =============================================================================
 // Profiles (M3 W7)
 // =============================================================================
@@ -220,26 +247,62 @@ export async function importIntakePhotos(profileId: string): Promise<{ imported:
   return result;
 }
 
-export async function uploadPhoto(formData: FormData): Promise<void> {
+/**
+ * Upload one or more photos to a profile.
+ *
+ * Takes every `file` on the form rather than the first. A member's photos
+ * arrive together — four in one envelope — and uploading them one dialog at a
+ * time was four rounds of picking a file and waiting.
+ *
+ * Each is checked on its own and uploaded in sequence, so one photo the API
+ * refuses does not throw away the others that were fine. What went wrong, and
+ * for which file, comes back to the caller.
+ */
+export async function uploadPhoto(
+  formData: FormData,
+): Promise<{ uploaded: number; failures: Array<{ name: string; reason: string }> }> {
   const profileId = formData.get('profileId');
-  const file = formData.get('file');
   if (typeof profileId !== 'string' || profileId.length === 0) {
     throw new Error('profileId is required');
   }
-  if (!(file instanceof File) || file.size === 0) {
+
+  const files = formData.getAll('file').filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) {
     throw new Error('Please select a photo to upload');
   }
-  if (!PHOTO_ACCEPTED_MIME.has(file.type)) {
-    throw new Error(`Unsupported photo type: ${file.type}`);
-  }
-  if (file.size > PHOTO_MAX_BYTES) {
-    throw new Error('Photo must be 10 MB or smaller');
-  }
+
   const api = await serverApi();
-  await api.uploadProfilePhoto(profileId, file);
+  const failures: Array<{ name: string; reason: string }> = [];
+  let uploaded = 0;
+
+  for (const file of files) {
+    const reason = !PHOTO_ACCEPTED_MIME.has(file.type)
+      ? `Unsupported photo type: ${file.type}`
+      : file.size > PHOTO_MAX_BYTES
+        ? 'Photo must be 10 MB or smaller'
+        : null;
+    if (reason) {
+      failures.push({ name: file.name, reason });
+      continue;
+    }
+    try {
+      await api.uploadProfilePhoto(profileId, file);
+      uploaded += 1;
+    } catch (err) {
+      failures.push({ name: file.name, reason: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
   revalidatePath('/profiles');
   revalidatePath(`/profiles/${profileId}`);
   revalidatePath('/profiles/photo-review');
+
+  // Nothing at all got through: that is a failed action, not a partial one.
+  if (uploaded === 0) {
+    throw new Error(failures[0]?.reason ?? 'Could not upload that photo');
+  }
+
+  return { uploaded, failures };
 }
 
 export async function bulkModeratePhotos(
@@ -528,10 +591,21 @@ export async function updatePlanSetting(input: z.infer<typeof PlanSettingSchema>
  * and the only route to a listing was deleting the document and uploading the
  * same file again.
  */
+/**
+ * Put a scan back through text recognition.
+ *
+ * Revalidates both sections, not just the intake list. The same button sits on
+ * the intake detail, the review workspace and the profile page, and only
+ * `/intake` was being refreshed — so everywhere else the row still showed the
+ * old result after the retry, and the only sign anything had happened was a
+ * toast that disappeared. `'layout'` because these are dynamic routes and the
+ * document could belong to any id under them.
+ */
 export async function retryDocumentOcr(documentId: string): Promise<void> {
   const api = await serverApi();
   await api.retryDocumentOcr(documentId);
-  revalidatePath('/intake');
+  revalidatePath('/intake', 'layout');
+  revalidatePath('/profiles', 'layout');
 }
 
 /**

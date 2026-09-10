@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import type { Application, IntakeDocument } from '@heartlink/api-contract';
+import { refreshDocumentUrl } from '../../lib/actions';
 import { APPLICATION_STATUS_LABEL } from '../../lib/adminLabels';
 import { cn } from '../../lib/utils';
 
@@ -75,7 +76,34 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
-  const sourceUrl = document?.presignedUrl ? resolveStorageUrl(document.presignedUrl) : null;
+  /**
+   * The URL the viewer actually loads.
+   *
+   * The document list does not always carry a `presignedUrl`, and the ones it
+   * does carry expire in fifteen minutes - shorter than a reviewer's session.
+   * So the one on the document is a starting point, and `refreshDocumentUrl`
+   * is asked for a fresh one when there is none, or when a load fails on an
+   * expired signature.
+   */
+  // Carries the document it belongs to, so switching documents drops the old
+  // URL by comparison rather than by an effect that resets state.
+  const [fetched, setFetched] = useState<{ documentId: string; url: string } | null>(null);
+  const retriedFor = useRef<string | null>(null);
+  const fetchedUrl = fetched && fetched.documentId === document?.id ? fetched.url : null;
+
+  useEffect(() => {
+    if (!document || document.presignedUrl || fetchedUrl) return undefined;
+    let cancelled = false;
+    void refreshDocumentUrl(document.id).then((url) => {
+      if (!cancelled && url) setFetched({ documentId: document.id, url });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [document, fetchedUrl]);
+
+  const rawUrl = document?.presignedUrl ?? fetchedUrl;
+  const sourceUrl = rawUrl ? resolveStorageUrl(rawUrl) : null;
   const isPdfDocument = document?.mimeType === 'application/pdf' && Boolean(sourceUrl);
   // Everything horizontal between the pane's edge and the canvas: the
   // scroller's own padding (16 a side), the page card's (8 a side) and its
@@ -138,6 +166,15 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
           // or screenshotting the page. The distinction that matters to a
           // reviewer is not the stack, it is whether the file is there at all.
           const raw = error instanceof Error ? error.message : '';
+          // A signature that expired while the tab sat open looks like a 403.
+          // Ask for a new one and let the effect run again, once.
+          if (/\(403\)|Forbidden|expired/i.test(raw) && document && retriedFor.current !== document.id) {
+            retriedFor.current = document.id;
+            void refreshDocumentUrl(document.id).then((url) => {
+              if (!cancelled && url) setFetched({ documentId: document.id, url });
+            });
+            return;
+          }
           setLoadError(/\(404\)|MissingPDFException|Missing PDF/i.test(raw) ? 'missing' : 'render');
         }
       } finally {
@@ -155,7 +192,7 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
         void loaded.destroy();
       }
     };
-  }, [sourceUrl, isPdfDocument]);
+  }, [sourceUrl, isPdfDocument, document]);
 
   // Width of the scroll area, tracked live: the split can change under us when
   // the window resizes, and a fit that was right at open should stay right.

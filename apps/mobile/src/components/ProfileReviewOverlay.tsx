@@ -27,10 +27,13 @@ type Props = {
   refreshing?: boolean;
 };
 
-const COPY: Record<
+function copyFor(): Record<
   Exclude<OutsideProfileStatus, 'approved'>,
   { icon: keyof typeof Feather.glyphMap; accent: string; faint: string; eyebrow: string; title: string; body: string; step: number }
-> = {
+> {
+  // Built per call: the accents are theme colours, and a module-level literal
+  // would keep whichever theme was on when this file was first imported.
+  return {
   draft: {
     icon: 'edit-3',
     accent: colors.primary,
@@ -58,7 +61,8 @@ const COPY: Record<
     body: 'Our team could not approve your profile as written. Update it below and resubmit — this happens often and is usually a quick fix.',
     step: 0,
   },
-};
+  };
+}
 
 const STEPS = ['Submitted', 'In review', 'Live'] as const;
 
@@ -81,7 +85,7 @@ function usePulse(enabled: boolean) {
 
 export function ProfileReviewOverlay({ status, moderationNotes, onEditProfile, onRefresh, refreshing }: Props) {
   if (status === 'approved') return null;
-  const copy = COPY[status];
+  const copy = copyFor()[status];
   const pulse = usePulse(status === 'pending');
 
   const ring = (delay: number) => ({

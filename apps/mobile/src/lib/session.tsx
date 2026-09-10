@@ -4,6 +4,7 @@ import {
   forgetPushDevice,
   refreshSession,
   requestSignInCode,
+  changeAccountPassword,
   setAccountPassword,
   registerAccount,
   signInWithPassword as passwordSignIn,
@@ -52,6 +53,8 @@ interface SessionValue {
   setPasswordWithToken: (accessToken: string, password: string) => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   setPassword: (password: string) => Promise<void>;
+  /** Change an existing password, proving the current one. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -221,6 +224,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [getToken],
   );
 
+  /**
+   * Change the password from inside the account.
+   *
+   * A different call from `setPassword`, not the same one with an extra
+   * argument: the server checks the current password here, and deliberately
+   * does not on the forgot-password path, where there is none to check.
+   */
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const token = await getToken();
+      if (!token) throw new Error('You need to be signed in to change your password.');
+      await changeAccountPassword(API_BASE_URL, token, { currentPassword, newPassword });
+    },
+    [getToken],
+  );
+
   const signOut = useCallback(async () => {
     const current = refreshToken.current;
 
@@ -256,6 +275,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setPasswordWithToken,
       signInWithPassword,
       setPassword,
+      changePassword,
       signOut,
     }),
     [
@@ -271,6 +291,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setPasswordWithToken,
       signInWithPassword,
       setPassword,
+      changePassword,
       signOut,
     ],
   );

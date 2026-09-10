@@ -134,23 +134,40 @@ function ImportIntakePhotosControl({
   );
 }
 
+/**
+ * Add photos to a profile.
+ *
+ * `multiple`, because a member's photos arrive together — four in one
+ * envelope — and picking them one at a time meant four trips through the file
+ * dialog for a single application.
+ *
+ * A photo the API refuses does not take the others with it: the action
+ * uploads each in turn and reports which ones did not make it, so a wrong file
+ * among four is a note about that one file rather than four re-picks.
+ */
 function UploadPhotoControl({ profileId }: { profileId: string }) {
   const [isPending, startTransition] = useTransition();
+  const [count, setCount] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     const fd = new FormData();
     fd.append('profileId', profileId);
-    fd.append('file', file);
+    for (const file of files) fd.append('file', file);
+    setCount(files.length);
     startTransition(async () => {
       try {
-        await uploadPhoto(fd);
-        toast.success('Photo uploaded');
+        const { uploaded, failures } = await uploadPhoto(fd);
+        toast.success(`${uploaded} photo${uploaded === 1 ? '' : 's'} uploaded`);
+        for (const failure of failures) {
+          toast.error(`${failure.name}: ${failure.reason}`);
+        }
       } catch (err) {
         toast.error(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
       } finally {
+        setCount(0);
         if (inputRef.current) inputRef.current.value = '';
       }
     });
@@ -161,6 +178,7 @@ function UploadPhotoControl({ profileId }: { profileId: string }) {
       <input
         ref={inputRef}
         type="file"
+        multiple
         accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={onFileChange}
@@ -171,7 +189,7 @@ function UploadPhotoControl({ profileId }: { profileId: string }) {
         disabled={isPending}
         onClick={() => inputRef.current?.click()}
       >
-        {isPending ? 'Uploading…' : '+ Upload'}
+        {isPending ? `Uploading ${count} photo${count === 1 ? '' : 's'}…` : '+ Upload'}
       </Button>
     </>
   );

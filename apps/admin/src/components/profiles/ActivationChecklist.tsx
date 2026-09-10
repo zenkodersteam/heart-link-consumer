@@ -3,13 +3,7 @@ import { Check, ChevronRight, X } from 'lucide-react';
 import type { ActivationBlocker, ActivationCheckResult } from '@heartlink/api-contract';
 import { cn } from '../../lib/utils';
 
-export function ActivationChecklist({
-  profileId,
-  result,
-}: {
-  profileId: string;
-  result: ActivationCheckResult;
-}) {
+export function ActivationChecklist({ result }: { result: ActivationCheckResult }) {
   const items = buildItems(result);
   const blockers = result.blockers ?? [];
   return (
@@ -64,9 +58,14 @@ export function ActivationChecklist({
               </Link>
             )}
             {blockers.some((b) => b.code === 'photos_insufficient' || b.code === 'moderation_blocked') && (
-              <Link href={`/profiles/${profileId}#photos`} className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-primary hover:bg-surface">
+              // A plain anchor, not a `Link`: the photos card is on this very
+              // page, so there is nothing to navigate to — the browser just
+              // scrolls. Routing to `/profiles/<id>#photos` re-entered the
+              // same route instead, which is why this button appeared to do
+              // nothing at all.
+              <a href="#photos" className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-primary hover:bg-surface">
                 Jump to photos <ChevronRight className="size-4" />
-              </Link>
+              </a>
             )}
           </div>
         </div>

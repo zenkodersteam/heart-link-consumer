@@ -4,8 +4,10 @@ import type {
   IntakeIngestionStatus,
   OcrStatus,
 } from '@heartlink/api-contract';
+import { FileText, Image as ImageIcon, Paperclip } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../ui/card';
-import { formatShortDate } from '../../lib/utils';
+import { cn, formatShortDate } from '../../lib/utils';
+import { OcrProgress, isOcrRunning } from './OcrProgress';
 import { RetryOcrButton } from './RetryOcrButton';
 
 /** Figma `13:166`: list of documents, each with thumbnail + name + View button */
@@ -28,7 +30,7 @@ export function DocumentsCard({ documents }: { documents: IntakeDocument[] }) {
                 idx !== documents.length - 1 ? 'border-b border-border' : ''
               }`}
             >
-              <div className="h-6 w-5 shrink-0 rounded-sm bg-border" aria-hidden />
+              <DocumentIcon mimeType={doc.mimeType} />
               <div className="flex flex-1 flex-col gap-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium leading-5 text-text">
@@ -46,12 +48,19 @@ export function DocumentsCard({ documents }: { documents: IntakeDocument[] }) {
                   )}
                   {/* How the scan read. A failure used to be invisible here, so
                       an application simply sat in the queue with nothing saying
-                      why it never progressed. */}
-                  {doc.type === 'scanned_application' && doc.ocrStatus !== 'not_applicable' && (
-                    <span className={ocrBadgeClass(doc.ocrStatus)}>
-                      {humanizeOcrStatus(doc.ocrStatus)}
-                    </span>
-                  )}
+                      why it never progressed.
+
+                      Only the settled states are a badge. A read still running
+                      gets the bar below instead, which watches for the answer
+                      rather than showing a word that will not change on its
+                      own. */}
+                  {doc.type === 'scanned_application' &&
+                    doc.ocrStatus !== 'not_applicable' &&
+                    !isOcrRunning(doc.ocrStatus) && (
+                      <span className={ocrBadgeClass(doc.ocrStatus)}>
+                        {humanizeOcrStatus(doc.ocrStatus)}
+                      </span>
+                    )}
                 </div>
                 <span className="text-xs leading-4 text-text-muted">
                   {formatShortDate(doc.createdAt)}
@@ -59,6 +68,9 @@ export function DocumentsCard({ documents }: { documents: IntakeDocument[] }) {
                     ? ` · ${formatBytes(doc.fileSizeBytes)}`
                     : ''}
                 </span>
+                {doc.type === 'scanned_application' && isOcrRunning(doc.ocrStatus) ? (
+                  <OcrProgress status={doc.ocrStatus} className="mt-1 max-w-[280px]" />
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {/* Only once a read has finished: re-queueing one that is still
@@ -83,6 +95,50 @@ export function DocumentsCard({ documents }: { documents: IntakeDocument[] }) {
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * What kind of file this is, at a glance.
+ *
+ * The row used to open with a grey rectangle - the same one on every document,
+ * so a scan and a photograph looked identical until you read the label. The
+ * tile is tinted by kind as well as marked, because colour is the part that
+ * reads while scanning a list rather than examining one row.
+ */
+function DocumentIcon({ mimeType }: { mimeType: string }) {
+  const kind = mimeType === 'application/pdf' ? 'pdf' : mimeType.startsWith('image/') ? 'image' : 'other';
+
+  const { Icon, label, tile, glyph } = {
+    pdf: {
+      Icon: FileText,
+      label: 'PDF document',
+      tile: 'bg-primary-tint',
+      glyph: 'text-primary',
+    },
+    image: {
+      Icon: ImageIcon,
+      label: 'Image',
+      tile: 'bg-accent-gold-tint',
+      glyph: 'text-accent-gold',
+    },
+    other: {
+      Icon: Paperclip,
+      label: 'File',
+      tile: 'bg-surface',
+      glyph: 'text-text-muted',
+    },
+  }[kind];
+
+  return (
+    <span
+      className={cn('grid size-9 shrink-0 place-items-center rounded-lg', tile)}
+      role="img"
+      aria-label={label}
+      title={label}
+    >
+      <Icon className={cn('size-4.5', glyph)} aria-hidden />
+    </span>
   );
 }
 

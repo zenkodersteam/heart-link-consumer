@@ -221,6 +221,11 @@ export default function AccountScreen() {
         <Text style={styles.groupLabel}>SETTINGS</Text>
         <View style={styles.card}>
           <SettingsRow
+            icon="key"
+            label="Change password"
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          <SettingsRow
             icon="shield"
             label="Privacy & safety"
             onPress={

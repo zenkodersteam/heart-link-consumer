@@ -25,6 +25,30 @@ const SUBSCRIPTION_STATUS_VARIANT: Record<SubscriptionStatus, StatusBadgeVariant
   suspended: 'danger',
 };
 
+/**
+ * The inmate ID the newest scan carried, if any.
+ *
+ * Same shape rules as the addressed name: OCR writes some fields as bare
+ * strings and others as `{ value, confidence }`, and the key it uses has
+ * changed once already, so both spellings are looked for.
+ */
+function readInmateId(
+  documents: Array<{ createdAt: string; ocrExtractedFields?: unknown }>,
+): string | null {
+  const newest = [...documents].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  if (!newest) return null;
+  const fields = (newest.ocrExtractedFields ?? {}) as Record<string, unknown>;
+  for (const key of ['inmate_id', 'inmate_number', 'id_number']) {
+    const raw = fields[key];
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+    if (raw && typeof raw === 'object' && 'value' in raw) {
+      const value = (raw as { value?: unknown }).value;
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+  }
+  return null;
+}
+
 export default async function ProfileDetailPage({
   params,
 }: {
@@ -46,10 +70,11 @@ export default async function ProfileDetailPage({
     .listApplicationDocuments(detail.applicationId)
     .catch(() => [] as Awaited<ReturnType<typeof api.listApplicationDocuments>>);
 
-  // Inmate ID lives in the application's OCR fields when present. We don't
-  // re-pull the application document here; show the linked application id
-  // instead. Future: surface inmate_id from the latest scanned doc.
-  const inmateId: string | null = null;
+  // Inmate ID comes off the scan, like the addressed name does. It was left as
+  // a hard-coded null with a note to do this later, so the field rendered an
+  // em dash on every profile in the console and read as "we hold no ID for
+  // this person" even where the scan plainly carried one.
+  const inmateId = readInmateId(documents);
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-5 p-4 sm:p-6 lg:p-8">
@@ -114,12 +139,17 @@ export default async function ProfileDetailPage({
         </div>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <PhotosCard
-            detail={detail}
-            photos={photos}
-            requiredCount={activation.details.requiredPhotoCount}
-          />
-          <ActivationChecklist profileId={id} result={activation} />
+          {/* The checklist links here. `scroll-mt` clears the sticky header,
+              which the browser does not know about and would otherwise scroll
+              the card straight underneath. */}
+          <div id="photos" className="scroll-mt-24">
+            <PhotosCard
+              detail={detail}
+              photos={photos}
+              requiredCount={activation.details.requiredPhotoCount}
+            />
+          </div>
+          <ActivationChecklist result={activation} />
           <ProfileDocumentsCard applicationId={detail.applicationId} documents={documents} />
         </div>
       </div>

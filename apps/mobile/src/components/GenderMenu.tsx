@@ -114,18 +114,21 @@ export function GenderMenu({ open, value, anchor, desktop, onClose, onSelect }: 
   );
 }
 
-const cardBase = {
-  backgroundColor: colors.bgElevated,
-  borderRadius: radii.lg,
-  padding: spacing.lg,
-  boxShadow: '0 24px 60px rgba(26, 8, 51, 0.28)',
-} as const;
+/** Read per call so it follows the theme, not the import order. */
+function cardBase() {
+  return {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    boxShadow: '0 24px 60px rgba(26, 8, 51, 0.28)',
+  } as const;
+}
 
 const styles = themedStyles((colors) => ({
   backdropClear: { flex: 1 },
   backdropDim: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
-  dropdown: { position: 'absolute', width: 280, ...cardBase },
-  sheet: { ...cardBase, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: spacing.xxl },
+  dropdown: { position: 'absolute', width: 280, ...cardBase() },
+  sheet: { ...cardBase(), borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, paddingBottom: spacing.xxl },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: radii.pill, backgroundColor: colors.borderStrong, marginBottom: spacing.md },
   title: { ...type.h2, fontSize: 18 },
   subtitle: { ...type.caption, marginTop: 2, marginBottom: spacing.md },

@@ -95,7 +95,12 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!refreshed.ok) return signInRedirect(request);
+  // Only the API actually rejecting the session ends it. A 500 or a 502 from
+  // a deploy rolling over is not evidence that anyone is signed out, and
+  // clearing the cookies over one threw people back to the sign-in form
+  // mid-task for something that had already fixed itself.
+  if (refreshed.status === 401 || refreshed.status === 403) return signInRedirect(request);
+  if (!refreshed.ok) return NextResponse.next();
 
   const tokens = (await refreshed.json()) as {
     accessToken: string;

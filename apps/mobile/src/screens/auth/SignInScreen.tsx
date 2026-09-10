@@ -60,6 +60,12 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   /**
+   * The second box, on the two screens that set a password rather than recall
+   * one. A typo in a password being chosen is not a failed attempt — it is
+   * being locked out of the account later, once the typo is the password.
+   */
+  const [confirmPassword, setConfirmPassword] = useState('');
+  /**
    * Signing in with a code instead of a password.
    *
    * Members who joined before passwords have none, and anyone can forget one,
@@ -153,7 +159,15 @@ export default function SignInScreen() {
 
   async function onRegister() {
     const address = email.trim();
-    if (!validate([['email', emailProblem(email)]])) return;
+    if (
+      !validate([
+        ['email', emailProblem(email)],
+        ['password', passwordProblem(password)],
+        ['confirmPassword', confirmPassword === password ? null : 'Both passwords must match.'],
+      ])
+    ) {
+      return;
+    }
     setSubmitting(true);
     setInvalid(false);
         try {
@@ -224,7 +238,14 @@ export default function SignInScreen() {
   }
 
   async function onSaveNewPassword() {
-    if (!validate([['newPassword', passwordProblem(newPassword)]])) return;
+    if (
+      !validate([
+        ['newPassword', passwordProblem(newPassword)],
+        ['confirmPassword', confirmPassword === newPassword ? null : 'Both passwords must match.'],
+      ])
+    ) {
+      return;
+    }
     setSubmitting(true);
     setInvalid(false);
     try {
@@ -296,9 +317,25 @@ export default function SignInScreen() {
             clearField('newPassword');
           }}
           secureTextEntry
+          revealable
           autoCapitalize="none"
           autoComplete="new-password"
           placeholder="At least 8 characters"
+          returnKeyType="next"
+        />
+        <Field
+          label="Confirm new password"
+          error={fieldErrors.confirmPassword}
+          value={confirmPassword}
+          onChangeText={(t) => {
+            setConfirmPassword(t);
+            clearField('confirmPassword');
+          }}
+          secureTextEntry
+          revealable
+          autoCapitalize="none"
+          autoComplete="new-password"
+          placeholder="Type it again"
           onSubmitEditing={() => void onSaveNewPassword()}
           returnKeyType="go"
         />
@@ -466,7 +503,29 @@ export default function SignInScreen() {
           autoCapitalize="none"
           autoComplete={signingUp ? 'new-password' : 'current-password'}
           placeholder={signingUp ? 'At least 8 characters' : 'Your password'}
-          onSubmitEditing={() => void onPasswordSignIn()}
+          onSubmitEditing={() => (signingUp ? undefined : void onPasswordSignIn())}
+          returnKeyType={signingUp ? 'next' : 'go'}
+        />
+      ) : null}
+
+      {/* Only when the password is being chosen. Asking someone to type a
+          password they already know twice is friction with nothing behind
+          it. */}
+      {!useCode && signingUp ? (
+        <Field
+          label="Confirm password"
+          error={fieldErrors.confirmPassword}
+          value={confirmPassword}
+          onChangeText={(t) => {
+            setConfirmPassword(t);
+            clearField('confirmPassword');
+          }}
+          secureTextEntry
+          revealable
+          autoCapitalize="none"
+          autoComplete="new-password"
+          placeholder="Type it again"
+          onSubmitEditing={() => void onRegister()}
           returnKeyType="go"
         />
       ) : null}

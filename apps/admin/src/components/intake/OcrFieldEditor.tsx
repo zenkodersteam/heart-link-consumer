@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import { Controller, useForm, type Control } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ACTIVE_FORM_SCHEMA, type FieldSpec } from '@heartlink/domain';
+
+import { OcrDiagnosticsNotice } from './OcrDiagnosticsNotice';
 import type { IntakeDocument } from '@heartlink/api-contract';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
@@ -111,6 +113,9 @@ export function OcrFieldEditor({
 
       {/* Scrollable field list, grouped by the PDF's printed sections */}
       <div className="@container min-h-0 flex-1 overflow-auto pb-2">
+        {/* Only appears when the read finished and mapped nothing - the one
+            case where a page of blank inputs is not the whole story. */}
+        <OcrDiagnosticsNotice document={document} />
         {groupFieldsBySection(ACTIVE_FORM_SCHEMA).map((group) => (
           <section key={group.title ?? 'fields'}>
             {group.title ? (

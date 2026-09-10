@@ -8,7 +8,7 @@ import {
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -33,6 +33,19 @@ import { RootStack } from './src/navigations/RootStack';
 import { colors, themedStyles } from './src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+/**
+ * Where you were, kept across a theme change.
+ *
+ * Switching theme remounts the tree - stylesheets are module state, so a
+ * component that does not re-render would otherwise keep the old palette - and
+ * a remounted navigator starts at its first screen. Someone reading a letter at
+ * dusk, when the phone switches itself to dark, would be thrown back to Home.
+ *
+ * Module scope, not a ref: everything inside the provider is what remounts, so
+ * a ref in there is thrown away at exactly the moment it is needed.
+ */
+let lastNavigationState: NavigationState | undefined;
 
 
 /**
@@ -81,18 +94,6 @@ export default function App() {
 
 function AppShell() {
   const { scheme } = useTheme();
-
-  /**
-   * Where you were, kept across a theme change.
-   *
-   * Switching theme remounts the tree - stylesheets are module state, so a
-   * component that does not re-render would otherwise keep the old palette -
-   * and a remounted navigator starts at its first screen. Someone reading a
-   * letter at dusk, when the phone switches itself to dark, would be thrown
-   * back to Home. Handing the new container the state the old one had puts
-   * them back on the letter instead.
-   */
-  const navState = useRef<NavigationState | undefined>(undefined);
 
   const [fontsLoaded] = useFonts({
     BreeSerif_400Regular,
@@ -152,9 +153,9 @@ function AppShell() {
               <NavigationContainer
                 ref={navigationRef}
                 theme={navigationTheme(scheme === 'dark')}
-                initialState={navState.current}
+                initialState={lastNavigationState}
                 onStateChange={(state) => {
-                  navState.current = state;
+                  lastNavigationState = state;
                 }}
               >
                 <RootStack />

@@ -7,6 +7,7 @@ import { FileText, UploadCloud } from 'lucide-react';
 import type { IntakeDocument } from '@heartlink/api-contract';
 
 import { Card, CardBody, CardHeader, CardTitle } from '../ui/card';
+import { OcrProgress, isOcrRunning } from '../intake/OcrProgress';
 import { RetryOcrButton } from '../intake/RetryOcrButton';
 import { formatTimelineDate } from '../../lib/utils';
 
@@ -59,7 +60,9 @@ export function ProfileDocumentsCard({
       });
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) throw new Error(json?.error ?? 'Upload failed');
-      toast.success('Scan uploaded. Reading it now — the name may take a moment to appear.');
+      toast.success('Scan uploaded', {
+        description: 'It is being read now — the progress is on the scan below.',
+      });
       startTransition(() => router.refresh());
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not upload the scan');
@@ -142,13 +145,16 @@ export function ProfileDocumentsCard({
                   <span className="text-[13px] font-medium text-text">
                     {formatTimelineDate(doc.createdAt)}
                   </span>
-                  <span className="text-[12px] text-text-muted">
-                    {name ? (
-                      <span className="text-text">{name}</span>
-                    ) : (
-                      humanizeOcrStatus(doc.ocrStatus)
-                    )}
-                  </span>
+                  {/* While a read is running the bar says so and watches for
+                      the result; once it has settled, the name (or why there
+                      is none) is the useful thing to show. */}
+                  {isOcrRunning(doc.ocrStatus) ? (
+                    <OcrProgress status={doc.ocrStatus} className="mt-0.5" />
+                  ) : (
+                    <span className="text-[12px] text-text-muted">
+                      {name ? <span className="text-text">{name}</span> : humanizeOcrStatus(doc.ocrStatus)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   {current ? (
@@ -156,7 +162,10 @@ export function ProfileDocumentsCard({
                       In use
                     </span>
                   ) : null}
-                  <RetryOcrButton documentId={doc.id} />
+                  {/* Nothing to retry while it is already being read — the API
+                      refuses it, and two workers on one document is the reason
+                      why. */}
+                  {isOcrRunning(doc.ocrStatus) ? null : <RetryOcrButton documentId={doc.id} />}
                 </div>
               </div>
             );

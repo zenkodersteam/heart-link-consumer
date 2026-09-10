@@ -172,7 +172,7 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
  */
 export function Button({ label, variant = 'primary', loading, disabled, icon, pill, style, onPress, ...rest }: ButtonProps) {
   const isDisabled = disabled || loading;
-  const v = btnVariant[variant];
+  const v = btnVariants()[variant];
   const isPrimary = variant === 'primary';
   const press = useSharedValue(0);
   const reduceMotion = useReducedMotion();
@@ -220,11 +220,20 @@ export function Button({ label, variant = 'primary', loading, disabled, icon, pi
   );
 }
 
-const btnVariant = {
-  primary: { bg: colors.primary, fg: colors.onPrimary, border: 'transparent' },
-  secondary: { bg: colors.bgElevated, fg: colors.textPrimary, border: colors.borderStrong },
-  ghost: { bg: 'transparent', fg: colors.textSecondary, border: 'transparent' },
-} as const;
+/**
+ * A function, not an object.
+ *
+ * A module-level literal reads its colours once, when the file is first
+ * imported, and keeps them - which is how a secondary button ended up white on
+ * a dark screen. Building it per call means it reads whichever theme is on.
+ */
+function btnVariants() {
+  return {
+    primary: { bg: colors.primary, fg: colors.onPrimary, border: 'transparent' },
+    secondary: { bg: colors.bgElevated, fg: colors.textPrimary, border: colors.borderStrong },
+    ghost: { bg: 'transparent', fg: colors.textSecondary, border: 'transparent' },
+  } as const;
+}
 
 const btnStyles = themedStyles((colors) => ({
   base: {
@@ -274,7 +283,7 @@ const cardStyles = themedStyles((colors) => ({
 }));
 
 export function Pill({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'gold' | 'pink' }) {
-  const t = pillTone[tone];
+  const t = pillTones()[tone];
   return (
     <View style={[pillStyles.pill, { backgroundColor: t.bg, borderColor: t.border }]}>
       <Text style={[pillStyles.text, { color: t.fg }]}>{label}</Text>
@@ -282,11 +291,14 @@ export function Pill({ label, tone = 'neutral' }: { label: string; tone?: 'neutr
   );
 }
 
-const pillTone = {
-  neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary, border: colors.border },
-  gold: { bg: colors.goldFaint, fg: colors.gold, border: colors.gold },
-  pink: { bg: colors.primaryFaint, fg: colors.primary, border: colors.primary },
-} as const;
+/** Per call, for the same reason as `btnVariants` above. */
+function pillTones() {
+  return {
+    neutral: { bg: colors.surfaceMuted, fg: colors.textSecondary, border: colors.border },
+    gold: { bg: colors.goldFaint, fg: colors.gold, border: colors.gold },
+    pink: { bg: colors.primaryFaint, fg: colors.primary, border: colors.primary },
+  } as const;
+}
 
 const pillStyles = StyleSheet.create({
   pill: {

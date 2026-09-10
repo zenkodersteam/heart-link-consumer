@@ -44,6 +44,7 @@ export const BUILT_ROUTES = new Set<string>([
   '/sponsor',
   '/edit-profile',
   '/circle',
+  '/change-password',
 ]);
 
 export function isBuilt(href: string): boolean {

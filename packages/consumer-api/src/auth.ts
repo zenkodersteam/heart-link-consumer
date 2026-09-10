@@ -225,6 +225,22 @@ export async function setAccountPassword(
   return postAuthed<{ passwordSet: true }>(baseUrl, '/auth/password/set', accessToken, input);
 }
 
+/**
+ * Change the password on the signed-in account, proving the current one.
+ *
+ * Not the same call as `setAccountPassword`: that one is the end of the
+ * forgot-password path, where the member cannot be asked for a password they
+ * have forgotten. This one is reached from inside the account, where the
+ * current password is what stops a stolen session from locking them out.
+ */
+export async function changeAccountPassword(
+  baseUrl: string,
+  accessToken: string,
+  input: { currentPassword: string; newPassword: string },
+): Promise<{ passwordSet: true }> {
+  return postAuthed<{ passwordSet: true }>(baseUrl, '/auth/password/change', accessToken, input);
+}
+
 export function refreshSession(baseUrl: string, refreshToken: string): Promise<SessionTokens> {
   return post<SessionTokens>(baseUrl, '/auth/refresh', { refreshToken });
 }

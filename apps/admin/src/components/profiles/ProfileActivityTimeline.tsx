@@ -57,7 +57,49 @@ function describe(entry: AuditLogEntry): string {
     }
     case 'profile_photo.deleted':
       return `${actor} - Photo deleted`;
+    case 'profile_photo.imported_from_intake':
+      return `${actor} - Photos imported from intake`;
+    case 'profile.reported':
+      return `${actor} - Profile reported`;
+    case 'sponsor_invite.sent':
+      return `${actor} - Sponsor invite sent`;
+    case 'application.created':
+      return `${actor} - Application created`;
+    case 'application.status_changed': {
+      const meta = entry.metadata as { from?: string; to?: string } | null;
+      return `${actor} - Application ${meta?.from ?? '?'} → ${meta?.to ?? '?'}`;
+    }
+    case 'document.uploaded':
+      return `${actor} - Scan uploaded`;
+    case 'document.ocr_retried':
+      return `${actor} - Scan sent to be read again`;
+    case 'document.fields_corrected':
+      return `${actor} - Scanned fields corrected`;
+    case 'payment.confirmed':
+      return `${actor} - Payment confirmed`;
+    case 'payment.matched':
+      return `${actor} - Payment matched`;
+    case 'subscription.status_changed': {
+      const meta = entry.metadata as { from?: string; to?: string } | null;
+      return `${actor} - Subscription ${meta?.from ?? '?'} → ${meta?.to ?? '?'}`;
+    }
     default:
-      return `${actor} - ${entry.action}`;
+      return `${actor} - ${humanizeAction(entry.action)}`;
   }
+}
+
+/**
+ * A readable sentence for an action nobody has written wording for yet.
+ *
+ * The fallback used to print the raw key, so the timeline read
+ * "System - sponsor_invite.sent" beside sentences in plain English. New
+ * actions are added on the API side all the time and the console should not
+ * leak database vocabulary at people while it catches up.
+ */
+function humanizeAction(action: string): string {
+  const [subject, verb] = action.includes('.') ? action.split('.') : ['', action];
+  const words = `${subject ? `${subject.replace(/_/g, ' ')} ` : ''}${(verb ?? '').replace(/_/g, ' ')}`
+    .trim()
+    .toLowerCase();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : action;
 }

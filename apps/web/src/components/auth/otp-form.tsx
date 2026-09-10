@@ -2,12 +2,13 @@
 
 import type { AuthUser } from '@heartlink/consumer-api';
 import { PASSWORD_MIN_LENGTH, emailProblem, passwordProblem } from '@heartlink/domain';
-import { ArrowLeft, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Lock, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { useEffect, useRef, useState } from 'react';
 
+import { FieldError, RevealButton } from '@/components/auth/password-field';
 import { Button } from '@/components/ui/button';
 import { InputOtp, InputOtpGroup, InputOtpSlot, ONLY_DIGITS } from '@/components/ui/otp-input';
 import { Spinner } from '@/components/ui/spinner';
@@ -98,6 +99,9 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
    * re-read what they think they just typed.
    */
   const [confirmPassword, setConfirmPassword] = useState('');
+  // Its own toggle rather than sharing the one above: revealing the password
+  // you are checking against defeats the point of typing it twice.
+  const [confirmShown, setConfirmShown] = useState(false);
   /** Held only between verifying a reset code and saving the new password. */
   const [accessToken, setAccessToken] = useState<string | null>(null);
   /** Held with the token, and announced only once the new password is saved. */
@@ -475,7 +479,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
             <Lock className="size-4 shrink-0 text-ink-faint" />
             <input
               id="confirm-password"
-              type={passwordShown ? 'text' : 'password'}
+              type={confirmShown ? 'text' : 'password'}
               value={confirmPassword}
               aria-invalid={fieldErrors.confirmPassword ? true : undefined}
               aria-describedby={fieldErrors.confirmPassword ? 'confirm-password-error' : undefined}
@@ -487,6 +491,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
               placeholder="Type it again"
               className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
             />
+            <RevealButton shown={confirmShown} onToggle={() => setConfirmShown((v) => !v)} />
           </div>
           <FieldError id="confirm-password-error" message={fieldErrors.confirmPassword} />
 
@@ -851,7 +856,7 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                   <Lock className="size-4 shrink-0 text-ink-faint" />
                   <input
                     id="confirm-signup-password"
-                    type={passwordShown ? 'text' : 'password'}
+                    type={confirmShown ? 'text' : 'password'}
                     value={confirmPassword}
                     aria-invalid={fieldErrors.confirmPassword ? true : undefined}
                     aria-describedby={
@@ -864,6 +869,10 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
                     autoComplete="new-password"
                     placeholder="Type it again"
                     className="min-w-0 flex-1 bg-transparent py-3.5 text-[15px] text-ink outline-none placeholder:text-ink-soft"
+                  />
+                  <RevealButton
+                    shown={confirmShown}
+                    onToggle={() => setConfirmShown((shown) => !shown)}
                   />
                 </div>
                 <FieldError
@@ -944,32 +953,4 @@ export function OtpForm({ intent }: { intent: 'sign_in' | 'sign_up' }) {
  * input points `aria-describedby` at, so the reason is read out with the field
  * rather than floating loose on the page.
  */
-/**
- * Show or hide what has been typed.
- *
- * A typed password is easy to get wrong and impossible to check, which matters
- * most when setting one. The state is never remembered between visits: leaving
- * a password on screen is a decision to take each time, not one to inherit.
- */
-function RevealButton({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={shown ? 'Hide password' : 'Show password'}
-      aria-pressed={shown}
-      className="grid size-8 shrink-0 place-items-center rounded-full text-ink-faint transition-colors hover:bg-surface-muted hover:text-ink"
-    >
-      {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-    </button>
-  );
-}
 
-function FieldError({ id, message }: { id: string; message?: string }) {
-  if (!message) return null;
-  return (
-    <p id={id} role="alert" className="mt-1.5 text-[13px] text-danger">
-      {message}
-    </p>
-  );
-}

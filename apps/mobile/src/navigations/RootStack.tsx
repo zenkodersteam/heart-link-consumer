@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { isOnboarded, useMyProfile } from '../lib/use-my-profile';
 import { useSession } from '../lib/session';
 import BlockedScreen from '../screens/account/BlockedScreen';
+import ChangePasswordScreen from '../screens/account/ChangePasswordScreen';
 import EditProfileScreen from '../screens/account/EditProfileScreen';
 import CircleScreen from '../screens/support/CircleScreen';
 import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
@@ -28,6 +29,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 // under the clock. Profile is not one of them — its photo is meant to run to
 // the top of the screen, and it insets its own floating controls.
 const EditProfile = withSafeTop(EditProfileScreen);
+const ChangePassword = withSafeTop(ChangePasswordScreen);
 const Blocked = withSafeTop(BlockedScreen);
 
 // The sheets need the same thing, but only where they are drawn full-screen.
@@ -123,6 +125,7 @@ export function RootStack() {
           have blocked. These push. */}
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="EditProfile" component={EditProfile} />
+      <Stack.Screen name="ChangePassword" component={ChangePassword} />
       <Stack.Screen name="Blocked" component={Blocked} />
 
       {/* Things you bring up and dismiss, rather than travel to. A sheet says

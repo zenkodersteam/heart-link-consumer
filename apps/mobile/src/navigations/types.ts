@@ -24,6 +24,7 @@ export type RootStackParamList = {
 
   Profile: { id: string };
   EditProfile: undefined;
+  ChangePassword: undefined;
   Plans: { checkout?: 'success' | 'cancel' } | undefined;
   Sponsor: { profile?: string; checkout?: 'success' | 'cancel' } | undefined;
   Support: undefined;

@@ -71,7 +71,15 @@ export function ProfileInfoForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Inmate ID (read-only)</Label>
-          <Input value={inmateId ?? '-'} disabled readOnly />
+          {/* Read off the scan, not typed here. A bare dash said nothing about
+              why it was empty — whether no ID exists, or none has been read
+              yet — so the empty case says which. */}
+          <Input
+            value={inmateId ?? ''}
+            placeholder="Not read from a scan yet"
+            disabled
+            readOnly
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="releaseDate">Expected Release</Label>
