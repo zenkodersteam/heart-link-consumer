@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { serverApi } from './api';
+import { isRedirectError } from './redirect-error';
 import type {
   FacilityImportResponse,
   Profile,
@@ -185,25 +186,52 @@ export async function updateProfile(input: UpdateProfileInput): Promise<void> {
   revalidatePath(`/profiles/${id}`);
 }
 
-export async function transitionProfile(
-  input: TransitionProfileInput,
-): Promise<void> {
-  const data = parseInput(TransitionProfileSchema, input);
-  const api = await serverApi();
-  await api.transitionProfile(data.id, {
-    status: data.status,
-    notes: data.notes,
-  });
-  revalidatePath('/profiles');
-  revalidatePath(`/profiles/${data.id}`);
+/**
+ * What a server action hands back when it can fail in a way a person should read.
+ *
+ * Returned, not thrown. In a production build Next replaces the message of any
+ * error thrown out of a server action with React's generic #441 ("An error
+ * occurred in the Server Components render…"), so the API's own explanation —
+ * "this profile cannot be paused from its current status", say — never reached
+ * the toast. Everyone saw "Minified React error #441" instead.
+ */
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function attempt(work: () => Promise<void>): Promise<ActionResult> {
+  try {
+    await work();
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error && err.message ? err.message : 'Something went wrong. Please try again.',
+    };
+  }
 }
 
-export async function activateProfile(profileId: string): Promise<void> {
-  if (typeof profileId !== 'string' || profileId.length === 0) return;
-  const api = await serverApi();
-  await api.activateProfile(profileId);
-  revalidatePath('/profiles');
-  revalidatePath(`/profiles/${profileId}`);
+export async function transitionProfile(input: TransitionProfileInput): Promise<ActionResult> {
+  return attempt(async () => {
+    const data = parseInput(TransitionProfileSchema, input);
+    const api = await serverApi();
+    await api.transitionProfile(data.id, {
+      status: data.status,
+      notes: data.notes,
+    });
+    revalidatePath('/profiles');
+    revalidatePath(`/profiles/${data.id}`);
+  });
+}
+
+export async function activateProfile(profileId: string): Promise<ActionResult> {
+  return attempt(async () => {
+    if (typeof profileId !== 'string' || profileId.length === 0) {
+      throw new Error('No profile was selected.');
+    }
+    const api = await serverApi();
+    await api.activateProfile(profileId);
+    revalidatePath('/profiles');
+    revalidatePath(`/profiles/${profileId}`);
+  });
 }
 
 export async function moderatePhoto(input: ModeratePhotoInput): Promise<void> {
@@ -617,8 +645,10 @@ export async function markNavSectionSeen(section: string): Promise<void> {
   try {
     const api = await serverApi();
     await api.markNavSectionSeen(section);
-  } catch {
-    // Ignored on purpose — see above.
+  } catch (err) {
+    // Ignored on purpose — see above. A missing-session redirect is not a
+    // badge failure, though, and has to keep travelling.
+    if (isRedirectError(err)) throw err;
   }
 }
 
@@ -641,7 +671,8 @@ export async function searchProfilesForLookup(
     const api = await serverApi();
     const res = await api.listProfiles({ q: q || undefined, limit: 20 });
     return res.items.map((p) => ({ id: p.id, displayName: p.displayName }));
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
     return [];
   }
 }

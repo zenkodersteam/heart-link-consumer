@@ -1,5 +1,6 @@
 import 'server-only';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { createApiClient, type ApiClient } from '@heartlink/api-client';
 
 import { ACCESS_COOKIE, apiBaseUrl } from '@/lib/session';
@@ -9,16 +10,21 @@ import { ACCESS_COOKIE, apiBaseUrl } from '@/lib/session';
  * Server Actions.
  *
  * The token comes from the cookie the proxy refreshed on the way in, so this is
- * a read and never a network call. Throws when there is none: every admin route
- * is already gated by `proxy.ts`, so this firing means a route escaped the
- * matcher, which is worth failing loudly rather than rendering an empty page.
+ * a read and never a network call.
+ *
+ * With no token, it sends the member to sign out rather than throwing. It used
+ * to throw, on the theory that the proxy made this unreachable — but it was
+ * reachable, whenever a refresh failed and the proxy let the request through
+ * anyway, and a Server Component that throws in production renders as an
+ * opaque "Minified React error #441" on every page. A redirect is the one
+ * outcome here that can never become that screen. `/sign-out` rather than
+ * `/sign-in`, because the stale cookies have to be cleared first or the proxy
+ * sends them straight back here.
  */
 export async function serverApi(): Promise<ApiClient> {
   const store = await cookies();
   const token = store.get(ACCESS_COOKIE)?.value;
-  if (!token) {
-    throw new Error('Unauthenticated: no admin session');
-  }
+  if (!token) redirect('/sign-out?reason=session_expired');
   return createApiClient({ baseUrl: apiBaseUrl(), token });
 }
 

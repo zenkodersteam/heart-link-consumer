@@ -31,12 +31,9 @@ export function ProfileActions({
   const onActivate = () => {
     if (!activation.ok) return;
     startTransition(async () => {
-      try {
-        await activateProfile(profile.id);
-        toast.success('Profile activated');
-      } catch (err) {
-        toast.error(`Failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const result = await activateProfile(profile.id);
+      if (result.ok) toast.success('Profile activated');
+      else toast.error(result.error);
     });
   };
 
@@ -129,20 +126,20 @@ function ProfileTransitionDialog({
   const onConfirm = () => {
     if (!valid) return;
     startTransition(async () => {
-      try {
-        await transitionProfile({
-          id: profileId,
-          status: targetStatus,
-          notes: notes.trim(),
-        });
-        toast.success(`Profile ${targetStatus}`);
-        onOpenChange(false);
-        setNotes('');
-      } catch (err) {
-        toast.error(
-          `Failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+      const result = await transitionProfile({
+        id: profileId,
+        status: targetStatus,
+        notes: notes.trim(),
+      });
+      if (!result.ok) {
+        // The dialog stays open with the notes intact, so a fixable refusal
+        // does not cost the reason that was just typed.
+        toast.error(result.error);
+        return;
       }
+      toast.success(`Profile ${targetStatus}`);
+      onOpenChange(false);
+      setNotes('');
     });
   };
 

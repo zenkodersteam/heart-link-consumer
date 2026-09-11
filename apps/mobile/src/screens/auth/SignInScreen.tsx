@@ -220,6 +220,11 @@ export default function SignInScreen() {
     setInvalid(false);
     try {
       await signInWithPassword(address, password);
+      // Announced before the reset: the toast host sits above the navigator,
+      // so the message outlives the sign-in screen and lands on the one they
+      // arrive at. Signing in used to confirm nothing at all — the screen just
+      // changed, which reads the same as a crash back to the start.
+      toast.show('Signed in', 'Welcome back to HeartLink.');
       await goToApp();
     } catch (e) {
       // The server cannot tell these apart on purpose, but this device knows it
@@ -292,9 +297,11 @@ export default function SignInScreen() {
       // A brand-new account has the questions to answer before anything else
       // expects a profile; an existing one resumes wherever it was headed.
       if (created) {
+        toast.show('Account created', 'A few questions next, so people know who they are writing to.');
         navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
         return;
       }
+      toast.show('Signed in', 'Welcome back to HeartLink.');
       await goToApp();
     } catch (e) {
       fail(messageFrom(e, 'That code is not right, or it has expired.'));

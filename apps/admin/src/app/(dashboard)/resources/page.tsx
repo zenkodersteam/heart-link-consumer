@@ -6,6 +6,7 @@ import { PageHero } from '../../../components/layout/PageHero';
 import { ResourceCategoryFormDialog } from '../../../components/resources/ResourceCategoryFormDialog';
 import { ResourceFormDialog } from '../../../components/resources/ResourceFormDialog';
 import { serverApi } from '../../../lib/api';
+import { isRedirectError } from '@/lib/redirect-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,8 @@ export default async function ResourcesPage() {
     items = resourcesResponse.items;
     categories = categoryResponse;
   } catch (err) {
+    // A missing session redirects; shown as a load error it read "NEXT_REDIRECT".
+    if (isRedirectError(err)) throw err;
     loadError = err instanceof Error ? err.message : String(err);
   }
 

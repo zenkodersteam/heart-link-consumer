@@ -201,6 +201,10 @@ const styles = themedStyles((colors) => ({
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     zIndex: 1000,
+    // Android orders siblings by elevation before zIndex, and the native stack's
+    // screens carry elevation of their own — without this the toast can draw
+    // underneath the screen it is announcing.
+    elevation: 1000,
   },
   toast: {
     flexDirection: 'row',

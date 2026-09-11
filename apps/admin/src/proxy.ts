@@ -77,8 +77,18 @@ export default async function proxy(request: NextRequest) {
   if (!refreshToken) return signInRedirect(request);
 
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
-  if (accessToken && Date.now() < accessTokenExpiryMs(accessToken) - REFRESH_MARGIN_MS) {
+  const accessExpiry = accessToken ? accessTokenExpiryMs(accessToken) : 0;
+  if (accessToken && Date.now() < accessExpiry - REFRESH_MARGIN_MS) {
     return NextResponse.next();
+  }
+
+  // A prefetch never refreshes. The router fires one for every link on
+  // screen, all at once, and each used to trigger its own refresh — a burst
+  // that tripped the API's rate limit on /auth/refresh (which every admin
+  // shares, since the calls leave from Vercel's addresses). The navigation
+  // that follows a prefetch will refresh; the prefetch itself just yields.
+  if (isPrefetch(request)) {
+    return accessToken && Date.now() < accessExpiry ? NextResponse.next() : NO_CONTENT();
   }
 
   let refreshed: Response;
@@ -90,9 +100,7 @@ export default async function proxy(request: NextRequest) {
       cache: 'no-store',
     });
   } catch {
-    // The API is unreachable. Signing someone out over a blip would be wrong,
-    // so the request continues and the page shows its own error state.
-    return NextResponse.next();
+    return couldNotRefresh(request, accessToken, accessExpiry);
   }
 
   // Only the API actually rejecting the session ends it. A 500 or a 502 from
@@ -100,7 +108,7 @@ export default async function proxy(request: NextRequest) {
   // clearing the cookies over one threw people back to the sign-in form
   // mid-task for something that had already fixed itself.
   if (refreshed.status === 401 || refreshed.status === 403) return signInRedirect(request);
-  if (!refreshed.ok) return NextResponse.next();
+  if (!refreshed.ok) return couldNotRefresh(request, accessToken, accessExpiry);
 
   const tokens = (await refreshed.json()) as {
     accessToken: string;
@@ -122,6 +130,71 @@ export default async function proxy(request: NextRequest) {
   response.cookies.set(ACCESS_COOKIE, tokens.accessToken, accessCookieOptions(tokens.expiresIn));
   response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, refreshCookieOptions());
   return response;
+}
+
+function isPrefetch(request: NextRequest): boolean {
+  return (
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.get('purpose') === 'prefetch' ||
+    request.headers.get('sec-purpose')?.includes('prefetch') === true
+  );
+}
+
+const NO_CONTENT = () => new NextResponse(null, { status: 204 });
+
+/**
+ * The refresh failed for a reason that is not "this session is over": the API
+ * was unreachable, rate-limited, or mid-deploy.
+ *
+ * This used to wave the request through regardless, and that is what put
+ * "Minified React error #441" on every admin page. With no usable access
+ * token, the page's server components call `serverApi()`, which throws, and
+ * a Server Component that throws in production renders as that error —
+ * repeatedly, since each retry hit the same wall. Letting a request through
+ * is only honest when it still has a token to render with.
+ *
+ * So: if the token is merely inside the refresh margin — still valid, just
+ * close to expiry — use it. Otherwise say plainly that the server could not
+ * be reached and try again on its own in a few seconds. No sign-out: the
+ * refresh cookie is untouched, so the retry picks up exactly where this left
+ * off.
+ */
+function couldNotRefresh(
+  request: NextRequest,
+  accessToken: string | undefined,
+  accessExpiry: number,
+): NextResponse {
+  if (accessToken && Date.now() < accessExpiry) return NextResponse.next();
+  if (isPrefetch(request)) return NO_CONTENT();
+
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="4">
+<title>Reconnecting · HeartLink</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#FDF9F6;
+    font:15px/1.5 system-ui,-apple-system,sans-serif;color:#2E1240}
+  main{max-width:360px;padding:32px;text-align:center}
+  h1{font-size:18px;margin:0 0 8px}
+  p{margin:0;color:#6E5C80}
+  .dot{display:inline-block;width:8px;height:8px;margin:18px 3px 0;border-radius:50%;
+    background:#D81B60;animation:b 1.2s infinite ease-in-out}
+  .dot:nth-child(2){animation-delay:.15s}.dot:nth-child(3){animation-delay:.3s}
+  @keyframes b{0%,80%,100%{opacity:.25}40%{opacity:1}}
+</style></head><body><main>
+<h1>Reconnecting to HeartLink</h1>
+<p>We couldn't reach the server for a moment. This page will retry on its own &mdash; you're still signed in.</p>
+<div><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+</main></body></html>`;
+
+  return new NextResponse(html, {
+    status: 503,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Retry-After': '4',
+    },
+  });
 }
 
 export const config = {

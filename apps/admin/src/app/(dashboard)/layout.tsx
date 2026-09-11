@@ -4,6 +4,7 @@ import { AdminUserMenu } from '../../components/auth/AdminUserMenu';
 import { currentStaff, serverApi } from '../../lib/api';
 import { isAuthFailure, redirectToSignOut } from '../../lib/auth-failure';
 import type { NavCounts } from '@heartlink/api-contract';
+import { isRedirectError } from '@/lib/redirect-error';
 
 // Render per request so the sidebar attention badges reflect live counts on
 // every load, including a hard refresh of the same route (W7 UI flag #13).
@@ -22,6 +23,9 @@ export default async function DashboardLayout({
     const api = await serverApi();
     counts = await api.getNavCounts();
   } catch (err) {
+    // `serverApi()` redirects when there is no session at all; that has to
+    // keep travelling, not be read as a failed count.
+    if (isRedirectError(err)) throw err;
     // A session that is expired, or an account without staff access, is sent to
     // be signed out. Anything else is just a count we could not fetch, and the
     // portal still works without it.

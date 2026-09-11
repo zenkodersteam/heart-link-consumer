@@ -17,6 +17,7 @@ import {
   formatFacilityLocation,
   getFacilityStatusLabel,
 } from '../../../lib/facilitiesDisplay';
+import { isRedirectError } from '@/lib/redirect-error';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,8 @@ export default async function FacilitiesPage() {
     const api = await serverApi();
     facilities = await api.listFacilities();
   } catch (err) {
+    // A missing session redirects; shown as a load error it read "NEXT_REDIRECT".
+    if (isRedirectError(err)) throw err;
     loadError = err instanceof Error ? err.message : String(err);
   }
 
