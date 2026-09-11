@@ -64,7 +64,15 @@ export function DropdownMenu({
       pending.current = item.onPress;
       onClose();
       // onDismiss is iOS-only; elsewhere the modal is gone by the next frame.
-      if (Platform.OS !== 'ios') setTimeout(runPending, 0);
+      //
+      // On iOS it is the fast path, not the only one. Under the New
+      // Architecture `onDismiss` does not reliably fire, and when it did not,
+      // the chosen action simply never ran — "View profile" and "Block" in the
+      // mailbox and on a profile looked like buttons wired to nothing. The
+      // timer is long enough for this modal (no dismiss animation) to be gone
+      // before a confirmation opens, and `runPending` clears itself, so
+      // whichever of the two arrives first is the only one that acts.
+      setTimeout(runPending, Platform.OS === 'ios' ? 350 : 0);
     },
     [onClose, runPending],
   );

@@ -6,6 +6,7 @@ import { Check, X } from 'lucide-react';
 import type { PendingCommunicationItem } from '@heartlink/api-contract';
 import { Button } from '../ui/button';
 import { moderateLetter } from '../../lib/actions';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 /**
  * Letters waiting to be approved before they are printed and posted.
@@ -59,7 +60,7 @@ function LetterCard({ item }: { item: PendingCommunicationItem }) {
         </h3>
         <span className="text-[12px] text-text-muted">
           To {item.profileDisplayName || 'an unnamed listing'} ·{' '}
-          {new Date(item.createdAt).toLocaleString()}
+          <LocalTime value={item.createdAt} style="full" />
         </span>
       </div>
 

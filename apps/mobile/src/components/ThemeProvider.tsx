@@ -1,5 +1,7 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Animated, StyleSheet, View, useColorScheme } from 'react-native';
+
+import { colors as lightPalette, darkColors } from '@heartlink/design-tokens';
 
 import { getColorScheme, setColorScheme, type ColorScheme } from '../theme';
 
@@ -48,12 +50,68 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ThemeValue>(() => ({ scheme }), [scheme]);
 
+  // Whether the theme has changed since launch. Worked out during render, not
+  // in an effect, so the veil is part of the very frame the remount happens
+  // in — an effect would let one bare frame of the half-built tree through.
+  // Launch itself is covered by the splash, so only a later change gets a veil.
+  const [launchScheme] = useState(scheme);
+  const [hasChanged, setHasChanged] = useState(false);
+  if (!hasChanged && scheme !== launchScheme) setHasChanged(true);
+
   return (
     <ThemeContext.Provider value={value}>
-      <ThemeRoot key={scheme}>{children}</ThemeRoot>
+      <View style={styles.fill}>
+        <ThemeRoot key={scheme}>{children}</ThemeRoot>
+        {hasChanged ? (
+          <ThemeVeil key={scheme} color={(scheme === 'dark' ? darkColors : lightPalette).bgDeep} />
+        ) : null}
+      </View>
     </ThemeContext.Provider>
   );
 }
+
+/**
+ * Covers the remount a theme change causes, then fades away.
+ *
+ * Remounting is what makes a change take (see above), and it is not free:
+ * every screen rebuilds, refetches and reloads its photos. Uncovered, that
+ * read as the app flickering — skeletons, blanks and images popping in, all at
+ * once. This lays the new theme's ground over it for the moment that takes,
+ * then dissolves into the rebuilt app, so a theme change looks like one fade
+ * rather than a stutter.
+ *
+ * Keyed on the scheme, so each change mounts a fresh veil at full opacity.
+ */
+function ThemeVeil({ color }: { color: string }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const animation = Animated.timing(opacity, {
+      toValue: 0,
+      duration: 320,
+      // Long enough for the rebuilt tree to paint its first frame underneath.
+      delay: 160,
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished) setDone(true);
+    });
+    return () => animation.stop();
+  }, [opacity]);
+
+  if (done) return null;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFill, { backgroundColor: color, opacity }]}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+});
 
 /** Its own component so the remount is the children's, not the provider's. */
 function ThemeRoot({ children }: { children: ReactNode }) {

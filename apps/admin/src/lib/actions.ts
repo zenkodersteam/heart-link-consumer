@@ -1,6 +1,6 @@
 'use server';
 
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { serverApi } from './api';
@@ -75,20 +75,46 @@ function parseInput<T extends z.ZodType>(schema: T, input: unknown): z.infer<T> 
   throw new Error(message || 'Some of those details are not valid.');
 }
 
-export async function transitionApplicationStatus(
-  input: TransitionInput,
-): Promise<void> {
-  const data = parseInput(TransitionSchema, input);
-  const api = await serverApi();
-  await api.transitionApplication(data.id, {
-    status: data.status,
-    reviewOutcome: data.reviewOutcome,
-    reviewNotes: data.reviewNotes,
+/**
+ * What a server action hands back when it can fail in a way a person should read.
+ *
+ * Returned, not thrown. In a production build Next replaces the message of any
+ * error thrown out of a server action with React's generic #441 ("An error
+ * occurred in the Server Components render…"), so the API's own explanation —
+ * "this profile cannot be paused from its current status", say — never reached
+ * the toast. Everyone saw "Minified React error #441" instead.
+ */
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
+async function attempt(work: () => Promise<void>): Promise<ActionResult> {
+  try {
+    await work();
+    return { ok: true };
+  } catch (err) {
+    // A redirect is how an action that moves on to the next item says it
+    // succeeded; it has to keep travelling rather than become an error.
+    unstable_rethrow(err);
+    return {
+      ok: false,
+      error: err instanceof Error && err.message ? err.message : 'Something went wrong. Please try again.',
+    };
+  }
+}
+
+export async function transitionApplicationStatus(input: TransitionInput): Promise<ActionResult> {
+  return attempt(async () => {
+    const data = parseInput(TransitionSchema, input);
+    const api = await serverApi();
+    await api.transitionApplication(data.id, {
+      status: data.status,
+      reviewOutcome: data.reviewOutcome,
+      reviewNotes: data.reviewNotes,
+    });
+    revalidatePath('/intake');
+    revalidatePath(`/intake/${data.id}`);
+    revalidatePath('/intake/review', 'layout');
+    if (data.nextPath) redirect(data.nextPath);
   });
-  revalidatePath('/intake');
-  revalidatePath(`/intake/${data.id}`);
-  revalidatePath('/intake/review', 'layout');
-  if (data.nextPath) redirect(data.nextPath);
 }
 
 export async function createApplication(
@@ -137,13 +163,14 @@ export async function uploadApplicationScan(
   return { ok: true as const };
 }
 
-export async function updateDocumentFields(input: FieldsInput): Promise<{ ok: true }> {
-  const data = parseInput(FieldsSchema, input);
-  const api = await serverApi();
-  await api.updateDocumentFields(data.documentId, { fields: data.fields });
-  revalidatePath(`/intake/${data.applicationId}`);
-  revalidatePath(`/intake/review/${data.applicationId}`);
-  return { ok: true as const };
+export async function updateDocumentFields(input: FieldsInput): Promise<ActionResult> {
+  return attempt(async () => {
+    const data = parseInput(FieldsSchema, input);
+    const api = await serverApi();
+    await api.updateDocumentFields(data.documentId, { fields: data.fields });
+    revalidatePath(`/intake/${data.applicationId}`);
+    revalidatePath(`/intake/review/${data.applicationId}`);
+  });
 }
 
 /**
@@ -184,29 +211,6 @@ export async function updateProfile(input: UpdateProfileInput): Promise<void> {
   await api.updateProfile(id, rest);
   revalidatePath('/profiles');
   revalidatePath(`/profiles/${id}`);
-}
-
-/**
- * What a server action hands back when it can fail in a way a person should read.
- *
- * Returned, not thrown. In a production build Next replaces the message of any
- * error thrown out of a server action with React's generic #441 ("An error
- * occurred in the Server Components render…"), so the API's own explanation —
- * "this profile cannot be paused from its current status", say — never reached
- * the toast. Everyone saw "Minified React error #441" instead.
- */
-export type ActionResult = { ok: true } | { ok: false; error: string };
-
-async function attempt(work: () => Promise<void>): Promise<ActionResult> {
-  try {
-    await work();
-    return { ok: true };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error && err.message ? err.message : 'Something went wrong. Please try again.',
-    };
-  }
 }
 
 export async function transitionProfile(input: TransitionProfileInput): Promise<ActionResult> {

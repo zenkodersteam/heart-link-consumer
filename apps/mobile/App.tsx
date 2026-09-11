@@ -47,6 +47,38 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
  */
 let lastNavigationState: NavigationState | undefined;
 
+/**
+ * The saved state, minus the navigation instructions it has already carried out.
+ *
+ * `navigate('Tabs', { screen: 'Mailbox', params: { compose } })` leaves that
+ * `{ screen, params }` on the Tabs route for good. A navigator knows it has
+ * acted on it only through a record its container keeps — and the remount
+ * throws that container away, so the new one found the instruction and carried
+ * it out again. That is how changing theme reopened a letter the member had
+ * already closed. The state beside it already says where they are; the
+ * instruction is spent, and is dropped wherever the navigator it was meant for
+ * has a state of its own to restore.
+ */
+function withoutSpentInstructions(state: NavigationState): NavigationState {
+  return {
+    ...state,
+    routes: state.routes.map((route) => {
+      const nested = (route as { state?: NavigationState }).state;
+      if (!nested) return route;
+      const params = route.params as Record<string, unknown> | undefined;
+      const kept =
+        params && typeof params.screen === 'string'
+          ? Object.fromEntries(
+              Object.entries(params).filter(
+                ([key]) => !['screen', 'params', 'initial', 'path', 'merge', 'pop', 'state'].includes(key),
+              ),
+            )
+          : params;
+      return { ...route, params: kept, state: withoutSpentInstructions(nested) };
+    }),
+  } as NavigationState;
+}
+
 /** Launch artwork is fetched once per process, not once per theme. */
 let artworkReady = false;
 
@@ -164,7 +196,7 @@ function AppShell() {
                 theme={navigationTheme(scheme === 'dark')}
                 initialState={lastNavigationState}
                 onStateChange={(state) => {
-                  lastNavigationState = state;
+                  lastNavigationState = state ? withoutSpentInstructions(state) : state;
                 }}
               >
                 <RootStack />

@@ -145,6 +145,26 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
   }, [index, items, onSecondLook, screenW, x, y]);
 
   /**
+   * Step through the deck without deciding, the way the arrows do on the web.
+   *
+   * Swiping and the Pass / Like buttons all record a decision; there was no
+   * way on the phone to simply look at the next person, or go back to the one
+   * before, without it counting. These move the cursor and nothing else — no
+   * swipe is recorded, and the card is still there to like or pass later.
+   */
+  const canBrowseBack = index > 0;
+  const canBrowseNext = index < items.length - 1;
+  const browse = useCallback(
+    (delta: 1 | -1) => {
+      haptics.selection();
+      x.value = 0;
+      y.value = 0;
+      setIndex((i) => Math.min(Math.max(i + delta, 0), Math.max(items.length - 1, 0)));
+    },
+    [items.length, x, y],
+  );
+
+  /**
    * The drag itself, on the UI thread.
    *
    * `activeOffsetX` and `failOffsetY` replace what `onMoveShouldSetPanResponder`
@@ -374,6 +394,12 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
             </View>
           </Animated.View>
           </GestureDetector>
+
+          {/* Outside the moving card, so they stay put while it is dragged,
+              and over its photo rather than beside it — a phone has no room
+              for two gutters without the card losing a third of its width. */}
+          <BrowseArrow side="left" disabled={!canBrowseBack} onPress={() => browse(-1)} />
+          <BrowseArrow side="right" disabled={!canBrowseNext} onPress={() => browse(1)} />
         </View>
 
       </View>
@@ -384,6 +410,35 @@ export function ProfileDeck({ items, saved, onSwipe, onSecondLook, onSave, onExh
         <ActionButton variant="like" label="Like" onPress={() => forceSwipe('like')} />
       </View>
     </View>
+  );
+}
+
+function BrowseArrow({
+  side,
+  disabled,
+  onPress,
+}: {
+  side: 'left' | 'right';
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel={side === 'left' ? 'Previous profile' : 'Next profile'}
+      accessibilityState={{ disabled }}
+      style={({ pressed }: { pressed: boolean }) => [
+        styles.browseArrow,
+        side === 'left' ? styles.browseArrowLeft : styles.browseArrowRight,
+        disabled ? styles.browseArrowDisabled : null,
+        pressed ? { transform: [{ scale: 0.92 }] } : null,
+      ]}
+    >
+      <Feather name={side === 'left' ? 'chevron-left' : 'chevron-right'} size={22} color="#FFFFFF" />
+    </Pressable>
   );
 }
 
@@ -609,6 +664,24 @@ const styles = themedStyles((colors) => ({
     boxShadow: '0 6px 16px rgba(46, 18, 64, 0.12)',
   },
   chevronActive: { borderColor: colors.primary, transform: [{ scale: 1.06 }] },
+  // A dark scrim disc, not a theme surface: these sit on the photo, which is
+  // the same in both themes, so their contrast has to come from themselves.
+  browseArrow: {
+    position: 'absolute',
+    top: '32%',
+    zIndex: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(22, 5, 31, 0.45)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  browseArrowLeft: { left: spacing.sm },
+  browseArrowRight: { right: spacing.sm },
+  browseArrowDisabled: { opacity: 0.3 },
   chevronDisabled: { opacity: 0.4 },
   card: {
     flex: 1,

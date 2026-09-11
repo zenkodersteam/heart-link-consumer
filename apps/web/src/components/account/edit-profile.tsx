@@ -265,10 +265,15 @@ export function EditProfile() {
                   i === REVIEW_PREF_GROUPS.length - 1 ? null : 'border-b border-line',
                 )}
               >
-                <span className="min-w-0 flex-1 text-left text-[14.5px] text-ink">
+                {/* The label never gives up width; the value takes what is
+                    left and truncates. It was the other way round — a
+                    shrinkable label beside a value sized to its own text — so
+                    the longest summaries (Lifestyle, Communication) squeezed
+                    the label to nothing and it printed underneath them. */}
+                <span className="shrink-0 text-left text-[14.5px] text-ink">
                   {group.label}
                 </span>
-                <span className="min-w-0 shrink truncate text-[13px] text-ink-soft">
+                <span className="min-w-0 flex-1 truncate text-right text-[13px] text-ink-soft">
                   {summarizePrefs(prefs, group.keys)}
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-ink-faint" aria-hidden />
@@ -369,8 +374,10 @@ function FieldRow({
         last ? null : 'border-b border-line',
       )}
     >
-      <span className="min-w-0 flex-1 text-[14.5px] text-ink">{label}</span>
-      <span className="min-w-0 shrink truncate text-[13px] text-ink-soft">{value}</span>
+      {/* Same rule as the preference rows: the label keeps its width and the
+          value truncates, so a long location cannot run under "Location". */}
+      <span className="shrink-0 text-[14.5px] text-ink">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right text-[13px] text-ink-soft">{value}</span>
       <ChevronRight className="size-4 shrink-0 text-ink-faint" aria-hidden />
     </button>
   );

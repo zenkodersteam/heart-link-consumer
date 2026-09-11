@@ -29,9 +29,9 @@ const SPECIAL_CHARACTER = /[^A-Za-z0-9]/;
  * screen that can do that. Anyone who genuinely cannot supply it has the
  * forgot-password flow on the sign-in screen.
  *
- * Laid out as two cards — what proves it is you, and what replaces it — with
- * the rules for the new password ticking off live underneath it, so nobody has
- * to press Save to learn what was wrong.
+ * One card holding all three fields, with the rules for the new password
+ * ticking off live underneath it, so nobody has to press Save to learn what
+ * was wrong.
  *
  * Every box reveals separately. Sharing one toggle across a password and its
  * confirmation shows the value being checked against, which is the opposite of
@@ -124,7 +124,6 @@ export default function ChangePasswordScreen() {
           </Text>
         </View>
 
-        <Text style={styles.groupLabel}>CURRENT</Text>
         <View style={styles.card}>
           <Field
             label="Current password"
@@ -139,14 +138,13 @@ export default function ChangePasswordScreen() {
             autoCapitalize="none"
             autoComplete="current-password"
             textContentType="password"
-            placeholder="The one you use now"
+            placeholder="Enter your current password"
             returnKeyType="next"
             onSubmitEditing={() => newRef.current?.focus()}
           />
-        </View>
 
-        <Text style={styles.groupLabel}>NEW</Text>
-        <View style={styles.card}>
+          <View style={styles.divider} />
+
           <Field
             ref={newRef}
             label="New password"
@@ -161,7 +159,7 @@ export default function ChangePasswordScreen() {
             autoCapitalize="none"
             autoComplete="new-password"
             textContentType="newPassword"
-            placeholder="Choose a new password"
+            placeholder="Enter a new password"
             returnKeyType="next"
             onSubmitEditing={() => confirmRef.current?.focus()}
           />
@@ -193,7 +191,7 @@ export default function ChangePasswordScreen() {
             autoCapitalize="none"
             autoComplete="new-password"
             textContentType="newPassword"
-            placeholder="Type it again"
+            placeholder="Confirm password"
             onSubmitEditing={() => void onSave()}
             returnKeyType="go"
           />
@@ -220,12 +218,6 @@ export default function ChangePasswordScreen() {
           style={styles.save}
         />
 
-        <View style={styles.footnote}>
-          <Feather name="shield" size={13} color={colors.textMuted} />
-          <Text style={styles.footnoteText}>
-            Forgot your current password? Sign out and choose “Forgot your password?” on the sign-in screen.
-          </Text>
-        </View>
       </KeyboardSafeScrollView>
     </SafeAreaView>
   );
@@ -248,14 +240,6 @@ const styles = themedStyles((colors) => ({
   heroTitle: { ...type.h2, fontSize: 21, color: colors.textPrimary, textAlign: 'center' },
   heroBody: { ...type.bodyMuted, fontSize: 14, lineHeight: 20, textAlign: 'center', maxWidth: 300 },
 
-  groupLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-    letterSpacing: 0.8,
-    color: colors.textMuted,
-    paddingHorizontal: 4,
-    paddingBottom: 7,
-  },
   card: {
     backgroundColor: colors.bgElevated,
     borderRadius: 20,
@@ -285,6 +269,4 @@ const styles = themedStyles((colors) => ({
 
   save: { marginTop: spacing.xs },
 
-  footnote: { flexDirection: 'row', gap: 8, marginTop: spacing.lg, paddingHorizontal: spacing.sm },
-  footnoteText: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 12.5, lineHeight: 18, color: colors.textMuted },
 }));

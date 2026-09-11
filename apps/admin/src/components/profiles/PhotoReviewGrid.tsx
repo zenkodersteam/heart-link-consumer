@@ -5,12 +5,13 @@ import { toast } from 'sonner';
 import { Camera, Star, CheckSquare, Square, Check, X } from 'lucide-react';
 import type { PendingPhoto } from '@heartlink/api-contract';
 import { Button } from '../ui/button';
-import { cn, formatTimelineDate } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import {
   bulkModeratePhotos,
   moderatePhoto,
   setPrimaryPhoto,
 } from '../../lib/actions';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 export function PhotoReviewGrid({ items }: { items: PendingPhoto[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -149,7 +150,7 @@ export function PhotoReviewGrid({ items }: { items: PendingPhoto[] }) {
                     {p.facilityName ?? '-'}
                   </span>
                   <span className="text-[12px] text-text-muted">
-                    {formatTimelineDate(p.createdAt)}
+                    <LocalTime value={p.createdAt} />
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">

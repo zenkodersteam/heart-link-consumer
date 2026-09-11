@@ -1,5 +1,5 @@
 import type { AuditLogEntry } from '@heartlink/api-contract';
-import { formatTimelineDate } from '../../lib/utils';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 export function ProfileActivityTimeline({
   entries,
@@ -26,7 +26,7 @@ export function ProfileActivityTimeline({
         {entries.map((entry) => (
           <li key={entry.id} className="flex flex-col gap-0.5 text-[13px]">
             <span className="text-text-muted">
-              {formatTimelineDate(entry.createdAt)}
+              <LocalTime value={entry.createdAt} />
             </span>
             <span className="text-text">{describe(entry)}</span>
           </li>

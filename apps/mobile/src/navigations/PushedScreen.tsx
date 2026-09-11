@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ScreenHeader } from '../components/ScreenHeader';
 import { colors, themedStyles } from '../theme';
 
 /**
@@ -25,6 +26,27 @@ export function withSafeTop<P extends object>(Screen: ComponentType<P>) {
     );
   }
   Pushed.displayName = `withSafeTop(${Screen.displayName ?? Screen.name ?? 'Screen'})`;
+  return Pushed;
+}
+
+/**
+ * The same frame, plus the round back control and a title.
+ *
+ * For screens that were designed as sheets and so never drew a way out of
+ * their own: a sheet is dismissed by dragging it down. Pushed instead — so the
+ * edge swipe on iOS works on them like everywhere else — they need the control
+ * a pushed screen has.
+ */
+export function withBackHeader<P extends object>(Screen: ComponentType<P>, title: string) {
+  function Pushed(props: P) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ScreenHeader title={title} />
+        <Screen {...props} />
+      </SafeAreaView>
+    );
+  }
+  Pushed.displayName = `withBackHeader(${Screen.displayName ?? Screen.name ?? 'Screen'})`;
   return Pushed;
 }
 

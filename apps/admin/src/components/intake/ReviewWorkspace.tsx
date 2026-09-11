@@ -71,13 +71,13 @@ export function ReviewWorkspace({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="flex shrink-0 items-center gap-4 border-b border-border bg-surface px-6 py-3">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5 sm:px-6">
         <Link
           href="/intake"
           className="flex items-center gap-1.5 text-[13px] font-medium leading-[18px] text-primary hover:underline transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <ArrowLeft className="size-4" />
-          Back to Queue
+          <span className="hidden sm:inline">Back to queue</span>
         </Link>
         <div className="flex-1" />
         <div className="flex items-baseline gap-3">
@@ -99,7 +99,7 @@ export function ReviewWorkspace({
           }
         >
           <ChevronLeft className="size-4" />
-          Previous
+          <span className="hidden sm:inline">Previous</span>
         </Link>
         <Link
           href={nextId ? `/intake/review/${nextId}` : '#'}
@@ -110,23 +110,27 @@ export function ReviewWorkspace({
               : 'inline-flex items-center gap-1 rounded-sm border border-border bg-background px-3.5 py-1.5 text-[13px] font-medium leading-[18px] text-text-muted opacity-50 pointer-events-none'
           }
         >
-          Next
+          <span className="hidden sm:inline">Next</span>
           <ChevronRight className="size-4" />
         </Link>
       </div>
 
-      {/* Split panels */}
-      <div className="flex flex-1 min-h-0">
-        <DocumentViewerPanel application={application} document={document} />
+      {/* Document and fields side by side on a wide screen; stacked below
+          that, document first, so neither is ever squeezed to a sliver. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <DocumentViewerPanel
+          document={document}
+          className="h-[62vh] shrink-0 border-b border-border lg:h-auto lg:flex-1 lg:border-b-0 lg:border-r"
+        />
         <OcrFieldEditor
           applicationId={application.id}
-          applicationNumber={application.applicationNumber}
           document={document}
+          className="min-h-[70vh] shrink-0 lg:min-h-0 lg:w-[46%] lg:max-w-[680px] lg:shrink"
         />
       </div>
 
       {/* Bottom action bar */}
-      <div className="flex shrink-0 items-center gap-3 border-t border-border bg-background px-6 py-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-background px-4 py-2.5 sm:px-6">
         {/* Saving field corrections lives in the field panel, next to the
             fields and to the form state that knows whether anything actually
             changed. This bar is for what happens to the application. Having

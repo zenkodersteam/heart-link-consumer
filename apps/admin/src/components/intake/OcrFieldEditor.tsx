@@ -5,17 +5,12 @@ import { Controller, useForm, type Control } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ACTIVE_FORM_SCHEMA, type FieldSpec } from '@heartlink/domain';
 
-import { OcrDiagnosticsNotice } from './OcrDiagnosticsNotice';
 import type { IntakeDocument } from '@heartlink/api-contract';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Button } from '../ui/button';
-import { ConfidenceBadge } from './ConfidenceBadge';
 import { updateDocumentFields } from '../../lib/actions';
-import {
-  bucketConfidence,
-  confidenceBorderClass,
-} from '../../lib/confidence';
+import { bucketConfidence, type ConfidenceBucket } from '../../lib/confidence';
 import { cn } from '../../lib/utils';
 import { Select } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
@@ -39,12 +34,12 @@ type FieldFormState = Record<string, FieldValue>;
 
 export function OcrFieldEditor({
   applicationId,
-  applicationNumber,
   document,
+  className,
 }: {
   applicationId: string;
-  applicationNumber: string;
   document: IntakeDocument | null;
+  className?: string;
 }) {
   const scores = (document?.ocrConfidenceScores ?? {}) as Record<
     string,
@@ -76,63 +71,80 @@ export function OcrFieldEditor({
       return;
     }
     startTransition(async () => {
-      try {
-        await updateDocumentFields({
-          documentId: document.id,
-          applicationId,
-          fields: changed,
-        });
-        setSavedAt(new Date());
-        toast.success(`Saved ${Object.keys(changed).length} field(s)`);
-        form.reset(values);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        toast.error(`Save failed: ${msg}`);
+      const result = await updateDocumentFields({
+        documentId: document.id,
+        applicationId,
+        fields: changed,
+      });
+      if (!result.ok) {
+        toast.error('Could not save', { description: result.error });
+        return;
       }
+      setSavedAt(new Date());
+      toast.success('Changes saved');
+      form.reset(values);
     });
   };
+
+  // Nothing came back pre-filled: say so once, in plain words, rather than
+  // leaving a page of blank boxes that looks like a failure to load.
+  const prefilled = Object.values(initialValues).some((v) =>
+    Array.isArray(v) ? v.length > 0 : v !== '',
+  );
+  const dirty = form.formState.isDirty;
 
   return (
     <form
       id="ocr-field-editor-form"
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex h-full flex-[1.15] flex-col overflow-hidden bg-background"
+      className={cn('flex min-h-0 flex-col overflow-hidden bg-background', className)}
     >
-      {/* Form header strip */}
-      <div className="flex shrink-0 items-center border-b border-border bg-surface px-5 py-3">
-        <h2 className="text-sm font-semibold leading-5 text-text">
-          {applicationNumber} - OCR Extracted Fields
-        </h2>
+      {/* Save sits with the fields it saves. It used to have a bar of its own
+          at the foot of this panel, directly above the page's decision bar —
+          two rows of buttons stacked at the bottom of one screen. */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-2.5">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold leading-5 text-text">Applicant details</h2>
+          <p className="text-[11px] leading-4 text-text-muted">
+            {dirty
+              ? 'Unsaved changes'
+              : savedAt
+                ? `Saved at ${savedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                : 'Check each field against the document'}
+          </p>
+        </div>
         <div className="flex-1" />
-        {savedAt && (
-          <span className="text-xs text-text-muted">
-            Saved {savedAt.toLocaleTimeString()}
-          </span>
-        )}
+        <Button
+          type="submit"
+          size="sm"
+          variant={dirty ? 'primary' : 'outline'}
+          disabled={isPending || !document || !dirty}
+        >
+          {isPending ? 'Saving…' : 'Save changes'}
+        </Button>
       </div>
 
       {/* Scrollable field list, grouped by the PDF's printed sections */}
-      <div className="@container min-h-0 flex-1 overflow-auto pb-2">
-        {/* Only appears when the read finished and mapped nothing - the one
-            case where a page of blank inputs is not the whole story. */}
-        <OcrDiagnosticsNotice document={document} />
+      <div className="@container min-h-0 flex-1 overflow-auto pb-4">
+        {document && !prefilled ? (
+          <p className="mx-4 mt-3 rounded-md bg-surface px-3 py-2 text-xs leading-5 text-text-muted">
+            Nothing could be filled in automatically for this document. Enter the details as they
+            appear on the form.
+          </p>
+        ) : null}
         {groupFieldsBySection(ACTIVE_FORM_SCHEMA).map((group) => (
           <section key={group.title ?? 'fields'}>
             {group.title ? (
               // Sticky, because the section is the only thing telling a reviewer
-              // which part of the paper form they are looking at, and it used to
-              // scroll away within a few fields.
-              <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-1.5 backdrop-blur">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-gold">
+              // which part of the paper form they are looking at.
+              <div className="sticky top-0 z-10 border-b border-border bg-background/95 px-5 pb-2 pt-4 backdrop-blur">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">
                   {group.title}
                 </span>
-                <span className="h-px flex-1 bg-gradient-to-r from-accent-gold/30 to-transparent" />
               </div>
             ) : null}
-            {/* Two columns once the pane is wide enough. Fifty-three fields in a
-                single column is roughly six screens of scrolling to check one
-                application; paired up it is close to three. */}
-            <div className="grid items-start gap-x-4 gap-y-2.5 px-4 pb-5 pt-2.5 @xl:grid-cols-2">
+            {/* Two columns once the pane is wide enough. */}
+            <div className="grid items-start gap-x-4 gap-y-3.5 px-5 pb-2 pt-3 @xl:grid-cols-2">
               {group.fields.map((field) => (
                 <FieldRow
                   key={field.key}
@@ -147,20 +159,21 @@ export function OcrFieldEditor({
           </section>
         ))}
       </div>
-
-      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-background px-5 py-3">
-        <div className="flex-1" />
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          disabled={isPending || !document || !form.formState.isDirty}
-        >
-          {isPending ? 'Saving…' : 'Save Corrections'}
-        </Button>
-      </div>
     </form>
   );
+}
+
+/**
+ * A field the scan was unsure of: an amber or red edge, and a "Check" tag.
+ *
+ * In words a reviewer uses rather than a percentage. Fields with no reading at
+ * all keep the ordinary border — on a form nothing was read from, every one of
+ * them being dashed was noise, not a signal.
+ */
+function doubtBorder(bucket: ConfidenceBucket): string {
+  if (bucket === 'low') return 'border-danger/70 focus-visible:ring-danger/25';
+  if (bucket === 'mid') return 'border-warning/70 focus-visible:ring-warning/25';
+  return '';
 }
 
 /**
@@ -200,24 +213,34 @@ function FieldRow({
   disabled?: boolean;
 }) {
   const bucket = bucketConfidence(confidence);
-  const borderCls = confidenceBorderClass(bucket);
+  const borderCls = doubtBorder(bucket);
+  const doubtful = bucket === 'low' || bucket === 'mid';
   const id = `ocr-field-${field.key}`;
   const name = field.key;
   const isMultiEnum = field.type === 'enum' && field.multi === true;
   const wide = field.multiLine === true || isMultiEnum;
 
   return (
-    <div className={cn('flex min-w-0 flex-col gap-0.5', wide && '@xl:col-span-2')}>
+    <div className={cn('flex min-w-0 flex-col gap-1', wide && '@xl:col-span-2')}>
       <div className="flex items-center gap-2">
         <label
           htmlFor={id}
-          className="truncate text-[11px] font-medium leading-4 text-text-muted"
+          className="truncate text-xs font-medium leading-4 text-text"
         >
           {field.label}
           {field.required && <span className="ml-0.5 text-danger">*</span>}
         </label>
         <div className="flex-1" />
-        <ConfidenceBadge confidence={confidence} />
+        {doubtful ? (
+          <span
+            className={cn(
+              'rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide',
+              bucket === 'low' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning',
+            )}
+          >
+            Check
+          </span>
+        ) : null}
       </div>
 
       {field.multiLine ? (
@@ -238,7 +261,10 @@ function FieldRow({
           control={control}
           name={name}
           render={({ field: rhf }) => (
-            <div className={cn('flex items-center gap-2 rounded-sm px-2.5 py-2', borderCls)}>
+            <label
+              htmlFor={id}
+              className={cn('flex h-9 cursor-pointer items-center gap-2 rounded-sm border border-border px-2.5', borderCls)}
+            >
               <Checkbox
                 id={id}
                 disabled={disabled}
@@ -249,7 +275,7 @@ function FieldRow({
               <span className="text-sm text-text">
                 {rhf.value === 'true' ? 'Yes' : 'No'}
               </span>
-            </div>
+            </label>
           )}
         />
       ) : field.type === 'date' ? (
@@ -281,7 +307,7 @@ function FieldRow({
               value={typeof rhf.value === 'string' ? rhf.value : ''}
               onValueChange={rhf.onChange}
               options={[
-                { value: '', label: '-' },
+                { value: '', label: 'Select…' },
                 ...(field.enumValues ?? []).map((v) => ({
                   value: v,
                   label: humanizeEnumValue(v),

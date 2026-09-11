@@ -293,11 +293,13 @@ export default function ProfileDetailScreen() {
             pressed ? { transform: [{ scale: 0.94 }] } : null,
           ]}
         >
-          {/* Fixed dark, not `textPrimary`. This button floats on the photo,
-              not on the page, and its pill is a fixed cream in both themes —
-              so following the page's text colour turned the glyph light on a
-              light pill at night and left the control invisible. */}
-          <Feather name="more-vertical" size={18} color={colors.midnight} />
+          {/* Pill and glyph follow the theme together — the page's raised
+              surface with the page's text colour — so at night it is a dark
+              control with a light glyph like every other one in the app,
+              rather than a cream disc that ignored the theme. They change as
+              a pair, which is what keeps the glyph visible: it was the pill
+              staying cream while the glyph went light that hid it before. */}
+          <Feather name="more-vertical" size={18} color={colors.textPrimary} />
         </Pressable>
       </View>
 
@@ -464,6 +466,7 @@ export default function ProfileDetailScreen() {
           <Button
             label={saved ? 'Liked' : 'Like'}
             variant="secondary"
+            iconInline
             // Filled once liked, outline before: the icon says the state, so
             // the word does not have to carry it alone.
             icon={
@@ -665,7 +668,16 @@ const styles = themedStyles((colors) => ({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(251,245,232,0.92)',
+    backgroundColor: colors.bgElevated,
+    // A hairline and a lift, so the disc still separates from a photo that
+    // happens to be the same tone as the theme's surface.
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   // Clears SHEET_OVERLAP as well as its own margin: the sheet is lifted over
   // the foot of the photo, and without this it cut the state line in half.

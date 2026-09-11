@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useSession } from '../../lib/session';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +19,7 @@ import { SubscriptionPlans } from '../../components/SubscriptionPlans';
 import type { LetterEntitlement } from '@heartlink/consumer-api';
 import { humanError } from '../../lib/errors';
 import { useApiClientFactory } from '../../lib/use-api-client';
+import { useRefetchOnReturn } from '../../lib/use-refetch-on-return';
 import { clearMyProfileCache, useMyProfile } from '../../lib/use-my-profile';
 import { useNavigation, useRoute } from '@react-navigation/native';
 
@@ -46,21 +47,24 @@ export default function AccountScreen() {
   const isDesktop = width >= 900;
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const api = await apiFactory();
-        const e = await api.getLetterEntitlement();
-        if (active) setEntitlement(e);
-      } catch (e) {
-        if (active) setLoadError(humanError(e, "Your account details aren't available right now."));
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  const loadEntitlement = useCallback(async () => {
+    try {
+      const api = await apiFactory();
+      setEntitlement(await api.getLetterEntitlement());
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(humanError(e, "Your account details aren't available right now."));
+    }
   }, [apiFactory]);
+
+  useEffect(() => {
+    void loadEntitlement();
+  }, [loadEntitlement]);
+
+  // The letter count changes when something is bought on the website, which
+  // happens outside the app; this tab stays mounted and used to keep showing
+  // the count from before the purchase until a restart.
+  useRefetchOnReturn(useCallback(() => void loadEntitlement(), [loadEntitlement]));
 
   /**
    * Close the account. Both stores require this to be reachable in the app.
@@ -116,8 +120,8 @@ export default function AccountScreen() {
               ? 'Changes not sent'
               : 'Incomplete';
 
-  const email = user?.email ?? '-';
-  const initial = (profile?.displayName?.[0] ?? email[0] ?? '?').toUpperCase();
+  const email = user?.email ?? null;
+  const initial = (profile?.displayName?.[0] ?? email?.[0] ?? '?').toUpperCase();
   const quotaLabel =
     entitlement === null
       ? null
@@ -166,9 +170,12 @@ export default function AccountScreen() {
             <Text style={styles.lidName} numberOfLines={1} maxFontSizeMultiplier={1.4}>
               {profile?.displayName || 'Your account'}
             </Text>
-            <Text style={styles.email} numberOfLines={1} maxFontSizeMultiplier={1.4}>
-              {email}
-            </Text>
+            {/* Left out rather than shown as a dash when it is not known. */}
+            {email ? (
+              <Text style={styles.email} numberOfLines={1} maxFontSizeMultiplier={1.4}>
+                {email}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -304,7 +311,10 @@ const styles = themedStyles((colors) => ({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    boxShadow: '0 0 0 3px #fff, 0 0 0 5px rgba(214,168,79,0.6)',
+    // One hairline of gold. It was a 3px white ring inside a 2px gold one —
+    // five points of frame on a 46pt photo, and a white halo in dark mode.
+    borderWidth: 1.5,
+    borderColor: 'rgba(214,168,79,0.7)',
   },
   avatarText: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: colors.sidebarText },
   lidName: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: colors.textPrimary },

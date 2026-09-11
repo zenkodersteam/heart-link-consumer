@@ -3,7 +3,8 @@ import type { AdminUserDetail } from '@heartlink/api-contract';
 
 import { Card, CardBody, CardHeader, CardTitle } from '../ui/card';
 import { PaymentStatusBadge } from '../payments/PaymentStatusBadge';
-import { formatShortDate, formatTimelineDate } from '../../lib/utils';
+import { formatShortDate } from '../../lib/utils';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -29,7 +30,7 @@ export function AccountPanel({ user }: { user: AdminUserDetail }) {
         <dl>
           <Row label="Email">{user.email}</Row>
           <Row label="Verified">
-            {user.emailVerifiedAt ? formatTimelineDate(user.emailVerifiedAt) : 'Not yet'}
+            <LocalTime value={user.emailVerifiedAt} fallback="Not yet" />
           </Row>
           <Row label="Password">
             {user.hasPassword

@@ -2,7 +2,9 @@ import { Feather } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Keyboard,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -141,6 +143,8 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
   const appliedCount =
     (ageMin != null || ageMax != null ? 1 : 0) + (state.trim() ? 1 : 0) + (gender ? 1 : 0);
 
+  const keyboard = useKeyboardHeight();
+
   return (
     <Modal
       visible={open}
@@ -148,7 +152,17 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
       animationType={isWide ? 'fade' : 'slide'}
       onRequestClose={onClose}
     >
-      <Pressable style={[styles.backdrop, isWide ? styles.backdropWide : null]} onPress={onClose}>
+      <Pressable
+        style={[
+          styles.backdrop,
+          isWide ? styles.backdropWide : null,
+          // Rest the sheet on the keyboard, not behind it. A Modal is its own
+          // window, so nothing outside it makes room: the age and state inputs
+          // opened the keyboard straight over themselves.
+          keyboard > 0 ? { paddingBottom: keyboard + spacing.sm } : null,
+        ]}
+        onPress={onClose}
+      >
         <Animated.View
           style={[
             { width: '100%', alignItems: 'center' },
@@ -302,6 +316,25 @@ export function FilterSheet({ open, query, onClose, onApply }: FilterSheetProps)
       </Pressable>
     </Modal>
   );
+}
+
+/** How tall the keyboard is while it is up, and 0 while it is not. */
+function useKeyboardHeight(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const isIos = Platform.OS === 'ios';
+    const show = Keyboard.addListener(isIos ? 'keyboardWillShow' : 'keyboardDidShow', (e) =>
+      setHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(isIos ? 'keyboardWillHide' : 'keyboardDidHide', () =>
+      setHeight(0),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return height;
 }
 
 const styles = themedStyles((colors) => ({

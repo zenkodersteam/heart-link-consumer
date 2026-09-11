@@ -4,6 +4,7 @@ import type { ListActivityQuery } from '@heartlink/api-contract';
 import { serverApi } from '../../../lib/api';
 import { ActivityFilters } from '../../../components/activity/ActivityFilters';
 import { Pagination } from '../../../components/intake/Pagination';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,7 +86,7 @@ export default async function ActivityPage({
               {activity.items.map((e) => (
                 <tr key={e.id} className="border-t border-border align-top">
                   <td className="whitespace-nowrap px-4 py-3 text-text-muted">
-                    {new Date(e.createdAt).toLocaleString()}
+                    <LocalTime value={e.createdAt} style="full" />
                   </td>
                   <td className="px-4 py-3 font-medium text-text">{e.label}</td>
                   <td className="px-4 py-3 text-text-muted">

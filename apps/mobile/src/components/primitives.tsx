@@ -184,6 +184,15 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
   variant?: 'primary' | 'secondary' | 'ghost';
   loading?: boolean;
   icon?: ReactNode;
+  /**
+   * Seat the icon beside the label instead of at the button's left edge.
+   *
+   * The edge placement is right for a full-width call to action, where the
+   * label is centred in a wide pill. In a narrow button it is not: the icon
+   * sits at a fixed offset from the edge while the label centres, and the two
+   * met with no space between them — "♥Liked" on the profile screen.
+   */
+  iconInline?: boolean;
   pill?: boolean;
 }
 
@@ -196,7 +205,7 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
  * primary action is a commit, a secondary one is a selection - so the whole
  * app answers a finger the same way without each screen deciding.
  */
-export function Button({ label, variant = 'primary', loading, disabled, icon, pill, style, onPress, ...rest }: ButtonProps) {
+export function Button({ label, variant = 'primary', loading, disabled, icon, iconInline, pill, style, onPress, ...rest }: ButtonProps) {
   const isDisabled = disabled || loading;
   const v = btnVariants()[variant];
   const isPrimary = variant === 'primary';
@@ -235,7 +244,9 @@ export function Button({ label, variant = 'primary', loading, disabled, icon, pi
       ]}
       {...rest}
     >
-      {icon && !loading ? <View style={btnStyles.iconLeft}>{icon}</View> : null}
+      {icon && !loading ? (
+        <View style={iconInline ? btnStyles.iconInline : btnStyles.iconLeft}>{icon}</View>
+      ) : null}
       {loading ? <ActivityIndicator size="small" color={v.fg} style={btnStyles.spinner} /> : null}
       {/* Capped, not free-scaling: this label sits in a fixed-height pill, and
           at 200% Dynamic Type an uncapped one clips instead of wrapping. */}
@@ -282,6 +293,7 @@ const btnStyles = themedStyles((colors) => ({
   },
   pill: { borderRadius: radii.pill, paddingVertical: spacing.lg },
   iconLeft: { position: 'absolute', left: spacing.xl + spacing.sm },
+  iconInline: { marginRight: spacing.sm },
   spinner: { marginRight: spacing.sm },
   // flexShrink matters because `base` is flexDirection:'row' (to seat the
   // spinner beside the label). Without it the text refuses to shrink and

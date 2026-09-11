@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   Download,
   ExternalLink,
   FileText,
@@ -11,16 +13,14 @@ import {
   Minus,
   Plus,
   RotateCw,
-  ShieldCheck,
 } from 'lucide-react';
-import type { Application, IntakeDocument } from '@heartlink/api-contract';
+import type { IntakeDocument } from '@heartlink/api-contract';
 import { refreshDocumentUrl } from '../../lib/actions';
-import { APPLICATION_STATUS_LABEL } from '../../lib/adminLabels';
 import { cn } from '../../lib/utils';
 
 interface DocumentViewerPanelProps {
-  application: Application;
   document: IntakeDocument | null;
+  className?: string;
 }
 
 interface PdfDocumentProxy {
@@ -59,7 +59,7 @@ function documentLabel(document: IntakeDocument | null): string {
 }
 const ZOOM_LEVELS = [0.72, 0.86, 1, 1.18, 1.36, 1.6];
 
-export function DocumentViewerPanel({ application, document }: DocumentViewerPanelProps) {
+export function DocumentViewerPanel({ document, className }: DocumentViewerPanelProps) {
   const [pdf, setPdf] = useState<PdfDocumentProxy | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<'missing' | 'render' | null>(null);
@@ -231,181 +231,139 @@ export function DocumentViewerPanel({ application, document }: DocumentViewerPan
     pageRefs.current[pageNumber - 1]?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
+  const pageCount = pages.length;
+
   return (
-    <div className="flex h-full min-w-0 flex-1 overflow-hidden border-r border-border bg-[radial-gradient(circle_at_12%_8%,rgba(219, 2, 82,0.10),transparent_28%),linear-gradient(135deg,#fbf1eb_0%,#f5ebe5_48%,#efe3dd_100%)]">
-      <aside className="hidden w-[184px] shrink-0 flex-col border-r border-border/80 bg-[#fffaf7]/88 p-3 shadow-[inset_-1px_0_0_rgba(255,255,255,0.7)] xl:flex">
-        <div className="mb-3 rounded-2xl border border-border bg-background p-3 shadow-soft">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-gold">
-            <ShieldCheck className="size-3.5" />
-            Review packet
-          </div>
-          <div className="mt-1 font-serif text-[17px] leading-tight text-text">
-            {application.applicationNumber}
-          </div>
-          <div className="mt-2 inline-flex rounded-full border border-primary/15 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-            {APPLICATION_STATUS_LABEL[application.status]}
-          </div>
+    <section
+      className={cn('flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface-muted', className)}
+    >
+      {/* One quiet toolbar: what this is, where you are in it, and how big. The
+          left rail of page "thumbnails" is gone — they were placeholder lines,
+          not the pages — and page stepping lives here instead. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border bg-background px-3 py-2 text-xs text-text-muted">
+        <div className="mr-auto flex min-w-0 items-center gap-2 pl-1 font-semibold text-text">
+          <FileText className="size-4 shrink-0 text-primary" />
+          <span className="truncate text-[13px]">{documentLabel(document)}</span>
         </div>
 
-        <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-          Pages
-        </div>
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-          {pages.length > 0 ? (
-            pages.map((pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                onClick={() => scrollToPage(pageNumber)}
-                className={`group w-full rounded-2xl border p-2 text-left transition-all active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
-                  activePage === pageNumber
-                    ? 'border-primary/30 bg-primary/10 shadow-soft'
-                    : 'border-border bg-background/82 hover:border-border-strong hover:bg-white'
-                }`}
-              >
-                <div className="aspect-[3/4] overflow-hidden rounded-xl border border-border bg-gradient-to-br from-white to-surface-muted p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-                  <div className="h-2 w-16 rounded-full bg-primary/20" />
-                  <div className="mt-3 grid grid-cols-2 gap-1">
-                    <div className="h-2 rounded bg-text/10" />
-                    <div className="h-2 rounded bg-text/10" />
-                    <div className="h-2 rounded bg-text/10" />
-                    <div className="h-2 rounded bg-text/10" />
-                  </div>
-                  <div className="mt-3 space-y-1.5">
-                    <div className="h-1.5 rounded bg-primary/16" />
-                    <div className="h-1.5 rounded bg-text/10" />
-                    <div className="h-1.5 rounded bg-text/10" />
-                    <div className="h-1.5 rounded bg-text/10" />
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-semibold text-text">{pageNumber}</span>
-                  <span className="truncate text-[11px] text-text-muted">
-                    {`Page ${pageNumber}`}
-                  </span>
-                </div>
-              </button>
-            ))
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border bg-background/70 p-4 text-center text-xs text-text-muted">
-              No pages to show yet.
-            </div>
-          )}
-        </div>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-[#fffaf7]/92 px-4 py-3 text-xs text-text-muted backdrop-blur">
-          {/* Names the document on screen. It used to read "Custom PDF
-              Review", which named nothing — reviewers took it for a mode the
-              viewer had defaulted into, and reported the applicant's own file
-              as a placeholder. */}
-          <div className="mr-2 flex min-w-0 items-center gap-2 font-semibold text-text">
-            <FileText className="size-4 shrink-0 text-primary" />
-            <span className="truncate">{documentLabel(document)}</span>
-          </div>
-          <button
-            type="button"
-            aria-label="Zoom out"
-            onClick={() => stepZoom(-1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <Minus className="size-3.5" />
-          </button>
-          <span className="min-w-14 rounded-full border border-border bg-background px-3 py-1.5 text-center font-semibold text-text">
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            onClick={() => stepZoom(1)}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <Plus className="size-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setFitMode(true)}
-            className={cn(pillCls, fitMode && activePillCls)}
-          >
-            Fit width
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFitMode(false);
-              setZoomIndex(2);
-            }}
-            className="hidden rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 sm:inline-flex"
-          >
-            100%
-          </button>
-          <button
-            type="button"
-            onClick={() => setRotation((value) => (value + 90) % 360)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <RotateCw className="size-3.5" />
-            Rotate
-          </button>
-          <div className="flex-1" />
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              download
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-background px-3 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        {pageCount > 1 ? (
+          <div className="flex items-center gap-0.5">
+            <IconButton
+              label="Previous page"
+              disabled={activePage <= 1}
+              onClick={() => scrollToPage(Math.max(1, activePage - 1))}
             >
-              <Download className="size-3.5" />
-              Original
-            </a>
-          )}
-        </div>
+              <ChevronUp className="size-3.5" />
+            </IconButton>
+            <span className="min-w-[4.5rem] text-center font-medium tabular-nums text-text">
+              Page {activePage} / {pageCount}
+            </span>
+            <IconButton
+              label="Next page"
+              disabled={activePage >= pageCount}
+              onClick={() => scrollToPage(Math.min(pageCount, activePage + 1))}
+            >
+              <ChevronDown className="size-3.5" />
+            </IconButton>
+          </div>
+        ) : null}
 
-        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4">
-          {!document || !sourceUrl ? (
-            <EmptyDocumentState />
-          ) : isImage(document.mimeType) ? (
-            <ImageDocument sourceUrl={sourceUrl} />
-          ) : isLoading ? (
-            <LoadingDocumentState />
-          ) : loadError || !pdf ? (
-            <PdfFallbackState sourceUrl={sourceUrl} error={loadError} />
-          ) : (
-            <div className="mx-auto flex w-fit min-w-full flex-col gap-5 pb-6">
-              {pages.map((pageNumber) => (
-                <div
-                  key={pageNumber}
-                  ref={(node) => {
-                    pageRefs.current[pageNumber - 1] = node;
-                  }}
-                  className="group scroll-mt-5"
-                >
-                  <div className="mb-2 flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-sidebar px-2.5 py-1 text-[11px] font-bold text-sidebar-text">
-                        Page {pageNumber}
-                      </span>
-                      <span className="text-xs font-semibold text-text-muted">
-                        {documentLabel(document)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-[#fffaf7] p-2 shadow-[0_6px_18px_rgba(46,18,64,0.10)]">
-                    <PdfCanvasPage
-                      pdf={pdf}
-                      pageNumber={pageNumber}
-                      scale={zoom}
-                      rotation={rotation}
-                      onVisible={setActivePage}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-    </div>
+        {isPdfDocument ? (
+          <div className="flex items-center gap-0.5 border-l border-border pl-1.5">
+            <IconButton label="Zoom out" onClick={() => stepZoom(-1)}>
+              <Minus className="size-3.5" />
+            </IconButton>
+            <button
+              type="button"
+              onClick={() => setFitMode(true)}
+              title="Fit to width"
+              className={cn(
+                'min-w-[3.25rem] rounded-md px-2 py-1 text-center font-medium tabular-nums transition-colors hover:bg-surface',
+                fitMode ? 'text-primary' : 'text-text',
+              )}
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <IconButton label="Zoom in" onClick={() => stepZoom(1)}>
+              <Plus className="size-3.5" />
+            </IconButton>
+            <IconButton label="Rotate" onClick={() => setRotation((value) => (value + 90) % 360)}>
+              <RotateCw className="size-3.5" />
+            </IconButton>
+          </div>
+        ) : null}
+
+        {sourceUrl ? (
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open original"
+            title="Open original"
+            className="grid size-8 place-items-center rounded-md text-text transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          >
+            <Download className="size-3.5" />
+          </a>
+        ) : null}
+      </div>
+
+      <div ref={scrollerRef} className="min-h-0 flex-1 overflow-auto px-3 py-4 sm:px-4">
+        {!document || !sourceUrl ? (
+          <EmptyDocumentState />
+        ) : isImage(document.mimeType) ? (
+          <ImageDocument sourceUrl={sourceUrl} />
+        ) : isLoading ? (
+          <LoadingDocumentState />
+        ) : loadError || !pdf ? (
+          <PdfFallbackState sourceUrl={sourceUrl} error={loadError} />
+        ) : (
+          <div className="mx-auto flex w-fit min-w-full flex-col items-center gap-4 pb-6">
+            {pages.map((pageNumber) => (
+              <div
+                key={pageNumber}
+                ref={(node) => {
+                  pageRefs.current[pageNumber - 1] = node;
+                }}
+                className="scroll-mt-4 overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(46,18,64,0.06),0_8px_24px_rgba(46,18,64,0.08)] ring-1 ring-border"
+              >
+                <PdfCanvasPage
+                  pdf={pdf}
+                  pageNumber={pageNumber}
+                  scale={zoom}
+                  rotation={rotation}
+                  onVisible={setActivePage}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className="grid size-8 place-items-center rounded-md text-text transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:pointer-events-none disabled:opacity-35"
+    >
+      {children}
+    </button>
   );
 }
 
@@ -482,7 +440,7 @@ function PdfCanvasPage({
   }, [onVisible, pageNumber]);
 
   return (
-    <div ref={wrapperRef} className="relative overflow-hidden rounded-[20px] bg-white">
+    <div ref={wrapperRef} className="relative bg-white">
       {isRendering && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-white/70 backdrop-blur-[1px]">
           <Loader2 className="size-5 animate-spin text-primary" />
@@ -495,21 +453,21 @@ function PdfCanvasPage({
 
 function ImageDocument({ sourceUrl }: { sourceUrl: string }) {
   return (
-    <div className="mx-auto max-w-4xl rounded-[28px] border border-border bg-[#fffaf7] p-3 shadow-card">
+    <div className="mx-auto max-w-4xl overflow-hidden rounded-lg bg-white ring-1 ring-border shadow-[0_8px_24px_rgba(46,18,64,0.08)]">
       {/* Runtime presigned URLs are not known at build time, so next/image is not a fit. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={sourceUrl} alt="Scanned document" className="w-full rounded-[20px] bg-white" />
+      <img src={sourceUrl} alt="Scanned document" className="w-full bg-white" />
     </div>
   );
 }
 
 function EmptyDocumentState() {
   return (
-    <div className="mx-auto mt-16 flex max-w-md flex-col items-center rounded-[28px] border border-dashed border-border bg-background/82 p-8 text-center shadow-soft">
+    <div className="mx-auto mt-16 flex max-w-sm flex-col items-center rounded-xl border border-dashed border-border bg-background p-8 text-center">
       <FileX className="size-10 text-text-muted" />
-      <h3 className="mt-4 font-serif text-2xl text-text">No document attached</h3>
-      <p className="mt-2 text-sm leading-6 text-text-muted">
-        Upload a returned scan to review the application packet here.
+      <h3 className="mt-4 text-base font-semibold text-text">No document attached</h3>
+      <p className="mt-1 text-sm leading-6 text-text-muted">
+        Upload the scanned application to review it here.
       </p>
     </div>
   );
@@ -517,12 +475,9 @@ function EmptyDocumentState() {
 
 function LoadingDocumentState() {
   return (
-    <div className="mx-auto mt-16 flex max-w-md flex-col items-center rounded-[28px] border border-border bg-background/88 p-8 text-center shadow-soft">
+    <div className="mx-auto mt-16 flex max-w-sm flex-col items-center p-8 text-center">
       <Loader2 className="size-8 animate-spin text-primary" />
-      <h3 className="mt-4 font-serif text-2xl text-text">Preparing premium viewer</h3>
-      <p className="mt-2 text-sm leading-6 text-text-muted">
-        Rendering each PDF page into the HeartLink review workspace.
-      </p>
+      <h3 className="mt-4 text-base font-semibold text-text">Opening document…</h3>
     </div>
   );
 }
@@ -536,15 +491,15 @@ function PdfFallbackState({
 }) {
   const missing = error === 'missing';
   return (
-    <div className="mx-auto mt-16 flex max-w-lg flex-col items-center rounded-[28px] border border-warning/20 bg-background/88 p-8 text-center shadow-soft">
+    <div className="mx-auto mt-16 flex max-w-md flex-col items-center rounded-xl border border-border bg-background p-8 text-center">
       <AlertTriangle className="size-9 text-warning" />
-      <h3 className="mt-4 font-serif text-2xl text-text">
-        {missing ? 'Document not in storage' : 'Custom render unavailable'}
+      <h3 className="mt-4 text-base font-semibold text-text">
+        {missing ? 'Document file is missing' : 'This document could not be displayed'}
       </h3>
       <p className="mt-2 text-sm leading-6 text-text-muted">
         {missing
-          ? 'This application has a document on record, but the file itself is not in storage. The extracted fields cannot be checked against it - upload the scan again before approving.'
-          : 'The page could not be drawn into the review canvas. The original file is still readable.'}
+          ? 'The file for this application could not be found. Upload the scan again before approving.'
+          : 'You can still open the original file in a new tab.'}
       </p>
       {!missing && (
         <a
@@ -561,13 +516,8 @@ function PdfFallbackState({
   );
 }
 
-/** Toolbar pill, and the same pill when its mode is the one in effect. */
-const pillCls =
-  'hidden rounded-full border border-border bg-background px-3 py-1.5 font-semibold text-text transition-all hover:border-border-strong hover:bg-white active:scale-95 sm:inline-flex';
-const activePillCls = 'border-primary/30 bg-primary-tint text-primary';
-
-function isImage(mime: string): boolean {
-  return mime.startsWith('image/');
+function isImage(mime: string | null | undefined): boolean {
+  return Boolean(mime?.startsWith('image/'));
 }
 
 function resolveStorageUrl(url: string): string {

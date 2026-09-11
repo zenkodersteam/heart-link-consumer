@@ -30,6 +30,8 @@ export type RootStackParamList = {
   Support: undefined;
   Circle: undefined;
   Blocked: undefined;
+  /** One resource category's organisations, pushed from the Resources tab. */
+  ResourceCategory: { category: 'awareness' | 'reentry' | 'mental' | 'community' };
   PrivacySafety: undefined;
   Policy: { doc?: 'terms' | 'privacy' } | undefined;
 };

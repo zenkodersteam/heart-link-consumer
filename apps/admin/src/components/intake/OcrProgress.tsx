@@ -4,6 +4,8 @@ import type { OcrStatus } from '@heartlink/api-contract';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { isOcrRunning } from '../../lib/ocr';
+
 import { cn } from '../../lib/utils';
 
 /**
@@ -39,9 +41,6 @@ const STAGE: Record<OcrStatus, { label: string; percent: number; tone: string }>
   not_applicable: { label: 'Not a scanned application', percent: 0, tone: 'bg-border' },
 };
 
-export function isOcrRunning(status: OcrStatus): boolean {
-  return status === 'pending' || status === 'processing';
-}
 
 export function OcrProgress({
   status,

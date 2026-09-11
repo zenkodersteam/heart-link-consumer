@@ -21,7 +21,8 @@ import type { ListResourcesResponse, ResourceItem } from '@heartlink/consumer-ap
 import { useApiClientFactory } from '../../lib/use-api-client';
 import { useNavigation } from '@react-navigation/native';
 
-import type { RootNavigation } from '../../navigations/types';
+import type { RootNavigation, RootScreenProps } from '../../navigations/types';
+import { ScreenHeader } from '../../components/ScreenHeader';
 
 import { colors, fonts, radii, spacing, themedStyles, type } from '../../theme';
 import { ErrorState } from '../../components/ErrorState';
@@ -33,7 +34,7 @@ import { KeyboardSafeScrollView } from '../../components/KeyboardSafeScrollView'
 /**
  * Resources (UI lift, Navan help-center pattern): serif hero + pill search,
  * category chips, four art-tile cards, midnight support band. Drilling into a
- * category (or searching) opens the level-2 view: breadcrumb, tile art as a
+ * category pushes its own screen (ResourceCategoryScreen): tile art as a
  * hero band, search-within-category, live org cards from /api/resources.
  *
  * Backend gap (handoff): ResourceItem has no location/state field yet, so the
@@ -117,41 +118,33 @@ interface FetchState {
   error: unknown;
 }
 
-export default function ResourcesScreen() {
-  const navigation = useNavigation<RootNavigation>();
-  const { width } = useWindowDimensions();
-  const cols = width >= 800 ? 2 : 1;
-
-  const [active, setActive] = useState<CatKey | 'all'>('all');
-  const [search, setSearch] = useState('');
-  const reduce = useReduceMotion();
-
+/**
+ * The directory, fetched for one category and/or a search.
+ *
+ * Shared by the landing page (search across everything) and a category's own
+ * screen, which used to be the same component switching between two states.
+ */
+function useResources(categorySlug: CatKey | undefined, rawQuery: string, enabled: boolean) {
   const factory = useApiClientFactory();
   const factoryRef = useRef(factory);
   factoryRef.current = factory;
 
-  const [state, setState] = useState<FetchState>({ data: null, loading: false, error: null });
+  const [state, setState] = useState<FetchState>({ data: null, loading: enabled, error: null });
 
   // Debounced: firing on every keystroke cancelled the request in flight and
   // the list sat in a loading state while someone was still typing.
-  const [debounced, setDebounced] = useState('');
+  const [q, setQ] = useState('');
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(search.trim()), 300);
+    const t = setTimeout(() => setQ(rawQuery.trim()), 300);
     return () => clearTimeout(t);
-  }, [search]);
-  const q = debounced;
-  const showCards = active === 'all' && q.length === 0;
-  const activeCategory = CATEGORIES.find((c) => c.key === active) ?? null;
+  }, [rawQuery]);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       setState((s) => ({ ...s, loading: true, error: null }));
       try {
         const client = await factoryRef.current();
-        const data = await client.listResources({
-          categorySlug: active === 'all' ? undefined : active,
-          q: q || undefined,
-        });
+        const data = await client.listResources({ categorySlug, q: q || undefined });
         if (signal?.aborted) return;
         setState({ data, loading: false, error: null });
       } catch (e) {
@@ -159,34 +152,35 @@ export default function ResourcesScreen() {
         setState({ data: null, loading: false, error: e });
       }
     },
-    [active, q],
+    [categorySlug, q],
   );
 
   useEffect(() => {
-    if (showCards) return;
+    if (!enabled) return;
     const ctrl = new AbortController();
     void load(ctrl.signal);
     return () => ctrl.abort();
-  }, [showCards, load]);
+  }, [enabled, load]);
 
-  const gridReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
-  useEffect(() => {
-    if (reduce) return;
-    gridReveal.setValue(0);
-    Animated.timing(gridReveal, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-  }, [active, q, reduce, gridReveal]);
-  const gridStyle = reduce
-    ? null
-    : {
-        opacity: gridReveal,
-        transform: [{ translateY: gridReveal.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-      };
+  return { state, q, load, items: state.data?.items ?? [] };
+}
 
-  const items = state.data?.items ?? [];
+/**
+ * One category's organisations, as a screen of its own.
+ *
+ * It was a second state of the Resources tab behind a breadcrumb, which meant
+ * none of the platform's ways back worked on it: no edge swipe on iOS, and the
+ * Android back button left the tab instead of the category. Pushed onto the
+ * stack, it gets both for free, and the breadcrumb has nothing left to do.
+ */
+export function ResourceCategoryScreen({ route }: RootScreenProps<'ResourceCategory'>) {
+  const category = CATEGORIES.find((c) => c.key === route.params.category) ?? CATEGORIES[0];
+  const [search, setSearch] = useState('');
+  const { state, q, load, items } = useResources(category.key, search, true);
 
-  // ---- Level 2: category detail ----
-  if (activeCategory) {
-    return (
+  return (
+    <View style={styles.categoryRoot}>
+      <ScreenHeader title={category.title} />
       <OrgList
         items={items}
         state={state}
@@ -195,38 +189,47 @@ export default function ResourcesScreen() {
         onRefresh={load}
         header={
           <>
-            <Pressable
-              onPress={() => { setActive('all'); setSearch(''); }}
-              style={styles.crumb}
-              accessibilityRole="button"
-              accessibilityLabel="Back to all resources"
-              hitSlop={8}
-            >
-              <Text style={styles.crumbText}>
-                All Resources <Text style={styles.crumbSep}>›</Text>{' '}
-                <Text style={styles.crumbActive}>{activeCategory.title}</Text>
-              </Text>
-            </Pressable>
-
             <View style={styles.cathero}>
-              <Image source={activeCategory.art} style={styles.catheroArt} contentFit="cover" />
+              <Image source={category.art} style={styles.catheroArt} contentFit="cover" />
               <View style={styles.catheroVeil} />
               <View style={styles.catheroTxt}>
-                <Text style={styles.catheroTitle}>{activeCategory.title}</Text>
-                <Text style={styles.catheroBlurb}>{activeCategory.blurb}</Text>
+                <Text style={styles.catheroTitle}>{category.title}</Text>
+                <Text style={styles.catheroBlurb}>{category.blurb}</Text>
               </View>
             </View>
 
-            <SearchPill
-              value={search}
-              onChange={setSearch}
-              placeholder={`Search ${activeCategory.title}`}
-            />
+            <SearchPill value={search} onChange={setSearch} placeholder={`Search ${category.title}`} />
           </>
         }
       />
-    );
-  }
+    </View>
+  );
+}
+
+export default function ResourcesScreen() {
+  const navigation = useNavigation<RootNavigation>();
+  const { width } = useWindowDimensions();
+  const cols = width >= 800 ? 2 : 1;
+
+  const [search, setSearch] = useState('');
+  const reduce = useReduceMotion();
+  const searching = search.trim().length > 0;
+  const { state, q, load, items } = useResources(undefined, search, searching);
+
+  const openCategory = (key: CatKey) => navigation.navigate('ResourceCategory', { category: key });
+
+  const gridReveal = useRef(new Animated.Value(reduce ? 1 : 0)).current;
+  useEffect(() => {
+    if (reduce) return;
+    gridReveal.setValue(0);
+    Animated.timing(gridReveal, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+  }, [q, reduce, gridReveal]);
+  const gridStyle = reduce
+    ? null
+    : {
+        opacity: gridReveal,
+        transform: [{ translateY: gridReveal.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+      };
 
   // ---- Level 1: landing ----
   return (
@@ -250,9 +253,9 @@ export default function ResourcesScreen() {
         style={styles.rchipScroll}
         contentContainerStyle={styles.rchips}
       >
-        <RChip label="All" active onPress={() => setActive('all')} />
+        <RChip label="All" active onPress={() => setSearch('')} />
         {CATEGORIES.map((c) => (
-          <RChip key={c.key} label={c.title} onPress={() => setActive(c.key)} />
+          <RChip key={c.key} label={c.title} onPress={() => openCategory(c.key)} />
         ))}
       </ScrollView>
 
@@ -268,7 +271,7 @@ export default function ResourcesScreen() {
               what `cols` is for. */}
           {CATEGORIES.map((c) => (
             <View key={c.key} style={cols > 1 ? { width: `${100 / cols}%` } : undefined}>
-              <NCard category={c} onPress={() => setActive(c.key)} />
+              <NCard category={c} onPress={() => openCategory(c.key)} />
             </View>
           ))}
         </Animated.View>
@@ -626,10 +629,7 @@ const styles = themedStyles((colors) => ({
   supportCopy: { flex: 1, gap: 2 },
   supportTitle: { fontFamily: fonts.heading, fontSize: 15.5, color: colors.textPrimary },
   supportBody: { ...type.caption, color: colors.textSecondary },
-  crumb: { alignSelf: 'flex-start', marginBottom: 16 },
-  crumbText: { fontFamily: fonts.bodySemibold, fontSize: 13, color: colors.textMuted },
-  crumbSep: { color: colors.textMuted },
-  crumbActive: { color: colors.primary },
+  categoryRoot: { flex: 1, backgroundColor: colors.bgDeep },
   cathero: {
     height: 170,
     borderRadius: 20,

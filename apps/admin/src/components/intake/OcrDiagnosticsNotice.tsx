@@ -28,7 +28,14 @@ import { cn } from '../../lib/utils';
 export function OcrDiagnosticsNotice({ document }: { document: IntakeDocument | null }) {
   const [open, setOpen] = useState(false);
 
-  if (!document || document.ocrStatus !== 'completed') return null;
+  // `failed` too: the worker now marks a read that filled in nothing as failed
+  // rather than "Read", and keeps the envelope — so the explanation of why is
+  // exactly as useful there. A failure with no envelope (a crash, a missing
+  // file) has nothing to explain and still falls through.
+  if (!document || (document.ocrStatus !== 'completed' && document.ocrStatus !== 'failed')) {
+    return null;
+  }
+  if (document.ocrStatus === 'failed' && !document.ocrExtractedFields) return null;
 
   const envelope = document.ocrExtractedFields;
   const mapped = envelope?.fields ?? {};
@@ -50,7 +57,9 @@ export function OcrDiagnosticsNotice({ document }: { document: IntakeDocument | 
         <ScanLine className="mt-0.5 size-4 shrink-0 text-accent-gold" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold leading-5 text-text">
-            The scan finished, but none of it matched this form
+            {document.ocrStatus === 'failed'
+              ? 'This scan could not be read into the form'
+              : 'The scan finished, but none of it matched this form'}
           </p>
           <p className="mt-0.5 text-xs leading-5 text-text-muted">
             {schemaMismatch ? (

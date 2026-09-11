@@ -37,7 +37,10 @@ function readInmateId(
 ): string | null {
   const newest = [...documents].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   if (!newest) return null;
-  const fields = (newest.ocrExtractedFields ?? {}) as Record<string, unknown>;
+  // Values live under `.fields` in the worker's envelope; see readName in
+  // ProfileDocumentsCard for why the top level is only a fallback.
+  const envelope = (newest.ocrExtractedFields ?? {}) as Record<string, unknown>;
+  const fields = (envelope.fields as Record<string, unknown> | undefined) ?? envelope;
   for (const key of ['inmate_id', 'inmate_number', 'id_number']) {
     const raw = fields[key];
     if (typeof raw === 'string' && raw.trim()) return raw.trim();

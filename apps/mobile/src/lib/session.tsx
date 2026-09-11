@@ -36,6 +36,15 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
  * fetching a new one on launch costs a single request.
  */
 const REFRESH_KEY = 'heartlink.refresh_token';
+/**
+ * Who is signed in, kept beside the token.
+ *
+ * The API returns the user only when someone signs in; a refresh returns
+ * tokens and nothing else. So after the app was closed and reopened the session
+ * came back but the person did not — Account showed a dash where the email
+ * belongs, and nothing put it back short of signing out and in again.
+ */
+const USER_KEY = 'heartlink.user';
 
 interface SessionValue {
   /** A usable access token, refreshing first if the one held has expired. */
@@ -85,6 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setIsSignedIn(false);
     await SecureStore.deleteItemAsync(REFRESH_KEY).catch(() => undefined);
+    await SecureStore.deleteItemAsync(USER_KEY).catch(() => undefined);
   }, []);
 
   const store = useCallback(
@@ -124,6 +134,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return request;
   }, [store, clear]);
 
+  // Written whenever the user changes, so every way in — code, password,
+  // reset — keeps it without each one having to remember to.
+  useEffect(() => {
+    if (!user) return;
+    void SecureStore.setItemAsync(USER_KEY, JSON.stringify(user)).catch(() => undefined);
+  }, [user]);
+
   const getToken = useCallback(async () => {
     if (accessToken.current && Date.now() < expiresAt.current - REFRESH_MARGIN_MS) {
       return accessToken.current;
@@ -140,6 +157,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const stored = await SecureStore.getItemAsync(REFRESH_KEY);
         if (stored) {
           refreshToken.current = stored;
+          const savedUser = await SecureStore.getItemAsync(USER_KEY).catch(() => null);
+          if (savedUser) {
+            try {
+              setUser(JSON.parse(savedUser) as AuthUser);
+            } catch {
+              // A record from an older build that no longer parses is simply
+              // not restored; the next sign-in writes a fresh one.
+            }
+          }
           const token = await refresh();
           if (token) setIsSignedIn(true);
         }

@@ -1,6 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useEffect, useRef, type ComponentType } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useRef } from 'react';
 
 import { isOnboarded, useMyProfile } from '../lib/use-my-profile';
 import { useSession } from '../lib/session';
@@ -12,13 +11,14 @@ import OnboardingScreen from '../screens/onboarding/OnboardingScreen';
 import PlansScreen from '../screens/account/PlansScreen';
 import PolicyScreen from '../screens/legal/PolicyScreen';
 import PrivacySafetyScreen from '../screens/legal/PrivacySafetyScreen';
+import { ResourceCategoryScreen } from '../screens/resources/ResourcesScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SignInScreen from '../screens/auth/SignInScreen';
 import SponsorScreen from '../screens/support/SponsorScreen';
 import SupportScreen from '../screens/support/SupportScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import { BottomTab } from './BottomTab';
-import { withSafeTop } from './PushedScreen';
+import { withBackHeader, withSafeTop } from './PushedScreen';
 import { navigationRef } from './navigationRef';
 import type { RootStackParamList } from './types';
 
@@ -31,31 +31,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const EditProfile = withSafeTop(EditProfileScreen);
 const ChangePassword = withSafeTop(ChangePasswordScreen);
 const Blocked = withSafeTop(BlockedScreen);
+const ResourceCategory = withSafeTop(ResourceCategoryScreen);
 
-// The sheets need the same thing, but only where they are drawn full-screen.
-// An iOS page sheet already starts below the status bar, so adding the inset
-// there would just be a band of empty space at the top of every one.
-const asSheet = <P extends object>(screen: ComponentType<P>) =>
-  Platform.OS === 'ios' ? screen : withSafeTop(screen);
-const Plans = asSheet(PlansScreen);
-const Sponsor = asSheet(SponsorScreen);
-const Support = asSheet(SupportScreen);
-const Circle = asSheet(CircleScreen);
-const PrivacySafety = asSheet(PrivacySafetyScreen);
-const Policy = asSheet(PolicyScreen);
-
-/**
- * The presentation for screens that are consulted rather than travelled to.
- *
- * iOS gets a real card sheet - the inset, the parallax on the screen behind,
- * and the drag-to-dismiss that comes with it. Android has no equivalent
- * material, so it keeps a push and simply enters from the bottom, which is the
- * closest thing its own apps do.
- */
-const SHEET = Platform.select({
-  ios: { presentation: 'modal', animation: 'slide_from_bottom' },
-  default: { animation: 'slide_from_bottom' },
-}) as { presentation?: 'modal'; animation: 'slide_from_bottom' };
+// Formerly sheets. They push now, like every other screen: an iOS page sheet
+// is dismissed by dragging it down, and the swipe in from the left edge that
+// works everywhere else in the app did nothing on them. Those without a header
+// of their own are given the standard one, since a pushed screen needs a way
+// out that a sheet did not.
+const Plans = withSafeTop(PlansScreen);
+const Sponsor = withBackHeader(SponsorScreen, 'Sponsor a member');
+const Support = withBackHeader(SupportScreen, 'Support');
+const Circle = withBackHeader(CircleScreen, 'Support Circle');
+const PrivacySafety = withSafeTop(PrivacySafetyScreen);
+const Policy = withSafeTop(PolicyScreen);
 
 /**
  * Every screen, and the three states an account can be in.
@@ -127,18 +115,16 @@ export function RootStack() {
       <Stack.Screen name="EditProfile" component={EditProfile} />
       <Stack.Screen name="ChangePassword" component={ChangePassword} />
       <Stack.Screen name="Blocked" component={Blocked} />
+      <Stack.Screen name="ResourceCategory" component={ResourceCategory} />
 
-      {/* Things you bring up and dismiss, rather than travel to. A sheet says
-          that in the way it arrives, and gives back the drag-down that people
-          were already trying on them. */}
-      <Stack.Group screenOptions={SHEET}>
-        <Stack.Screen name="Plans" component={Plans} />
-        <Stack.Screen name="Sponsor" component={Sponsor} />
-        <Stack.Screen name="Support" component={Support} />
-        <Stack.Screen name="Circle" component={Circle} />
-        <Stack.Screen name="PrivacySafety" component={PrivacySafety} />
-        <Stack.Screen name="Policy" component={Policy} />
-      </Stack.Group>
+      {/* Plans, support and the policies: pushed like the rest, so the
+          edge swipe works on them too. */}
+      <Stack.Screen name="Plans" component={Plans} />
+      <Stack.Screen name="Sponsor" component={Sponsor} />
+      <Stack.Screen name="Support" component={Support} />
+      <Stack.Screen name="Circle" component={Circle} />
+      <Stack.Screen name="PrivacySafety" component={PrivacySafety} />
+      <Stack.Screen name="Policy" component={Policy} />
     </Stack.Navigator>
   );
 }

@@ -42,12 +42,23 @@ export function UsersTable({ items }: { items: AdminUserRow[] }) {
           }`}
         >
           <div className="flex flex-[1.6] min-w-0 items-center gap-3">
-            <span
-              aria-hidden
-              className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[12px] font-semibold text-primary"
-            >
-              {initials(row)}
-            </span>
+            {/* Their photo when they have one; initials otherwise. */}
+            {row.photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={row.photoUrl}
+                alt=""
+                loading="lazy"
+                className="size-9 shrink-0 rounded-full border border-border bg-primary/10 object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-[12px] font-semibold text-primary"
+              >
+                {initials(row)}
+              </span>
+            )}
             <span className="min-w-0">
               <span className="block truncate font-medium">
                 {row.displayName?.trim() || 'No name yet'}

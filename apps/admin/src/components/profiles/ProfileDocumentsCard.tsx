@@ -7,9 +7,10 @@ import { FileText, UploadCloud } from 'lucide-react';
 import type { IntakeDocument } from '@heartlink/api-contract';
 
 import { Card, CardBody, CardHeader, CardTitle } from '../ui/card';
-import { OcrProgress, isOcrRunning } from '../intake/OcrProgress';
+import { isOcrRunning } from '../../lib/ocr';
+import { OcrProgress } from '../intake/OcrProgress';
 import { RetryOcrButton } from '../intake/RetryOcrButton';
-import { formatTimelineDate } from '../../lib/utils';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 /**
  * The scanned applications behind a profile, and a way to replace them.
@@ -143,7 +144,7 @@ export function ProfileDocumentsCard({
                   {/* Several scans are often uploaded the same day, so the time
                       is what actually tells them apart. */}
                   <span className="text-[13px] font-medium text-text">
-                    {formatTimelineDate(doc.createdAt)}
+                    <LocalTime value={doc.createdAt} />
                   </span>
                   {/* While a read is running the bar says so and watches for
                       the result; once it has settled, the name (or why there
@@ -178,7 +179,12 @@ export function ProfileDocumentsCard({
 
 /** The name addressing actually uses, in the order the API looks for it. */
 function readName(doc: IntakeDocument): string | null {
-  const fields = (doc.ocrExtractedFields ?? {}) as Record<string, unknown>;
+  // The worker stores values under `.fields` inside an envelope, beside its
+  // own `_reasons` and `_schemaVersion`. Reading the envelope's top level found
+  // nothing, so every profile said no name had been read — however good the
+  // scan. The top level is kept as a fallback for any document stored flat.
+  const envelope = (doc.ocrExtractedFields ?? {}) as Record<string, unknown>;
+  const fields = ((envelope.fields as Record<string, unknown> | undefined) ?? envelope);
   const pick = (key: string): string | null => {
     const raw = fields[key];
     if (typeof raw === 'string' && raw.trim()) return raw.trim();

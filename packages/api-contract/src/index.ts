@@ -522,6 +522,12 @@ export interface AdminUserRow extends AdminUserLookupItem {
   hasPassword: boolean;
   /** Null when they have not started their own profile. */
   profileStatus: OutsideProfileStatus | null;
+  /**
+   * Their profile photo, or the account avatar when there is none — presigned,
+   * so it loads as-is. Optional so an older API that does not send it still
+   * satisfies the type.
+   */
+  photoUrl?: string | null;
 }
 
 export interface ListAdminUsersQuery {

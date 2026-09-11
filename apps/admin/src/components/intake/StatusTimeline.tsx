@@ -1,7 +1,7 @@
 import type { AuditLogEntry } from '@heartlink/api-contract';
 import { Card, CardHeader, CardTitle } from '../ui/card';
-import { formatTimelineDate } from '../../lib/utils';
 import { cn } from '../../lib/utils';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 /** Figma `13:192`: vertical timeline of audit events */
 export function StatusTimeline({ entries }: { entries: AuditLogEntry[] }) {
@@ -61,7 +61,9 @@ function TimelineEvent({
         <span className="text-[13px] font-medium leading-[18px] text-text">
           {title}
         </span>
-        <span className="text-xs leading-4 text-text-muted">{subtitle}</span>
+        <span className="text-xs leading-4 text-text-muted">
+          {subtitle} · <LocalTime value={entry.createdAt} />
+        </span>
       </div>
     </div>
   );
@@ -75,7 +77,9 @@ function humanize(entry: AuditLogEntry): { title: string; subtitle: string } {
       : entry.actorType === 'automation'
         ? 'System'
         : 'System';
-  const subtitle = `${actor} · ${formatTimelineDate(entry.createdAt)}`;
+  // Just the actor; the time is rendered beside it as a <LocalTime>, which has
+  // to be an element to show the viewer's own zone rather than the server's.
+  const subtitle = actor;
 
   switch (entry.action) {
     case 'application.created':

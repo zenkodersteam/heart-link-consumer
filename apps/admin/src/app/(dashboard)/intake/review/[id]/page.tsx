@@ -35,7 +35,7 @@ export default async function ReviewWorkspacePage({
    * document was ever uploaded".
    */
   const viewable = documents.filter(
-    (d) => d.mimeType === 'application/pdf' || d.mimeType.startsWith('image/'),
+    (d) => d.mimeType === 'application/pdf' || d.mimeType?.startsWith('image/'),
   );
   const primaryDoc =
     viewable.find((d) => d.type === 'scanned_application' && d.ocrStatus === 'completed') ??

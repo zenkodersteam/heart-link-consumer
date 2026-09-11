@@ -59,13 +59,19 @@ export function TransitionDialog(props: TransitionDialogProps) {
       };
 
       try {
-        await transitionApplicationStatus({
+        const result = await transitionApplicationStatus({
           id: applicationId,
           status: targetStatus,
           reviewOutcome,
           reviewNotes: notes.trim(),
           nextPath,
         });
+        if (!result.ok) {
+          toast.error(`Could not ${reviewOutcome === 'approved' ? 'approve' : reviewOutcome === 'rejected' ? 'reject' : 'update'} this application`, {
+            description: result.error,
+          });
+          return;
+        }
         settled();
       } catch (err) {
         // A redirect is what success looks like when `nextPath` is set: the

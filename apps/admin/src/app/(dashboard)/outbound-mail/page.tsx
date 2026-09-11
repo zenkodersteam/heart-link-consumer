@@ -16,6 +16,7 @@ import { StageBadge } from '../../../components/outbound-mail/StageBadge';
 import { DispatchQueuedButton } from '../../../components/outbound-mail/DispatchQueuedButton';
 import { ResendLetterButton } from '../../../components/outbound-mail/ResendLetterButton';
 import type { OutboundMailStage } from '@heartlink/api-contract';
+import { LocalTime } from '@/components/ui/LocalTime';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,15 +66,6 @@ const PIPELINE: PipelineStage[] = [
 
 const LIFT =
   'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-soft';
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
 
 export default async function OutboundMailPage() {
   const api = await serverApi();
@@ -200,7 +192,7 @@ export default async function OutboundMailPage() {
                       <td className="px-4 py-3">
                         <GenericStatusBadge status={item.deliveryStatus || 'queued'} />
                       </td>
-                      <td className="px-4 py-3 text-text-muted">{formatDate(item.createdAt)}</td>
+                      <td className="px-4 py-3 text-text-muted"><LocalTime value={item.createdAt} /></td>
                       <td className="px-4 py-3 text-right">
                         {/* Only for letters that failed or came back. One still
                             queued or in transit is on its way, and re-queueing

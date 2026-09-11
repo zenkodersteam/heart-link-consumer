@@ -7,7 +7,8 @@ import type {
 import { FileText, Image as ImageIcon, Paperclip } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '../ui/card';
 import { cn, formatShortDate } from '../../lib/utils';
-import { OcrProgress, isOcrRunning } from './OcrProgress';
+import { isOcrRunning } from '../../lib/ocr';
+import { OcrProgress } from './OcrProgress';
 import { RetryOcrButton } from './RetryOcrButton';
 
 /** Figma `13:166`: list of documents, each with thumbnail + name + View button */
@@ -106,8 +107,10 @@ export function DocumentsCard({ documents }: { documents: IntakeDocument[] }) {
  * tile is tinted by kind as well as marked, because colour is the part that
  * reads while scanning a list rather than examining one row.
  */
-function DocumentIcon({ mimeType }: { mimeType: string }) {
-  const kind = mimeType === 'application/pdf' ? 'pdf' : mimeType.startsWith('image/') ? 'image' : 'other';
+function DocumentIcon({ mimeType }: { mimeType: string | null | undefined }) {
+  // Guarded: the contract says string, but a null here would throw during the
+  // server render and take the whole page with it.
+  const kind = mimeType === 'application/pdf' ? 'pdf' : mimeType?.startsWith('image/') ? 'image' : 'other';
 
   const { Icon, label, tile, glyph } = {
     pdf: {

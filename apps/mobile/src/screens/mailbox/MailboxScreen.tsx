@@ -27,6 +27,7 @@ import type {
 import { stateName } from '@heartlink/consumer-api';
 import { useKeyboardOverlap } from '../../lib/use-keyboard-overlap';
 import { useRefresh } from '../../lib/use-refresh';
+import { refetchAfterCheckout, useRefetchOnReturn } from '../../lib/use-refetch-on-return';
 import { haptics } from '../../lib/haptics';
 import { useApiClientFactory } from '../../lib/use-api-client';
 import { useMyProfile } from '../../lib/use-my-profile';
@@ -39,9 +40,9 @@ import { art } from '../../art';
 import { EmptyState } from '../../components/EmptyState';
 import { openOnWeb, webAppUrl } from '../../components/SubscriptionPlans';
 import { useToast } from '../../components/Toast';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp } from '@react-navigation/native';
 
-import type { RootNavigation, TabRoute } from '../../navigations/types';
+import type { RootNavigation, TabParamList, TabRoute } from '../../navigations/types';
 
 import { colors, cta, fonts, radii, spacing, themedStyles, type } from '../../theme';
 import {
@@ -296,10 +297,17 @@ export default function MailboxScreen() {
     return saved.items.some((p) => p.id === profileId);
   }, []);
 
-  const loadThreads = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setLocked(false);
+  /**
+   * `silent` is for the refetches that happen behind the member's back — on
+   * returning from the website, on refocusing the tab. It skips the skeleton
+   * and leaves the current list on screen until the new answer arrives,
+   * rather than blanking a mailbox that was fine a moment ago.
+   */
+  const loadThreads = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       if (PREVIEW_BYPASS_AUTH) {
         setThreads(PREVIEW_MAILBOX_THREADS);
@@ -310,6 +318,12 @@ export default function MailboxScreen() {
       const [t, e] = await Promise.all([client.listMailboxThreads(), client.getLetterEntitlement()]);
       setThreads(t.items);
       setEntitlement(e);
+      // Cleared only on success. It used to be cleared before the request,
+      // which flashed the mailbox open for a frame even when it was still
+      // locked — and on a silent refetch would have shown a locked member a
+      // mailbox they could not use.
+      setLocked(false);
+      setError(null);
     } catch (err) {
       if (PREVIEW_BYPASS_AUTH) {
         setThreads(PREVIEW_MAILBOX_THREADS);
@@ -318,13 +332,23 @@ export default function MailboxScreen() {
       } else if ((err as { status?: number })?.status === 403) {
         // The one 403 this screen can get: no membership, no mailbox.
         setLocked(true);
-      } else {
+      } else if (!silent) {
+        // A background refetch that fails keeps what is on screen; only a
+        // load the member asked for is worth an error state.
         setError(err);
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
+
+  // Membership changes happen on the website; see useRefetchOnReturn.
+  useRefetchOnReturn(useCallback(() => void loadThreads(true), [loadThreads]));
+  const seePlans = useCallback(() => {
+    void openOnWeb(webAppUrl('/plans')).then(() =>
+      refetchAfterCheckout(() => void loadThreads(true)),
+    );
+  }, [loadThreads]);
 
   const { refreshing, onRefresh } = useRefresh(
     useCallback(
@@ -469,10 +493,28 @@ export default function MailboxScreen() {
     [toast, loadThreads],
   );
 
+  /**
+   * Route params are how something else asks this screen to open a letter or
+   * start one — a notification, the Liked tab, a profile's menu. They have to
+   * be let go of on the way out, not just the local state.
+   *
+   * They were not. Leaving an opened letter set `detail` back to null, the
+   * effect that honours `params.thread` saw a thread asked for and no detail,
+   * and opened it straight back up: back did nothing at all on any letter that
+   * had been reached from outside the list. Leaving the composer was quieter
+   * but the same — the `compose` param stayed, and the next remount (a theme
+   * change is one) put the member back in a letter they had closed.
+   */
+  const tabNavigation = useNavigation<NavigationProp<TabParamList, 'Mailbox'>>();
   const closeThread = useCallback(() => {
     setSelectedThreadId(null);
     setDetail(null);
-  }, []);
+    tabNavigation.setParams({ thread: undefined });
+  }, [tabNavigation]);
+  const closeCompose = useCallback(() => {
+    setComposing(null);
+    tabNavigation.setParams({ compose: undefined, name: undefined });
+  }, [tabNavigation]);
 
   /**
    * Leaving an open letter, the way the platform does it.
@@ -710,7 +752,13 @@ export default function MailboxScreen() {
           // sold in one place so there is a single record of what someone has
           // paid for — and the phone app has no checkout of its own.
           <Pressable
-            onPress={() => void openOnWeb(webAppUrl('/mailbox'))}
+            // Letters bought there should be countable here as soon as the
+            // browser closes, not after a restart.
+            onPress={() =>
+              void openOnWeb(webAppUrl('/mailbox')).then(() =>
+                refetchAfterCheckout(() => void loadThreads(true)),
+              )
+            }
             style={({ pressed }: { pressed: boolean }) => [
               styles.buyBtn,
               pressed ? { transform: [{ scale: 0.98 }] } : null,
@@ -737,7 +785,7 @@ export default function MailboxScreen() {
     return (
       <View style={styles.deskRoot}>
         {/* Same overlay on the wide layout, which is a separate return. */}
-        {locked ? <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} /> : null}
+        {locked ? <MailboxLocked onSeePlans={seePlans} /> : null}
 
         {/* Notion Mail split (mockup): ONE list column carrying compose,
             quota, search, and threads; reading pane fills the rest. */}
@@ -778,7 +826,7 @@ export default function MailboxScreen() {
             <ComposePane
               target={composing}
               onSend={(body) => sendLetter(composing.profileId, body)}
-              onCancel={() => setComposing(null)}
+              onCancel={closeCompose}
               limit={letterLimit}
               allowance={<LettersWidget />}
             />
@@ -813,14 +861,14 @@ export default function MailboxScreen() {
   if (composing) {
     return (
       <View style={styles.mobRoot}>
-        <Pressable onPress={() => setComposing(null)} style={styles.backBtn}>
+        <Pressable onPress={closeCompose} style={styles.backBtn}>
           <Feather name="chevron-left" size={20} color={colors.primary} />
           <Text style={styles.backText}>Mailbox</Text>
         </Pressable>
         <ComposePane
           target={composing}
           onSend={(body) => sendLetter(composing.profileId, body)}
-          onCancel={() => setComposing(null)}
+          onCancel={closeCompose}
           limit={letterLimit}
           allowance={<LettersWidget />}
         />
@@ -863,7 +911,7 @@ export default function MailboxScreen() {
           thing behind the glass rather than a description of it. Out to the
           website because paying happens there — a phone screen leading to
           another phone screen that then opens a browser is a hop of nothing. */}
-      {locked ? <MailboxLocked onSeePlans={() => void openOnWeb(webAppUrl('/plans'))} /> : null}
+      {locked ? <MailboxLocked onSeePlans={seePlans} /> : null}
 
       <View style={styles.mobHeader}>
         <View>

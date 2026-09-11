@@ -33,15 +33,12 @@ export function DetailActions({
   const onAdvance = () => {
     if (!manualAdvance) return;
     startTransition(async () => {
-      try {
-        await transitionApplicationStatus({
-          id: applicationId,
-          status: manualAdvance.targetStatus,
-        });
-        toast.success(manualAdvance.successMessage);
-      } catch (err) {
-        toast.error(`Failed: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const result = await transitionApplicationStatus({
+        id: applicationId,
+        status: manualAdvance.targetStatus,
+      });
+      if (result.ok) toast.success(manualAdvance.successMessage);
+      else toast.error(result.error);
     });
   };
 
